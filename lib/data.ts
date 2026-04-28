@@ -1,0 +1,614 @@
+"use client";
+import { supabase } from "./supabase";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry } from "./types";
+import { genId, genReceiptId, today } from "./utils";
+
+// ── Animals ──────────────────────────────────────────────────────────────────
+export async function fetchAnimals(): Promise<Animal[]> {
+  const { data } = await supabase.from("animals").select("*").order("created_at", { ascending: false });
+  return (data as Animal[]) || [];
+}
+
+export async function fetchAnimal(id: string): Promise<Animal | null> {
+  const { data } = await supabase.from("animals").select("*").eq("id", id).single();
+  return (data as Animal) || null;
+}
+
+async function genAnimalId(): Promise<string> {
+  const now = new Date();
+  const yy = String(now.getFullYear()).slice(2);
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const prefix = `${yy}-${mm}-`;
+  const { data } = await supabase.from("animals").select("id").like("id", `${prefix}%`).order("id", { ascending: false }).limit(1);
+  let seq = 1;
+  if (data && data.length > 0) {
+    const parts = (data[0] as { id: string }).id.split("-");
+    const last = parseInt(parts[2] || "0", 10);
+    if (!isNaN(last)) seq = last + 1;
+  }
+  return `${prefix}${String(seq).padStart(3, "0")}`;
+}
+
+const INTAKE_VACCINES: Record<string, Array<{ type: string; description: string }>> = {
+  Dog: [
+    { type: "Vaccination", description: "DHPP (Distemper/Parvo)" },
+    { type: "Vaccination", description: "Bordetella" },
+    { type: "Treatment", description: "Strongyle / Dewormer" },
+  ],
+  Cat: [
+    { type: "Vaccination", description: "FVRCP" },
+    { type: "Treatment", description: "Strongyle / Dewormer" },
+  ],
+};
+
+export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
+  const id = await genAnimalId();
+  const { data, error } = await supabase
+    .from("animals")
+    .insert({ ...animal, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) throw error;
+  const created = data as Animal;
+
+  // Auto-create intake vaccination/treatment records
+  const vaccines = INTAKE_VACCINES[created.species] || [];
+  if (vaccines.length > 0) {
+    const now = new Date();
+    const dueDate = new Date(now);
+    dueDate.setFullYear(dueDate.getFullYear() + 1);
+    const dueDateStr = dueDate.toISOString().split("T")[0];
+    const intakeDate = created.intake_date || now.toISOString().split("T")[0];
+    await Promise.all(vaccines.map((v) =>
+      supabase.from("medical_records").insert({
+        id: `M-${genId()}`,
+        animal_id: created.id,
+        animal_name: created.name,
+        type: v.type,
+        description: `${v.description} — Due (intake auto-scheduled)`,
+        date: intakeDate,
+        next_due: dueDateStr,
+        vet: "Auto-scheduled",
+      })
+    ));
+  }
+
+  return created;
+}
+
+export async function deleteAnimal(id: string): Promise<void> {
+  await supabase.from("animal_notes").delete().eq("animal_id", id);
+  await supabase.from("medical_records").delete().eq("animal_id", id);
+  await supabase.from("animal_people").delete().eq("animal_id", id);
+  const { error } = await supabase.from("animals").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateAnimal(id: string, updates: Partial<Animal>): Promise<Animal> {
+  // Strip fields that are not real DB columns (joined/virtual fields)
+  const { notes: _notes, ...dbUpdates } = updates as Partial<Animal> & { notes?: unknown };
+  void _notes;
+  console.log("[updateAnimal] payload:", JSON.stringify(dbUpdates));
+  const { data, error } = await supabase
+    .from("animals")
+    .update({ ...dbUpdates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) {
+    console.error("[updateAnimal] Supabase error:", error.message, "| code:", error.code, "| details:", error.details, "| hint:", error.hint);
+    throw error;
+  }
+  return data as Animal;
+}
+
+// ── People ───────────────────────────────────────────────────────────────────
+export async function fetchPeople(): Promise<Person[]> {
+  const { data } = await supabase.from("people").select("*").order("last_name");
+  return (data as Person[]) || [];
+}
+
+export async function fetchPerson(id: string): Promise<Person | null> {
+  const { data } = await supabase.from("people").select("*").eq("id", id).single();
+  return (data as Person) || null;
+}
+
+export async function createPerson(person: Partial<Person>): Promise<Person> {
+  const id = `P-${genId()}`;
+  const { data, error } = await supabase
+    .from("people")
+    .insert({ ...person, id, date_added: today() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Person;
+}
+
+export async function updatePerson(id: string, updates: Partial<Person>): Promise<Person> {
+  const { data, error } = await supabase
+    .from("people")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as Person;
+}
+
+const SUPABASE_STORAGE_BASE = "https://jaksulyiodzswlbrqyev.supabase.co/storage/v1/object/public";
+
+export async function uploadPersonPhotoId(personId: string, file: File): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `people/${personId}/photo-id.${ext}`;
+  // Remove any existing photo-id files before uploading
+  await supabase.storage.from("documents").remove([
+    `people/${personId}/photo-id.jpg`,
+    `people/${personId}/photo-id.jpeg`,
+    `people/${personId}/photo-id.png`,
+    `people/${personId}/photo-id.pdf`,
+  ]);
+  const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: file.type, upsert: true });
+  if (error) throw error;
+  const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
+  const url = urlData.publicUrl;
+  await updatePerson(personId, { photo_id_url: url });
+  return url;
+}
+
+export async function deletePersonPhotoId(personId: string, photoUrl: string): Promise<void> {
+  const prefix = `${SUPABASE_STORAGE_BASE}/documents/`;
+  const path = photoUrl.startsWith(prefix) ? photoUrl.slice(prefix.length) : null;
+  if (path) await supabase.storage.from("documents").remove([path]);
+  await updatePerson(personId, { photo_id_url: undefined });
+}
+
+// ── Medical Records ──────────────────────────────────────────────────────────
+export async function fetchMedical(animalId?: string): Promise<MedicalRecord[]> {
+  let query = supabase.from("medical_records").select("*").order("date", { ascending: false });
+  if (animalId) query = query.eq("animal_id", animalId);
+  const { data } = await query;
+  return (data as MedicalRecord[]) || [];
+}
+
+export async function createMedical(record: Partial<MedicalRecord>): Promise<MedicalRecord> {
+  const id = `M-${genId()}`;
+  const { data, error } = await supabase.from("medical_records").insert({ ...record, id }).select().single();
+  if (error) throw error;
+  return data as MedicalRecord;
+}
+
+export async function updateMedical(id: string, updates: Partial<MedicalRecord>): Promise<MedicalRecord> {
+  const { data, error } = await supabase.from("medical_records").update(updates).eq("id", id).select().single();
+  if (error) throw error;
+  return data as MedicalRecord;
+}
+
+export async function deleteMedical(id: string): Promise<void> {
+  await supabase.from("medical_records").delete().eq("id", id);
+}
+
+// ── Dispatch Calls ───────────────────────────────────────────────────────────
+export async function fetchCalls(): Promise<DispatchCall[]> {
+  const { data } = await supabase
+    .from("dispatch_calls")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return (data as DispatchCall[]) || [];
+}
+
+export async function fetchCall(id: string): Promise<DispatchCall | null> {
+  const { data } = await supabase.from("dispatch_calls").select("*").eq("id", id).limit(1);
+  return ((data as DispatchCall[])?.[0]) || null;
+}
+
+async function genCallId(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `CALL-${year}-`;
+  const { data } = await supabase
+    .from("dispatch_calls")
+    .select("id")
+    .like("id", `${prefix}%`)
+    .order("id", { ascending: false })
+    .limit(1);
+  let seq = 1;
+  if (data && data.length > 0) {
+    const raw = (data[0] as { id: string }).id.replace(prefix, "");
+    const num = parseInt(raw, 10);
+    if (!isNaN(num)) seq = num + 1;
+  }
+  return `${prefix}${String(seq).padStart(4, "0")}`;
+}
+
+export async function createCall(call: Partial<DispatchCall>): Promise<DispatchCall> {
+  const id = await genCallId();
+  const { data, error } = await supabase
+    .from("dispatch_calls")
+    .insert({ ...call, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as DispatchCall;
+}
+
+export async function updateCall(id: string, updates: Partial<DispatchCall>): Promise<DispatchCall> {
+  const { data, error } = await supabase
+    .from("dispatch_calls")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as DispatchCall;
+}
+
+// ── Citations ─────────────────────────────────────────────────────────────────
+export async function fetchCitations(): Promise<Citation[]> {
+  const { data } = await supabase
+    .from("citations")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return (data as Citation[]) || [];
+}
+
+export async function createCitation(cit: Partial<Citation>): Promise<Citation> {
+  const { data, error } = await supabase.from("citations").insert(cit).select().single();
+  if (error) throw error;
+  return data as Citation;
+}
+
+export async function uploadCitationPhotoId(citationNumber: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `citations/${citationNumber}/photo-id.${ext}`;
+  const exts = ["jpg", "jpeg", "png", "webp", "pdf"];
+  await Promise.all(exts.map((e) => supabase.storage.from("documents").remove([`citations/${citationNumber}/photo-id.${e}`])));
+  const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: file.type, upsert: true });
+  if (error) throw error;
+  const { data } = supabase.storage.from("documents").getPublicUrl(path);
+  return data.publicUrl;
+}
+
+export async function updateCitationDisposition(
+  citation: Citation,
+  entry: DispositionEntry,
+  createFineReceipt: boolean,
+): Promise<Citation> {
+  const history: DispositionEntry[] = Array.isArray(citation.disposition_history)
+    ? [...citation.disposition_history, entry]
+    : [entry];
+
+  const updates: Partial<Citation> = {
+    status: entry.status,
+    disposition_history: history,
+  };
+  if (entry.judgeName)              updates.judge_name = entry.judgeName;
+  if (entry.dismissedReason)        updates.dismissed_reason = entry.dismissedReason;
+  if (entry.fineAmount !== undefined && entry.fineAmount > 0)
+                                    updates.fine_amount = entry.fineAmount;
+  if (entry.amountPaid !== undefined && entry.amountPaid > 0)
+                                    updates.fine_paid = String(entry.amountPaid);
+  if (entry.paymentMethod)          updates.payment_method_used = entry.paymentMethod;
+  if (entry.communityServiceHours)  updates.community_service_hours = entry.communityServiceHours;
+  if (entry.newCourtDate)           updates.court_date = entry.newCourtDate;
+
+  const { data, error } = await supabase.from("citations").update(updates).eq("id", citation.id).select().single();
+  if (error) throw error;
+
+  if (createFineReceipt && entry.amountPaid && entry.amountPaid > 0) {
+    const violatorName = citation.violator_last
+      ? [citation.violator_last, citation.violator_first].filter(Boolean).join(", ")
+      : (citation.violator_name || "Unknown");
+    await createReceipt({
+      date: entry.date,
+      category: "Services",
+      line_items: [{ item: `Citation Fine — #${citation.citation_number}`, qty: 1, price: entry.amountPaid }],
+      total: entry.amountPaid,
+      payment_method: entry.paymentMethod || "Cash",
+      anonymous: false,
+      person_name: violatorName,
+      notes: `Citation fine payment. Citation #${citation.citation_number}. ${entry.notes || ""}`.trim(),
+    });
+  }
+
+  return data as Citation;
+}
+
+export async function updateCitation(id: string, updates: Partial<Citation>): Promise<Citation> {
+  const { data, error } = await supabase.from("citations").update(updates).eq("id", id).select().single();
+  if (error) throw error;
+  return data as Citation;
+}
+
+// ── Receipts ──────────────────────────────────────────────────────────────────
+export async function fetchReceipts(): Promise<Receipt[]> {
+  const { data } = await supabase
+    .from("receipts")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return (data as Receipt[]) || [];
+}
+
+export async function createReceipt(receipt: Partial<Receipt>): Promise<Receipt> {
+  const id = genReceiptId();
+  const { data, error } = await supabase.from("receipts").insert({ ...receipt, id }).select().single();
+  if (error) throw error;
+  return data as Receipt;
+}
+
+// ── Adoptions ─────────────────────────────────────────────────────────────────
+export async function fetchAdoptions(): Promise<AdoptionRecord[]> {
+  const { data } = await supabase
+    .from("adoption_records")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return (data as AdoptionRecord[]) || [];
+}
+
+export async function createAdoption(record: Partial<AdoptionRecord>): Promise<AdoptionRecord> {
+  const id = `ADO-${genId()}`;
+  const { data, error } = await supabase
+    .from("adoption_records")
+    .insert({ ...record, id })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as AdoptionRecord;
+}
+
+// ── Officers ──────────────────────────────────────────────────────────────────
+const OFFICER_ROLES = ["Officer", "Field Officer", "Dispatcher", "Shelter Manager", "Administrator", "Animal Control Officer"];
+
+export async function fetchOfficers(): Promise<Officer[]> {
+  const [officersRes, staffRes] = await Promise.all([
+    supabase.from("officers").select("*").order("name"),
+    supabase.from("staff_accounts").select("*").eq("active", true).order("last_name"),
+  ]);
+
+  const officerRows = (officersRes.data as Officer[]) || [];
+
+  // Map active staff with officer-relevant roles into Officer shape
+  const staffRows = (staffRes.data as Array<Record<string, unknown>>) || [];
+  const staffOfficers: Officer[] = staffRows
+    .filter((s) => {
+      const role = (s.role as string) || "";
+      const perms = (s.permissions as string[]) || [];
+      return OFFICER_ROLES.includes(role) || perms.includes("dispatch") || perms.includes("all");
+    })
+    .map((s) => ({
+      id: `staff-${s.id as string}`,
+      name: `${s.first_name || ""} ${s.last_name || ""}`.trim(),
+      badge: (s.badge as string) || "",
+      status: "Available",
+      vehicle: "",
+      zone: "",
+      phone: (s.phone as string) || "",
+      shift: "",
+    }));
+
+  // Merge: officers table takes precedence; skip staff entries that already have an officers row (by badge match)
+  const officerBadges = new Set(officerRows.map((o) => o.badge).filter(Boolean));
+  const staffOfficersFiltered = staffOfficers.filter(
+    (s) => !s.badge || !officerBadges.has(s.badge)
+  );
+
+  return [...officerRows, ...staffOfficersFiltered];
+}
+
+// ── Animal Notes ──────────────────────────────────────────────────────────────
+export async function addAnimalNote(animalId: string, text: string, type: string): Promise<void> {
+  const now = new Date();
+  await supabase.from("animal_notes").insert({
+    animal_id: animalId,
+    text,
+    type,
+    date: now.toISOString().split("T")[0],
+    time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+  });
+}
+
+export async function fetchAnimalNotes(animalId: string) {
+  const { data } = await supabase
+    .from("animal_notes")
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+// ── People Notes ──────────────────────────────────────────────────────────────
+export async function addPersonNote(personId: string, text: string, type: string): Promise<void> {
+  const now = new Date();
+  await supabase.from("people_notes").insert({
+    person_id: personId,
+    text,
+    type,
+    date: now.toISOString().split("T")[0],
+    time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+  });
+}
+
+export async function fetchPersonNotes(personId: string) {
+  const { data } = await supabase
+    .from("people_notes")
+    .select("*")
+    .eq("person_id", personId)
+    .order("created_at", { ascending: false });
+  return data || [];
+}
+
+// ── Animal Documents ──────────────────────────────────────────────────────────
+export interface AnimalDocument {
+  id: string;
+  animal_id: string;
+  animal_name?: string;
+  file_name: string;
+  file_url: string;
+  file_type?: string;
+  file_size?: number;
+  category?: string;
+  notes?: string;
+  uploaded_by?: string;
+  created_at?: string;
+}
+
+export async function fetchAnimalDocuments(animalId: string): Promise<AnimalDocument[]> {
+  const { data } = await supabase.from("animal_documents").select("*").eq("animal_id", animalId).order("created_at", { ascending: false });
+  return (data as AnimalDocument[]) || [];
+}
+
+export async function uploadAnimalDocument(
+  animalId: string,
+  animalName: string,
+  file: File,
+  category: string,
+  notes: string,
+  uploadedBy: string,
+): Promise<AnimalDocument> {
+  const path = `${animalId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const { error: uploadError } = await supabase.storage.from("documents").upload(path, file, { upsert: false });
+  if (uploadError) throw uploadError;
+  const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
+  const { data, error } = await supabase.from("animal_documents").insert({
+    animal_id: animalId,
+    animal_name: animalName,
+    file_name: file.name,
+    file_url: urlData.publicUrl,
+    file_type: file.type,
+    file_size: file.size,
+    category,
+    notes,
+    uploaded_by: uploadedBy,
+  }).select().single();
+  if (error) throw error;
+  return data as AnimalDocument;
+}
+
+export async function deleteAnimalDocument(doc: AnimalDocument): Promise<void> {
+  // Extract storage path from public URL
+  const url = new URL(doc.file_url);
+  const parts = url.pathname.split("/documents/");
+  if (parts[1]) {
+    await supabase.storage.from("documents").remove([parts[1]]);
+  }
+  await supabase.from("animal_documents").delete().eq("id", doc.id);
+}
+
+// ── Shelter Config ─────────────────────────────────────────────────────────────
+export async function fetchShelterConfig() {
+  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 1).single();
+  const raw = data?.config_data;
+  if (!raw) return null;
+  // Stored as flat array (designer saves it this way)
+  if (Array.isArray(raw)) return raw;
+  // Seeded as { rooms: [...] } object
+  if (raw.rooms && Array.isArray(raw.rooms)) return raw.rooms;
+  return null;
+}
+
+export async function saveShelterConfig(config: object): Promise<void> {
+  await supabase.from("shelter_config").upsert({ id: 1, config_data: config, updated_at: new Date().toISOString() });
+}
+
+export async function updateStaffTheme(userId: string, theme: "light" | "dark"): Promise<void> {
+  await supabase.from("staff_accounts").update({ theme_preference: theme }).eq("id", userId);
+}
+
+// ── Shelter Settings (stored in shelter_config id=3) ─────────────────────────
+export async function fetchShelterSettings(): Promise<import("./types").ShelterSettings> {
+  const defaults: import("./types").ShelterSettings = {
+    shelter_name: "Morgan County Animal Services",
+    shelter_address: "2392 Athens Hwy, Madison, GA 30650",
+    shelter_phone: "706.752.1195",
+    gda_license_number: "",
+  };
+  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 3).single();
+  if (!data?.config_data) return defaults;
+  return { ...defaults, ...(data.config_data as object) };
+}
+
+export async function saveShelterSettings(settings: import("./types").ShelterSettings): Promise<void> {
+  await supabase.from("shelter_config").upsert({ id: 3, config_data: settings as unknown as Record<string, unknown>, updated_at: new Date().toISOString() });
+}
+
+// ── Court Settings (stored in shelter_config id=2) ────────────────────────────
+export async function fetchCourtSettings(): Promise<import("./types").CourtSettings> {
+  const defaults = { magistrate_email: "", municipal_email: "", portal_url: "https://sheltertrace.com/court" };
+  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 2).single();
+  if (!data?.config_data) return defaults;
+  return { ...defaults, ...(data.config_data as object) };
+}
+
+export async function saveCourtSettings(settings: import("./types").CourtSettings): Promise<void> {
+  await supabase.from("shelter_config").upsert({ id: 2, config_data: settings as unknown as Record<string, unknown>, updated_at: new Date().toISOString() });
+}
+
+export async function markCitationNotified(id: string): Promise<void> {
+  await supabase.from("citations").update({ court_notified: true, court_notified_at: new Date().toISOString() }).eq("id", id);
+}
+
+// ── Forms ─────────────────────────────────────────────────────────────────────
+export async function fetchForms(formType?: import("./types").FormType): Promise<import("./types").ShelterForm[]> {
+  let q = supabase.from("forms").select("*").order("created_at", { ascending: false });
+  if (formType) q = q.eq("form_type", formType);
+  const { data } = await q;
+  return (data as import("./types").ShelterForm[]) || [];
+}
+
+export async function createForm(form: Omit<import("./types").ShelterForm, "id" | "created_at">): Promise<import("./types").ShelterForm> {
+  const { data, error } = await supabase.from("forms").insert(form).select().single();
+  if (error) throw error;
+  return data as import("./types").ShelterForm;
+}
+
+export async function fetchAdoptionsByPerson(personId: string): Promise<import("./types").AdoptionRecord[]> {
+  const { data } = await supabase.from("adoption_records").select("*")
+    .eq("adopter_id", personId).order("adoption_date", { ascending: false });
+  return (data as import("./types").AdoptionRecord[]) || [];
+}
+
+export async function fetchReceiptsByPerson(personId: string): Promise<import("./types").Receipt[]> {
+  const { data } = await supabase.from("receipts").select("*")
+    .eq("person_id", personId).order("date", { ascending: false });
+  return (data as import("./types").Receipt[]) || [];
+}
+
+export async function fetchCallsByPerson(personId: string, personName?: string): Promise<import("./types").DispatchCall[]> {
+  const { data } = await supabase.from("dispatch_calls").select("*").order("created_at", { ascending: false });
+  const calls = (data as import("./types").DispatchCall[]) || [];
+  const nameLower = personName?.toLowerCase();
+  return calls.filter((c) => {
+    const parties = c.involved_parties || [];
+    return parties.some((p) =>
+      (personId && p.id === personId) ||
+      (nameLower && p.name?.toLowerCase() === nameLower)
+    );
+  });
+}
+
+export async function fetchCitationsByPerson(firstName?: string, lastName?: string): Promise<import("./types").Citation[]> {
+  const { data } = await supabase.from("citations").select("*").order("date", { ascending: false });
+  const all = (data as import("./types").Citation[]) || [];
+  if (!firstName && !lastName) return [];
+  const fullName = [firstName, lastName].filter(Boolean).join(" ").toLowerCase();
+  return all.filter((c) => {
+    const citFirst = c.violator_first || "";
+    const citLast = c.violator_last || "";
+    const citFull = c.violator_name || [citFirst, citLast].filter(Boolean).join(" ");
+    return citFull.toLowerCase() === fullName;
+  });
+}
+
+export async function fetchFormsByLinked(opts: { callId?: string; animalId?: string; personId?: string }): Promise<import("./types").ShelterForm[]> {
+  if (opts.callId) {
+    const { data } = await supabase.from("forms").select("*").eq("linked_call_id", opts.callId).order("created_at", { ascending: false });
+    return (data as import("./types").ShelterForm[]) || [];
+  }
+  if (opts.animalId) {
+    const { data } = await supabase.from("forms").select("*").eq("linked_animal_id", opts.animalId).order("created_at", { ascending: false });
+    return (data as import("./types").ShelterForm[]) || [];
+  }
+  if (opts.personId) {
+    const { data } = await supabase.from("forms").select("*").eq("linked_person_id", opts.personId).order("created_at", { ascending: false });
+    return (data as import("./types").ShelterForm[]) || [];
+  }
+  return [];
+}
