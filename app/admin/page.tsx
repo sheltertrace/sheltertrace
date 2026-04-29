@@ -6,6 +6,7 @@ import type { StaffAccount, CourtSettings, ShelterSettings } from "@/lib/types";
 import { genId, today } from "@/lib/utils";
 import { fetchAnimals, fetchCalls, fetchPeople, fetchCourtSettings, saveCourtSettings, fetchShelterSettings, saveShelterSettings } from "@/lib/data";
 import type { Animal, DispatchCall, Person } from "@/lib/types";
+import { useAuth } from "@/app/providers";
 
 const PRESET_ROLES = ["Administrator", "Shelter Manager", "Officer", "Dispatcher", "Vet Tech", "Front Desk", "Court Clerk", "Judge", "Volunteer", "Veterinarian", "Adoption Counselor", "Animal Care Tech", "Field Officer", "Volunteer Coordinator"];
 const ALL_PERMS = ["animals", "dispatch", "medical", "people", "adoptions", "foster", "kennels", "receipts", "citations", "court", "reports", "volunteers", "admin"];
@@ -77,6 +78,7 @@ function PermButtons({ perms, onChange }: { perms: string[]; onChange: (p: strin
 }
 
 export default function AdminPage() {
+  const { user: currentUser } = useAuth();
   const [tab, setTab] = useState<"staff" | "address" | "court" | "shelter">("staff");
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -216,6 +218,14 @@ export default function AdminPage() {
     setStaff((prev) => prev.map((x) => x.id === s.id ? { ...x, active: !x.active } : x));
   };
 
+  const handleDelete = async (s: StaffAccount) => {
+    const name = `${s.first_name || s.firstName} ${s.last_name || s.lastName}`.trim();
+    if (!confirm(`Are you sure you want to permanently delete ${name}? This cannot be undone.`)) return;
+    const { error } = await supabase.from("staff_accounts").delete().eq("id", s.id);
+    if (error) { alert(`Failed to delete: ${error.message}`); return; }
+    setStaff((prev) => prev.filter((x) => x.id !== s.id));
+  };
+
   const handleAddressSearch = async () => {
     if (!addrQuery.trim()) return;
     setAddrLoading(true);
@@ -285,6 +295,15 @@ export default function AdminPage() {
                       <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => { setSelected(s); setEditData({ ...s, newPassword: "" }); setShowEdit(true); }}>Edit</button>
                       <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: s.active === false ? "#22c55e" : "#ef4444" }} onClick={() => handleToggleActive(s)}>
                         {s.active === false ? "Enable" : "Disable"}
+                      </button>
+                      <button
+                        className="btn btn-ghost btn-sm"
+                        style={{ fontSize: 11, color: "#ef4444" }}
+                        disabled={s.id === currentUser?.id}
+                        title={s.id === currentUser?.id ? "Cannot delete yourself" : `Delete ${s.first_name || s.firstName}`}
+                        onClick={() => handleDelete(s)}
+                      >
+                        Delete
                       </button>
                     </div>
                   </div>
