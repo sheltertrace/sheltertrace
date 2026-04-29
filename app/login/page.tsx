@@ -3,7 +3,6 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "../providers";
-import { STAFF_ACCOUNTS } from "@/lib/constants";
 
 export default function LoginPage() {
   const { login, user, loading: authLoading } = useAuth();
@@ -38,16 +37,6 @@ export default function LoginPage() {
       setLoading(false);
     }
   }, [username, password, login, router]);
-
-  const quickLogin = useCallback(async (u: string, p: string) => {
-    setUsername(u);
-    setPassword(p);
-    setError("");
-    setLoading(true);
-    const account = await login(u, p);
-    if (account) router.replace("/");
-    else setLoading(false);
-  }, [login, router]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f2942", display: "flex" }}>
@@ -136,24 +125,6 @@ export default function LoginPage() {
               {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
-
-          <div style={{ borderTop: "1px solid #e2e8f0", paddingTop: 16 }}>
-            <p style={{ fontSize: 12, color: "#64748b", marginBottom: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.5px" }}>
-              Quick Access
-            </p>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
-              {STAFF_ACCOUNTS.slice(0, 6).map((a) => (
-                <button
-                  key={a.id}
-                  onClick={() => quickLogin(a.username, a.password)}
-                  style={{ padding: "6px 10px", border: "1px solid #e2e8f0", borderRadius: 7, background: "#f8fafc", fontSize: 11, cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
-                >
-                  <div style={{ fontWeight: 700, color: "#0f172a" }}>{a.firstName} {a.lastName}</div>
-                  <div style={{ color: "#64748b" }}>{a.role}</div>
-                </button>
-              ))}
-            </div>
-          </div>
 
           <p style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", marginTop: 20 }}>
             ShelterTrace v1.0 · Shelter Data Systems · © 2026
