@@ -31,6 +31,7 @@ export default function Sidebar() {
 
   if (!user) return null;
 
+  console.log("[Sidebar] user.role:", user.role, "| user.permissions:", user.permissions);
   const isAdmin = user.permissions.includes("all");
 
   return (

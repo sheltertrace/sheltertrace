@@ -33,19 +33,45 @@ function RoleInput({ value, onChange }: { value: string; onChange: (v: string) =
   );
 }
 
+const ADMIN_ROLES = ["Administrator", "Admin"];
+
+function permsForRole(role: string): string[] | null {
+  return ADMIN_ROLES.includes(role) ? ["all"] : null;
+}
+
 function PermButtons({ perms, onChange }: { perms: string[]; onChange: (p: string[]) => void }) {
+  const isAll = perms.includes("all");
   const toggle = (p: string) => onChange(perms.includes(p) ? perms.filter((x) => x !== p) : [...perms, p]);
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 4 }}>
-      {ALL_PERMS.map((p) => {
-        const active = perms.includes(p);
-        return (
-          <button key={p} type="button" onClick={() => toggle(p)}
-            style={{ padding: "4px 12px", borderRadius: 20, border: `1px solid ${active ? "var(--teal)" : "var(--border)"}`, background: active ? "#f0fdfa" : "#fff", color: active ? "var(--teal)" : "var(--text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 400 }}>
-            {PERM_LABELS[p]}
-          </button>
-        );
-      })}
+    <div style={{ marginTop: 4 }}>
+      <div style={{ marginBottom: 8 }}>
+        <button
+          type="button"
+          onClick={() => onChange(isAll ? [] : ["all"])}
+          style={{
+            padding: "4px 14px", borderRadius: 20,
+            border: `2px solid ${isAll ? "#ef4444" : "var(--border)"}`,
+            background: isAll ? "#fef2f2" : "#fff",
+            color: isAll ? "#ef4444" : "var(--text-secondary)",
+            cursor: "pointer", fontSize: 12, fontWeight: isAll ? 700 : 400,
+          }}>
+          {isAll ? "★ All Access (Admin)" : "☆ All Access (Admin)"}
+        </button>
+        {isAll && <span style={{ fontSize: 11, color: "#ef4444", marginLeft: 10, fontStyle: "italic" }}>Full admin access — overrides individual permissions</span>}
+      </div>
+      {!isAll && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {ALL_PERMS.map((p) => {
+            const active = perms.includes(p);
+            return (
+              <button key={p} type="button" onClick={() => toggle(p)}
+                style={{ padding: "4px 12px", borderRadius: 20, border: `1px solid ${active ? "var(--teal)" : "var(--border)"}`, background: active ? "#f0fdfa" : "#fff", color: active ? "var(--teal)" : "var(--text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: active ? 700 : 400 }}>
+                {PERM_LABELS[p]}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -129,15 +155,18 @@ export default function AdminPage() {
       // Only send columns that actually exist in the staff_accounts table.
       // Spreading editData directly would include client-only fields (firstName,
       // lastName, password, avatar, department) that cause PostgREST 400 errors.
+      const finalRole = editData.role || selected.role;
+      const rawPerms = editData.permissions ?? selected.permissions;
+      const finalPerms = permsForRole(finalRole) ?? rawPerms;
       const updates: Record<string, unknown> = {
         username: (editData.username || "").trim(),
         first_name: (editData.first_name || "").trim(),
         last_name: (editData.last_name || "").trim(),
-        role: editData.role || selected.role,
+        role: finalRole,
         email: (editData.email || "").trim() || null,
         phone: (editData.phone || "").trim() || null,
         badge: (editData.badge || "").trim() || null,
-        permissions: editData.permissions ?? selected.permissions,
+        permissions: finalPerms,
       };
       if ((editData.newPassword || "").trim()) {
         updates.password_hash = editData.newPassword!.trim();
@@ -168,7 +197,7 @@ export default function AdminPage() {
         email: newData.email.trim() || null,
         phone: newData.phone.trim() || null,
         badge: newData.badge.trim() || null,
-        permissions: newData.permissions,
+        permissions: permsForRole(newData.role) ?? newData.permissions,
         active: true,
       };
       const { error } = await (supabase as any).from("staff_accounts").insert([rec]);
@@ -493,7 +522,10 @@ export default function AdminPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Role</label>
-                  <RoleInput value={(editData.role as string) || ""} onChange={(v) => setEditData((d) => ({ ...d, role: v }))} />
+                  <RoleInput value={(editData.role as string) || ""} onChange={(v) => {
+                    const autoPerms = permsForRole(v);
+                    setEditData((d) => ({ ...d, role: v, ...(autoPerms ? { permissions: autoPerms } : {}) }));
+                  }} />
                 </div>
               </div>
               <div className="form-group" style={{ marginTop: 8 }}>
@@ -527,7 +559,10 @@ export default function AdminPage() {
                 ))}
                 <div className="form-group">
                   <label className="form-label">Role</label>
-                  <RoleInput value={newData.role} onChange={(v) => setNewData((d) => ({ ...d, role: v }))} />
+                  <RoleInput value={newData.role} onChange={(v) => {
+                    const autoPerms = permsForRole(v);
+                    setNewData((d) => ({ ...d, role: v, ...(autoPerms ? { permissions: autoPerms } : {}) }));
+                  }} />
                 </div>
               </div>
               <div className="form-group" style={{ marginTop: 8 }}>
