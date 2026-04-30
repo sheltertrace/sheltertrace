@@ -121,6 +121,9 @@ export interface MedicalRecord {
   date: string;
   vet?: string;
   next_due?: string;
+  cost?: number | null;
+  status?: string;
+  updated_at?: string;
   created_at?: string;
 }
 

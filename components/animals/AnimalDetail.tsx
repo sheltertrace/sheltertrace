@@ -16,6 +16,7 @@ import {
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
   type AnimalDocument,
 } from "@/lib/data";
+import MedicalEditModal from "@/components/medical/MedicalEditModal";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import { supabase } from "@/lib/supabase";
@@ -65,6 +66,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [medVet, setMedVet] = useState(VET_STAFF_LIST[0]);
   const [medNextDue, setMedNextDue] = useState("");
   const [medRecords, setMedRecords] = useState<MedicalRecord[]>(medical);
+  const [editMedRecord, setEditMedRecord] = useState<MedicalRecord | null>(null);
 
   // Euthanasia form
   const [showEuthForm, setShowEuthForm] = useState(false);
@@ -600,11 +602,14 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <thead><tr><th>Type</th><th>Description</th><th>Date</th><th>Vet / Staff</th><th>Next Due</th></tr></thead>
                 <tbody>
                   {animalMed.map((m) => (
-                    <tr key={m.id}>
+                    <tr key={m.id} style={{ cursor: "pointer" }} onClick={() => setEditMedRecord(m)} className="hover-row">
                       <td><span className="badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>{m.type}</span></td>
-                      <td style={{ fontWeight: 600 }}>{m.description}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        {m.description}
+                        {m.updated_at && <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Updated {formatDate(m.updated_at.slice(0, 10))}</div>}
+                      </td>
                       <td style={{ fontSize: 12 }}>{formatDate(m.date)}</td>
-                      <td style={{ fontSize: 12 }}>{m.vet}</td>
+                      <td style={{ fontSize: 12 }}>{m.vet || "—"}</td>
                       <td style={{ fontSize: 12, color: m.next_due && new Date(m.next_due) < new Date() ? "#dc2626" : "var(--text-secondary)" }}>
                         {m.next_due ? formatDate(m.next_due) : "—"}
                       </td>
@@ -793,6 +798,22 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             </div>
           </div>
         </div>
+      )}
+
+      {/* Medical Edit Modal */}
+      {editMedRecord && (
+        <MedicalEditModal
+          record={editMedRecord}
+          onSave={(updated) => {
+            setMedRecords((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+            setEditMedRecord(null);
+          }}
+          onDelete={(id) => {
+            setMedRecords((prev) => prev.filter((m) => m.id !== id));
+            setEditMedRecord(null);
+          }}
+          onClose={() => setEditMedRecord(null)}
+        />
       )}
 
       {/* Return Animal Modal */}

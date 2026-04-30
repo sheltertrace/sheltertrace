@@ -7,6 +7,7 @@ import type { MedicalRecord, Animal } from "@/lib/types";
 import { MEDICAL_TYPES, MEDICAL_DESC_MAP, VET_STAFF_LIST } from "@/lib/constants";
 import { formatDate, today } from "@/lib/utils";
 import { useRouter } from "next/navigation";
+import MedicalEditModal from "@/components/medical/MedicalEditModal";
 
 export default function MedicalPage() {
   const router = useRouter();
@@ -17,6 +18,7 @@ export default function MedicalPage() {
   const [filterType, setFilterType] = useState("All");
   const [page, setPage] = useState(1);
   const [showAdd, setShowAdd] = useState(false);
+  const [editRecord, setEditRecord] = useState<MedicalRecord | null>(null);
   const [showTypesModal, setShowTypesModal] = useState(false);
   const [medTypes, setMedTypes] = useState([...MEDICAL_TYPES]);
   const perPage = 15;
@@ -123,10 +125,15 @@ export default function MedicalPage() {
                 const isOverdue = m.next_due && new Date(m.next_due) < new Date();
                 const isDueSoon = m.next_due && !isOverdue && (new Date(m.next_due).getTime() - Date.now()) / 86400000 <= 7;
                 return (
-                  <tr key={m.id}>
-                    <td><span style={{ fontWeight: 700, cursor: "pointer", color: "var(--teal)", textDecoration: "underline" }} onClick={() => router.push(`/animals/${m.animal_id}`)}>{m.animal_name}</span></td>
+                  <tr key={m.id} style={{ cursor: "pointer" }} onClick={() => setEditRecord(m)} className="hover-row">
+                    <td onClick={(e) => { e.stopPropagation(); router.push(`/animals/${m.animal_id}`); }}>
+                      <span style={{ fontWeight: 700, color: "var(--teal)", textDecoration: "underline" }}>{m.animal_name}</span>
+                    </td>
                     <td><span className="badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>{m.type}</span></td>
-                    <td style={{ fontWeight: 600 }}>{m.description}</td>
+                    <td style={{ fontWeight: 600 }}>
+                      {m.description}
+                      {m.updated_at && <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Updated {formatDate(m.updated_at.slice(0, 10))}</div>}
+                    </td>
                     <td style={{ fontSize: 12 }}>{formatDate(m.date)}</td>
                     <td style={{ fontSize: 12 }}>{m.vet || "—"}</td>
                     <td style={{ fontSize: 12 }}>
@@ -146,6 +153,22 @@ export default function MedicalPage() {
           <Pagination total={filtered.length} perPage={perPage} current={page} onChange={setPage} />
         </div>
       </div>
+
+      {/* Edit Medical Modal */}
+      {editRecord && (
+        <MedicalEditModal
+          record={editRecord}
+          onSave={(updated) => {
+            setMedical((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+            setEditRecord(null);
+          }}
+          onDelete={(id) => {
+            setMedical((prev) => prev.filter((m) => m.id !== id));
+            setEditRecord(null);
+          }}
+          onClose={() => setEditRecord(null)}
+        />
+      )}
 
       {/* Add Medical Modal */}
       {showAdd && (
