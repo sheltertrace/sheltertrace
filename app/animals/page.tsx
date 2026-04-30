@@ -41,7 +41,7 @@ export default function AnimalsPage() {
         || (a.breed || "").toLowerCase().includes(q)
         || (a.microchip || "").toLowerCase().includes(q);
       const matchSpecies = filterSpecies === "All" || a.species === filterSpecies;
-      const matchStatus = filterStatus === "All" ? a.status !== "Adopted" : a.status === filterStatus;
+      const matchStatus = filterStatus === "All" || a.status === filterStatus;
       return matchSearch && matchSpecies && matchStatus;
     });
   }, [animals, search, filterSpecies, filterStatus]);

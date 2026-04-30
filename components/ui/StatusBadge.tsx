@@ -13,8 +13,12 @@ const CLASS_MAP: Record<string, string> = {
 
 export default function StatusBadge({ status }: { status: string }) {
   const cls = CLASS_MAP[status] || "";
+  const color = STATUS_COLORS[status];
+  const style = cls ? {} : color
+    ? { background: `${color}18`, color, border: `1px solid ${color}40` }
+    : { background: "#f1f5f9", color: "#475569" };
   return (
-    <span className={`badge ${cls}`} style={!cls ? { background: "#f1f5f9", color: "#475569" } : {}}>
+    <span className={`badge ${cls}`} style={style}>
       {status}
     </span>
   );

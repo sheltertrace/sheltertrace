@@ -5,8 +5,21 @@ import { genId, genReceiptId, today } from "./utils";
 
 // ── Animals ──────────────────────────────────────────────────────────────────
 export async function fetchAnimals(): Promise<Animal[]> {
-  const { data } = await supabase.from("animals").select("*").order("created_at", { ascending: false });
-  return (data as Animal[]) || [];
+  const PAGE = 1000;
+  const all: Animal[] = [];
+  let offset = 0;
+  while (true) {
+    const { data, error } = await supabase
+      .from("animals")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .range(offset, offset + PAGE - 1);
+    if (error || !data || data.length === 0) break;
+    all.push(...(data as Animal[]));
+    if (data.length < PAGE) break;
+    offset += PAGE;
+  }
+  return all;
 }
 
 export async function fetchAnimal(id: string): Promise<Animal | null> {
