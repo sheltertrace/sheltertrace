@@ -191,13 +191,25 @@ export async function createMedical(record: Partial<MedicalRecord>): Promise<Med
 }
 
 export async function updateMedical(id: string, updates: Partial<MedicalRecord>): Promise<MedicalRecord> {
-  const { data, error } = await supabase.from("medical_records").update(updates).eq("id", id).select().single();
-  if (error) throw error;
+  const { data, error } = await supabase
+    .from("medical_records")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) {
+    console.error("[updateMedical] Supabase error:", error.message, "| code:", error.code, "| details:", error.details, "| hint:", error.hint);
+    throw error;
+  }
   return data as MedicalRecord;
 }
 
 export async function deleteMedical(id: string): Promise<void> {
-  await supabase.from("medical_records").delete().eq("id", id);
+  const { error } = await supabase.from("medical_records").delete().eq("id", id);
+  if (error) {
+    console.error("[deleteMedical] Supabase error:", error.message, "| code:", error.code);
+    throw error;
+  }
 }
 
 // ── Dispatch Calls ───────────────────────────────────────────────────────────

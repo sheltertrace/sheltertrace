@@ -24,31 +24,50 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
   const [status, setStatus] = useState(record.status || "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [errMsg, setErrMsg] = useState("");
 
   const handleSave = async () => {
     setSaving(true);
+    setErrMsg("");
     try {
-      const updated = await updateMedical(record.id, {
+      const payload: Partial<MedicalRecord> = {
         type,
         description: desc,
         date,
         vet: vet || undefined,
+        next_due: nextDue || null,
+        // cost / status / updated_at require running supabase/migrations/add_medical_columns.sql
         cost: cost !== "" ? parseFloat(cost) : null,
-        next_due: nextDue || undefined,
         status: status || undefined,
         updated_at: new Date().toISOString(),
-      });
+      };
+      console.log("[MedicalEditModal] saving payload:", payload);
+      const updated = await updateMedical(record.id, payload);
       onSave(updated);
-    } catch { } finally { setSaving(false); }
+    } catch (err: unknown) {
+      const e = err as { message?: string; hint?: string };
+      const detail = e.hint ? `${e.message} — ${e.hint}` : (e.message || "Unknown error");
+      // If the error is a missing column, guide the user to run the migration
+      const isMissingCol = detail.includes("column") && detail.includes("does not exist");
+      setErrMsg(
+        isMissingCol
+          ? `Database column missing. Run the SQL in supabase/migrations/add_medical_columns.sql in the Supabase SQL editor, then try again. (${detail})`
+          : `Save failed: ${detail}`
+      );
+    } finally { setSaving(false); }
   };
 
   const handleDelete = async () => {
     if (!confirm("Delete this medical record? This cannot be undone.")) return;
     setDeleting(true);
+    setErrMsg("");
     try {
       await deleteMedical(record.id);
       onDelete(record.id);
-    } catch { } finally { setDeleting(false); }
+    } catch (err: unknown) {
+      const e = err as { message?: string };
+      setErrMsg(`Delete failed: ${e.message || "Unknown error"}`);
+    } finally { setDeleting(false); }
   };
 
   return (
@@ -62,6 +81,11 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
           {record.updated_at && (
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 12 }}>
               Last updated: {formatDate(record.updated_at.slice(0, 10))} at {record.updated_at.slice(11, 16)}
+            </div>
+          )}
+          {errMsg && (
+            <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 7, padding: "10px 14px", marginBottom: 12, fontSize: 12, color: "#dc2626", lineHeight: 1.5 }}>
+              ⚠️ {errMsg}
             </div>
           )}
           <div className="grid-2">
@@ -95,7 +119,12 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
             </div>
             <div className="form-group">
               <label className="form-label">Next Due</label>
-              <input className="form-input" type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} />
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input className="form-input" type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} style={{ flex: 1 }} />
+                {nextDue && (
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setNextDue("")} title="Clear date" style={{ padding: "4px 8px", color: "#6b7280" }}>✕</button>
+                )}
+              </div>
             </div>
             <div className="form-group">
               <label className="form-label">Status</label>
