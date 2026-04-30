@@ -35,7 +35,7 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
         description: desc,
         date,
         vet: vet || undefined,
-        next_due: nextDue || null,
+        next_due: nextDue || undefined,
         // cost / status / updated_at require running supabase/migrations/add_medical_columns.sql
         cost: cost !== "" ? parseFloat(cost) : null,
         status: status || undefined,
