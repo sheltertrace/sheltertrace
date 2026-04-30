@@ -7,6 +7,8 @@ import {
   KENNEL_LABELS, BEHAVIOR_FLAGS,
 } from "@/lib/constants";
 import { calcAge, genId, today, nowTime } from "@/lib/utils";
+import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
+import type { AamvaData } from "@/lib/parseAamva";
 
 interface Props {
   onComplete: (animal: Partial<Animal>) => Promise<void>;
@@ -420,7 +422,16 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
               <button className="btn btn-secondary btn-sm" onClick={() => setShowNewPerson(true)}>+ Create New Contact</button>
             ) : (
               <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>New Contact</div>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+                  <span style={{ fontWeight: 700, fontSize: 13 }}>New Contact</span>
+                  <ScanLicenseButton
+                    label="Scan License"
+                    onScan={(data: AamvaData) => {
+                      if (data.firstName) setNpFirst(data.firstName);
+                      if (data.lastName)  setNpLast(data.lastName);
+                    }}
+                  />
+                </div>
                 <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">First Name *</label>

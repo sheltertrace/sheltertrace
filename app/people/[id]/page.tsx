@@ -13,6 +13,8 @@ import {
 import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation } from "@/lib/types";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
+import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
+import type { AamvaData } from "@/lib/parseAamva";
 import { PERSON_ROLES } from "@/lib/constants";
 import { formatDate, today, nowTime, genId } from "@/lib/utils";
 
@@ -58,6 +60,7 @@ export default function PersonDetailPage() {
 
   const [newNote, setNewNote] = useState("");
   const [noteType, setNoteType] = useState("General");
+  const [scanKey, setScanKey] = useState(0);
   const [uploadingId, setUploadingId] = useState(false);
   const [deletingId, setDeletingId] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(false);
@@ -95,6 +98,23 @@ export default function PersonDetailPage() {
       setPerson(updated);
     } catch (e) { console.error(e); } finally { setSaving(false); }
   }, [person]);
+
+  const handleLicenseScan = useCallback(async (data: AamvaData) => {
+    const updates: Partial<Person> = {};
+    if (data.firstName)     updates.first_name   = data.firstName;
+    if (data.middleName)    updates.middle_name  = data.middleName;
+    if (data.lastName)      updates.last_name    = data.lastName;
+    if (data.address)       updates.address      = data.address;
+    if (data.city)          updates.city         = data.city;
+    if (data.state)         updates.state        = data.state;
+    if (data.zip)           updates.zip          = data.zip;
+    if (data.dob)           updates.dob          = data.dob;
+    if (data.sex)           updates.sex          = data.sex;
+    if (data.licenseNumber) { updates.id_type = "Driver's License"; updates.id_number = data.licenseNumber; }
+    if (data.expiration)    updates.id_expiration = data.expiration;
+    await save(updates);
+    setScanKey((k) => k + 1); // remount uncontrolled inputs to show new values
+  }, [save]);
 
   const handleAddNote = async () => {
     if (!newNote.trim() || !person) return;
@@ -286,7 +306,11 @@ export default function PersonDetailPage() {
           <div>
 
             {/* ── Personal Information ─────────────────────────────────── */}
-            <CollapsibleSection title="Personal Information" color="#0f766e">
+            <CollapsibleSection title="Personal Information" color="#0f766e" key={`pi-${scanKey}`}>
+              <div style={{ marginBottom: 10 }}>
+                <ScanLicenseButton onScan={handleLicenseScan} label="Scan Driver's License" />
+                <span style={{ fontSize: 11, color: "var(--text-muted)", marginLeft: 10 }}>Auto-fills name, address, DOB, sex, and license number</span>
+              </div>
               <div className="grid-3">
                 <F label="First Name *">
                   <input className="form-input" defaultValue={person.first_name} onBlur={(e) => { if (e.target.value !== person.first_name) save({ first_name: e.target.value }); }} />
@@ -321,7 +345,7 @@ export default function PersonDetailPage() {
             </CollapsibleSection>
 
             {/* ── Address ──────────────────────────────────────────────── */}
-            <CollapsibleSection title="Address" color="#1d4ed8">
+            <CollapsibleSection title="Address" color="#1d4ed8" key={`addr-${scanKey}`}>
               <div className="grid-3">
                 <F label="Street Address">
                   <input className="form-input" defaultValue={person.address || ""} onBlur={(e) => save({ address: e.target.value || undefined })} style={{ gridColumn: "1 / -1" }} />
@@ -352,7 +376,7 @@ export default function PersonDetailPage() {
             </CollapsibleSection>
 
             {/* ── Identification ───────────────────────────────────────── */}
-            <CollapsibleSection title="Identification" color="#d97706">
+            <CollapsibleSection title="Identification" color="#d97706" key={`id-${scanKey}`}>
               <div className="grid-3">
                 <F label="ID Type">
                   <select className="form-select" value={person.id_type || ""} onChange={(e) => save({ id_type: e.target.value || undefined })}>
