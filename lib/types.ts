@@ -274,7 +274,7 @@ export interface Citation {
 
 export interface RescueGroup {
   id: string;
-  name: string;
+  organization_name: string;
   contact_person?: string;
   phone?: string;
   email?: string;

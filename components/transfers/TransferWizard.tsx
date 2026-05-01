@@ -157,7 +157,7 @@ body{background:#fff;font-family:Arial,Helvetica,sans-serif;}
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 24px;">
       <div style="grid-column:1/-1;margin-bottom:8px;">
         <div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Organization</div>
-        <div style="font-size:16px;font-weight:800;color:#0f2942;margin-top:2px;">${group.name}</div>
+        <div style="font-size:16px;font-weight:800;color:#0f2942;margin-top:2px;">${group.organization_name}</div>
       </div>
       ${fld("Contact Person", group.contact_person)}
       ${fld("Phone", group.phone)}
@@ -308,7 +308,7 @@ export default function TransferWizard({ animals, medicalByAnimal, rescueGroups,
           transfer_number: transferNumber,
           date: transferDate,
           rescue_group_id: group.id,
-          rescue_group_name: group.name,
+          rescue_group_name: group.organization_name,
           animal_ids: selectedAnimals.map((a) => a.id),
           animal_names: selectedAnimals.map((a) => a.name),
           notes: notes || undefined,
@@ -365,7 +365,7 @@ export default function TransferWizard({ animals, medicalByAnimal, rescueGroups,
                   <option value="">— Select agency —</option>
                   {rescueGroups.map((g) => {
                     const w = licenseWarning(g);
-                    return <option key={g.id} value={g.id}>{g.name}{w ? ` ⚠ ${w}` : ""}</option>;
+                    return <option key={g.id} value={g.id}>{g.organization_name}{w ? ` ⚠ ${w}` : ""}</option>;
                   })}
                 </select>
               </div>
@@ -473,7 +473,7 @@ export default function TransferWizard({ animals, medicalByAnimal, rescueGroups,
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
                 <div style={{ background: "var(--surface-2)", border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8, color: "var(--teal)" }}>Receiving Agency</div>
-                  <div style={{ fontSize: 13, fontWeight: 800 }}>{group.name}</div>
+                  <div style={{ fontSize: 13, fontWeight: 800 }}>{group.organization_name}</div>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{group.contact_person} · {group.phone}</div>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{[group.city, group.state].filter(Boolean).join(", ")}</div>
                   <div style={{ fontSize: 12, marginTop: 6 }}>License: <strong>{group.license_number || "—"}</strong></div>

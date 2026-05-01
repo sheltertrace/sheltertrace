@@ -1,7 +1,7 @@
 -- ── Rescue Groups ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS rescue_groups (
   id                  TEXT PRIMARY KEY,
-  name                TEXT NOT NULL,
+  organization_name   TEXT NOT NULL,
   contact_person      TEXT,
   phone               TEXT,
   email               TEXT,

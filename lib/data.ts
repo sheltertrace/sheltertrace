@@ -624,7 +624,7 @@ export async function fetchCitationsByPerson(firstName?: string, lastName?: stri
 
 // ── Rescue Groups ─────────────────────────────────────────────────────────────
 export async function fetchRescueGroups(): Promise<import("./types").RescueGroup[]> {
-  const { data } = await supabase.from("rescue_groups").select("*").order("name");
+  const { data } = await supabase.from("rescue_groups").select("*").order("organization_name");
   return (data as import("./types").RescueGroup[]) || [];
 }
 

@@ -19,7 +19,7 @@ function licenseStatus(group: RescueGroup): { label: string; color: string } | n
   return null;
 }
 
-const EMPTY_GROUP: Partial<RescueGroup> = { name: "", contact_person: "", phone: "", email: "", address: "", city: "", state: "GA", zip: "", license_number: "", license_expiration: "" };
+const EMPTY_GROUP: Partial<RescueGroup> = { organization_name: "", contact_person: "", phone: "", email: "", address: "", city: "", state: "GA", zip: "", license_number: "", license_expiration: "" };
 
 export default function TransfersPage() {
   const [tab, setTab] = useState<"groups" | "history">("groups");
@@ -65,7 +65,7 @@ export default function TransfersPage() {
 
   const filteredGroups = useMemo(() => {
     const q = groupSearch.toLowerCase();
-    return groups.filter((g) => !q || g.name.toLowerCase().includes(q) || (g.contact_person || "").toLowerCase().includes(q) || (g.city || "").toLowerCase().includes(q));
+    return groups.filter((g) => !q || g.organization_name.toLowerCase().includes(q) || (g.contact_person || "").toLowerCase().includes(q) || (g.city || "").toLowerCase().includes(q));
   }, [groups, groupSearch]);
 
   const filteredHistory = useMemo(() => {
@@ -77,7 +77,7 @@ export default function TransfersPage() {
   const openEditGroup = (g: RescueGroup) => { setEditingGroup(g); setGroupForm({ ...g }); setShowGroupModal(true); };
 
   const handleSaveGroup = async () => {
-    if (!groupForm.name?.trim()) return;
+    if (!groupForm.organization_name?.trim()) return;
     setSavingGroup(true);
     try {
       if (editingGroup) {
@@ -85,7 +85,7 @@ export default function TransfersPage() {
         setGroups((prev) => prev.map((g) => g.id === updated.id ? updated : g));
       } else {
         const created = await createRescueGroup(groupForm as Omit<RescueGroup, "id" | "created_at" | "updated_at">);
-        setGroups((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+        setGroups((prev) => [...prev, created].sort((a, b) => a.organization_name.localeCompare(b.organization_name)));
       }
       setShowGroupModal(false);
     } catch (err: unknown) {
@@ -94,7 +94,7 @@ export default function TransfersPage() {
   };
 
   const handleDeleteGroup = async (g: RescueGroup) => {
-    if (!confirm(`Delete "${g.name}"? This will not affect existing transfer records.`)) return;
+    if (!confirm(`Delete "${g.organization_name}"? This will not affect existing transfer records.`)) return;
     try {
       await deleteRescueGroup(g.id);
       setGroups((prev) => prev.filter((x) => x.id !== g.id));
@@ -185,7 +185,7 @@ export default function TransfersPage() {
                   return (
                     <tr key={g.id}>
                       <td>
-                        <div style={{ fontWeight: 700 }}>{g.name}</div>
+                        <div style={{ fontWeight: 700 }}>{g.organization_name}</div>
                         {txCount > 0 && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{txCount} transfer{txCount !== 1 ? "s" : ""}</div>}
                       </td>
                       <td style={{ fontSize: 12 }}>{g.contact_person || "—"}</td>
@@ -268,7 +268,7 @@ export default function TransfersPage() {
                 <div style={{ padding: 16 }}>
                   {group && (
                     <div style={{ marginBottom: 12, fontSize: 13 }}>
-                      <strong>{group.name}</strong> · {group.contact_person} · {group.phone} · {[group.city, group.state].filter(Boolean).join(", ")}
+                      <strong>{group.organization_name}</strong> · {group.contact_person} · {group.phone} · {[group.city, group.state].filter(Boolean).join(", ")}
                     </div>
                   )}
                   {t.notes && <div style={{ marginBottom: 12, fontSize: 13, color: "var(--text-secondary)", background: "var(--surface-2)", padding: "8px 12px", borderRadius: 6 }}>{t.notes}</div>}
@@ -298,7 +298,7 @@ export default function TransfersPage() {
               <div className="grid-2">
                 <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                   <label className="form-label">Organization Name *</label>
-                  <input className="form-input" value={groupForm.name || ""} onChange={(e) => setGroupForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Humane Society of Metro Atlanta" />
+                  <input className="form-input" value={groupForm.organization_name || ""} onChange={(e) => setGroupForm((p) => ({ ...p, organization_name: e.target.value }))} placeholder="e.g. Humane Society of Metro Atlanta" />
                 </div>
                 {gf("Contact Person", "contact_person")}
                 {gf("Phone", "phone", "tel")}
@@ -317,7 +317,7 @@ export default function TransfersPage() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowGroupModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleSaveGroup} disabled={savingGroup || !groupForm.name?.trim()}>
+              <button className="btn btn-primary" onClick={handleSaveGroup} disabled={savingGroup || !groupForm.organization_name?.trim()}>
                 {savingGroup ? "Saving…" : editingGroup ? "Save Changes" : "Add Group"}
               </button>
             </div>
