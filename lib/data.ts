@@ -629,8 +629,7 @@ export async function fetchRescueGroups(): Promise<import("./types").RescueGroup
 }
 
 export async function createRescueGroup(group: Omit<import("./types").RescueGroup, "id" | "created_at" | "updated_at">): Promise<import("./types").RescueGroup> {
-  const id = `RG-${genId()}`;
-  const { data, error } = await supabase.from("rescue_groups").insert({ ...group, id }).select().single();
+  const { data, error } = await supabase.from("rescue_groups").insert(group).select().single();
   if (error) throw error;
   return data as import("./types").RescueGroup;
 }
@@ -661,8 +660,7 @@ export async function createTransfer(
   transfer: Omit<import("./types").Transfer, "id" | "created_at">,
   animals: import("./types").Animal[]
 ): Promise<import("./types").Transfer> {
-  const id = `TR-${genId()}`;
-  const { data, error } = await supabase.from("transfers").insert({ ...transfer, id }).select().single();
+  const { data, error } = await supabase.from("transfers").insert(transfer).select().single();
   if (error) throw error;
   // Update each animal status to Transferred
   const transferDate = transfer.date;
