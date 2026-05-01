@@ -305,6 +305,12 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           <div style={{ color: "var(--text-secondary)", fontSize: 13, marginTop: 2 }}>
             {animal.id} · {animal.species} · {animal.breed} · {daysInCare} days in care
           </div>
+          {animal.status === "Transferred" && animal.transferred_to && (
+            <div style={{ marginTop: 6, display: "inline-flex", alignItems: "center", gap: 6, background: "#ede9fe", border: "1px solid #c4b5fd", borderRadius: 7, padding: "5px 12px", fontSize: 12 }}>
+              🚌 Transferred to <strong>{animal.transferred_to}</strong>
+              {animal.transfer_date && <span style={{ color: "#7c3aed" }}>on {animal.transfer_date}</span>}
+            </div>
+          )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={printKennelCard}>🖨 Kennel Card</button>

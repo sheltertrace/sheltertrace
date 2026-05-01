@@ -1,4 +1,4 @@
-export const STATUSES = ["Available", "Adopted", "Foster", "Medical Hold", "Quarantine", "Pending", "Euthanized", "Imported"] as const;
+export const STATUSES = ["Available", "Adopted", "Foster", "Medical Hold", "Quarantine", "Pending", "Euthanized", "Imported", "Transferred"] as const;
 export type AnimalStatus = typeof STATUSES[number];
 
 export const SUB_STATUSES: Record<string, string[]> = {
@@ -18,6 +18,7 @@ export const STATUS_COLORS: Record<string, string> = {
   Pending: "#a855f7",
   Euthanized: "#374151",
   Imported: "#0ea5e9",
+  Transferred: "#7c3aed",
 };
 
 export const INTAKE_TYPES = ["Surrender", "Stray", "Transfer", "Return", "Confiscation", "Born in Shelter"] as const;

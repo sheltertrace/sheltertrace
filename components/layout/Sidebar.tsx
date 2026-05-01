@@ -19,6 +19,7 @@ const NAV = [
   { href: "/ordinances", label: "Ordinances", perm: "dispatch", icon: "📖" },
   { href: "/forms", label: "Forms", perm: "dispatch", icon: "📝" },
   { href: "/court", label: "Court Portal", perm: "court", icon: "⚖️" },
+  { href: "/transfers", label: "Transfers", perm: "animals", icon: "🚌" },
   { href: "/reports", label: "Reports", perm: "reports", icon: "📊" },
   { href: "/volunteers", label: "Volunteers", perm: "volunteers", icon: "🙋" },
   { href: "/admin", label: "Admin", perm: "admin", icon: "⚙️" },

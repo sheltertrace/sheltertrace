@@ -43,6 +43,8 @@ export interface Animal {
   found_address?: string;
   found_city?: string;
   sub_status?: string;
+  transferred_to?: string;
+  transfer_date?: string;
   euthanasia?: EuthanasiaRecord | null;
   notes?: AnimalNote[];
   created_at?: string;
@@ -268,6 +270,36 @@ export interface Citation {
   // Court notification
   court_notified?: boolean;
   court_notified_at?: string;
+}
+
+export interface RescueGroup {
+  id: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  license_number?: string;
+  license_expiration?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface Transfer {
+  id: string;
+  transfer_number: string;
+  date: string;
+  rescue_group_id: string;
+  rescue_group_name?: string;
+  animal_ids: string[];
+  animal_names?: string[];
+  notes?: string;
+  officer?: string;
+  created_at?: string;
 }
 
 export interface ShelterSettings {

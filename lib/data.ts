@@ -622,6 +622,64 @@ export async function fetchCitationsByPerson(firstName?: string, lastName?: stri
   });
 }
 
+// ── Rescue Groups ─────────────────────────────────────────────────────────────
+export async function fetchRescueGroups(): Promise<import("./types").RescueGroup[]> {
+  const { data } = await supabase.from("rescue_groups").select("*").order("name");
+  return (data as import("./types").RescueGroup[]) || [];
+}
+
+export async function createRescueGroup(group: Omit<import("./types").RescueGroup, "id" | "created_at" | "updated_at">): Promise<import("./types").RescueGroup> {
+  const id = `RG-${genId()}`;
+  const { data, error } = await supabase.from("rescue_groups").insert({ ...group, id }).select().single();
+  if (error) throw error;
+  return data as import("./types").RescueGroup;
+}
+
+export async function updateRescueGroup(id: string, updates: Partial<import("./types").RescueGroup>): Promise<import("./types").RescueGroup> {
+  const { data, error } = await supabase.from("rescue_groups").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+  if (error) throw error;
+  return data as import("./types").RescueGroup;
+}
+
+export async function deleteRescueGroup(id: string): Promise<void> {
+  const { error } = await supabase.from("rescue_groups").delete().eq("id", id);
+  if (error) throw error;
+}
+
+// ── Transfers ─────────────────────────────────────────────────────────────────
+export async function fetchTransfers(): Promise<import("./types").Transfer[]> {
+  const { data } = await supabase.from("transfers").select("*").order("date", { ascending: false });
+  return (data as import("./types").Transfer[]) || [];
+}
+
+export async function fetchTransfersByGroup(groupId: string): Promise<import("./types").Transfer[]> {
+  const { data } = await supabase.from("transfers").select("*").eq("rescue_group_id", groupId).order("date", { ascending: false });
+  return (data as import("./types").Transfer[]) || [];
+}
+
+export async function createTransfer(
+  transfer: Omit<import("./types").Transfer, "id" | "created_at">,
+  animals: import("./types").Animal[]
+): Promise<import("./types").Transfer> {
+  const id = `TR-${genId()}`;
+  const { data, error } = await supabase.from("transfers").insert({ ...transfer, id }).select().single();
+  if (error) throw error;
+  // Update each animal status to Transferred
+  const transferDate = transfer.date;
+  const groupName = transfer.rescue_group_name || "";
+  await Promise.all(
+    animals.map((a) =>
+      supabase.from("animals").update({
+        status: "Transferred",
+        transferred_to: groupName,
+        transfer_date: transferDate,
+        updated_at: new Date().toISOString(),
+      }).eq("id", a.id)
+    )
+  );
+  return data as import("./types").Transfer;
+}
+
 export async function fetchFormsByLinked(opts: { callId?: string; animalId?: string; personId?: string }): Promise<import("./types").ShelterForm[]> {
   if (opts.callId) {
     const { data } = await supabase.from("forms").select("*").eq("linked_call_id", opts.callId).order("created_at", { ascending: false });
