@@ -792,6 +792,142 @@ function CallDetailPageInner() {
     }
   };
 
+  // ── Print Call Review ─────────────────────────────────────────────────────
+  const printCallReview = () => {
+    if (!call) return;
+    const w = window.open("", "_blank", "width=860,height=1100");
+    if (!w) return;
+
+    const fld = (label: string, val?: string | null) =>
+      val ? `<div style="display:flex;gap:12px;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:12px;"><span style="width:140px;flex-shrink:0;color:#64748b;font-weight:600;">${label}</span><span style="color:#0f172a;">${val}</span></div>` : "";
+
+    const narrative = [...liveNarrative].sort((a, b) => (a.time || "").localeCompare(b.time || ""));
+    const assignedOfficers = (call.assigned_officers || []) as Array<{ name: string; badge?: string; vehicle?: string }>;
+
+    const narrativeRows = narrative.length === 0
+      ? `<div style="color:#94a3b8;font-style:italic;font-size:12px;padding:10px 0;">No narrative entries recorded.</div>`
+      : narrative.map((n) => `
+        <div style="display:flex;gap:16px;padding:10px 0;border-bottom:1px solid #f1f5f9;">
+          <div style="width:60px;flex-shrink:0;font-size:11px;color:#64748b;font-family:monospace;padding-top:2px;">${n.time || ""}</div>
+          <div style="flex-shrink:0;width:110px;">
+            <span style="font-size:11px;font-weight:700;color:${n.officer === "System" ? "#94a3b8" : "#0f2942"};">${n.officer || "—"}</span>
+          </div>
+          <div style="flex:1;font-size:12px;color:${n.officer === "System" ? "#94a3b8" : "#1e293b"};font-style:${n.officer === "System" ? "italic" : "normal"};">
+            ${n.text}
+          </div>
+        </div>`).join("");
+
+    // Pull disposition from response_notes
+    const dispositionLine = (call.response_notes || "").split("\n").find((l) => l.startsWith("Disposition:"));
+    const dispositionText = dispositionLine ? dispositionLine.slice(12).trim() : "";
+
+    const officerList = assignedOfficers.length === 0
+      ? "<div style='color:#94a3b8;font-style:italic;font-size:12px;'>No officers assigned</div>"
+      : assignedOfficers.map((o) =>
+          `<div style="font-size:12px;padding:5px 0;border-bottom:1px solid #f1f5f9;">
+            <strong>${o.name}</strong>${o.badge ? ` &nbsp;·&nbsp; Badge #${o.badge}` : ""}${o.vehicle ? ` &nbsp;·&nbsp; ${o.vehicle}` : ""}
+          </div>`
+        ).join("");
+
+    w.document.write(`<!DOCTYPE html><html><head>
+<title>Call Review — ${call.id}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, Helvetica, sans-serif; background: #fff; color: #0f172a; }
+  @page {
+    size: letter;
+    margin: 18mm 16mm 18mm 16mm;
+    @top-left   { content: "MORGAN COUNTY ANIMAL SERVICES · Call Review"; font-size: 8pt; color: #64748b; font-family: Arial, sans-serif; }
+    @top-right  { content: "Call ${call.id} · Page " counter(page) " of " counter(pages); font-size: 8pt; color: #64748b; font-family: Arial, sans-serif; }
+    @bottom-center { content: "CONFIDENTIAL — FOR OFFICIAL USE ONLY"; font-size: 7pt; color: #94a3b8; font-family: Arial, sans-serif; }
+  }
+  @media print { .no-print { display: none !important; } }
+  section { margin-bottom: 22px; }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #1e3a5f; border-bottom: 2px solid #1e3a5f; padding-bottom: 5px; margin-bottom: 10px; }
+</style>
+</head><body style="padding:0.5in;">
+
+  <!-- Print button (screen only) -->
+  <div class="no-print" style="margin-bottom:16px;">
+    <button onclick="window.print()" style="background:#0f2942;color:#fff;border:none;padding:8px 20px;border-radius:5px;font-size:13px;font-weight:700;cursor:pointer;">🖨 Print / Save as PDF</button>
+  </div>
+
+  <!-- Document header -->
+  <div style="border-bottom:3px solid #0f2942;padding-bottom:14px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
+    <div>
+      <div style="font-size:18px;font-weight:900;letter-spacing:0.3px;color:#0f2942;">MORGAN COUNTY ANIMAL SERVICES</div>
+      <div style="font-size:10px;color:#64748b;margin-top:2px;">ShelterTrace · Shelter Data Systems</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:13px;font-weight:800;text-transform:uppercase;color:#1e3a5f;letter-spacing:0.5px;">Call Review Report</div>
+      <div style="font-size:11px;color:#64748b;margin-top:3px;">Printed: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} at ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div>
+    </div>
+  </div>
+
+  <!-- Call information -->
+  <section>
+    <div class="section-title">Call Information</div>
+    ${fld("Call ID", call.id)}
+    ${fld("Call Type", call.type)}
+    ${fld("Priority", call.priority)}
+    ${fld("Status", data.status)}
+    ${fld("Date Reported", `${call.date_reported || ""}${call.time_reported ? " at " + call.time_reported : ""}`)}
+    ${fld("Location", [call.address, call.city].filter(Boolean).join(", "))}
+    ${fld("Caller", call.caller || "Anonymous")}
+    ${fld("Caller Phone", call.caller_phone)}
+    ${fld("Description", call.description)}
+  </section>
+
+  <!-- Assigned officers -->
+  <section>
+    <div class="section-title">Assigned Officers (${assignedOfficers.length})</div>
+    ${officerList}
+  </section>
+
+  <!-- Narrative -->
+  <section>
+    <div class="section-title">Narrative / Timeline (${narrative.length} entr${narrative.length === 1 ? "y" : "ies"})</div>
+    <div style="display:flex;gap:0;padding:5px 0;border-bottom:2px solid #e2e8f0;margin-bottom:2px;">
+      <div style="width:60px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Time</div>
+      <div style="width:110px;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;padding-left:16px;">Officer</div>
+      <div style="flex:1;font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;padding-left:16px;">Entry</div>
+    </div>
+    ${narrativeRows}
+  </section>
+
+  ${dispositionText ? `
+  <!-- Disposition -->
+  <section>
+    <div class="section-title">Disposition / Resolution</div>
+    <div style="font-size:13px;padding:10px 14px;background:#f8fafc;border-left:4px solid #1e3a5f;border-radius:0 6px 6px 0;line-height:1.6;">${dispositionText}</div>
+  </section>` : ""}
+
+  <!-- Signature block -->
+  <div style="margin-top:40px;border-top:1px solid #e2e8f0;padding-top:20px;display:grid;grid-template-columns:1fr 1fr;gap:40px;">
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:28px;">Reviewing Officer</div>
+      <div style="border-bottom:1px solid #000;height:24px;margin-bottom:4px;"></div>
+      <div style="font-size:10px;color:#475569;">Signature</div>
+      <div style="margin-top:14px;border-bottom:1px solid #000;height:20px;margin-bottom:4px;"></div>
+      <div style="font-size:10px;color:#475569;">Print Name / Badge #</div>
+      <div style="margin-top:14px;border-bottom:1px solid #000;width:130px;height:20px;margin-bottom:4px;"></div>
+      <div style="font-size:10px;color:#475569;">Date</div>
+    </div>
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;color:#64748b;margin-bottom:28px;">Supervisor Review</div>
+      <div style="border-bottom:1px solid #000;height:24px;margin-bottom:4px;"></div>
+      <div style="font-size:10px;color:#475569;">Signature</div>
+      <div style="margin-top:14px;border-bottom:1px solid #000;height:20px;margin-bottom:4px;"></div>
+      <div style="font-size:10px;color:#475569;">Print Name / Title</div>
+      <div style="margin-top:14px;border-bottom:1px solid #000;width:130px;height:20px;margin-bottom:4px;"></div>
+      <div style="font-size:10px;color:#475569;">Date</div>
+    </div>
+  </div>
+
+</body></html>`);
+    w.document.close();
+  };
+
   if (loading) return (
     <AppShell title="Officer Field Report">
       <div className="empty-state" style={{ padding: "60px 0" }}>Loading call…</div>
@@ -831,6 +967,9 @@ function CallDetailPageInner() {
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
           {saveState === "saved" && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 700 }}>✓ Saved</span>}
           {saveState === "saving" && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Saving…</span>}
+          <button className="btn btn-secondary btn-sm" onClick={printCallReview} title="Print narrative and call review">
+            🖨 Print Call Review
+          </button>
           <button className="btn btn-secondary btn-sm" onClick={handleSaveProgress} disabled={saveState === "saving"}>
             💾 Save Progress
           </button>
