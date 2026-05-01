@@ -17,6 +17,8 @@ import {
   type AnimalDocument,
 } from "@/lib/data";
 import MedicalEditModal from "@/components/medical/MedicalEditModal";
+import dynamic from "next/dynamic";
+const CropPhotoModal = dynamic(() => import("./CropPhotoModal"), { ssr: false });
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import { supabase } from "@/lib/supabase";
@@ -49,6 +51,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [notes, setNotes] = useState<Array<{id: string; text: string; type: string; date: string; time: string}>>([]);
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
+  const [showCropModal, setShowCropModal] = useState(false);
 
   // Edit state
   const [editMode, setEditMode] = useState<string | null>(null); // section being edited
@@ -340,12 +343,24 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 {animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾"}
               </div>
             )}
-            <label style={{ display: "block", textAlign: "center", marginTop: 6 }}>
-              <span className="btn btn-secondary btn-sm" style={{ cursor: "pointer", display: "inline-flex" }}>
-                {photoUploading ? "Uploading…" : "📷 Change Photo"}
-              </span>
-              <input type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
-            </label>
+            <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
+              <label style={{ flex: 1 }}>
+                <span className="btn btn-secondary btn-sm" style={{ cursor: "pointer", display: "flex", justifyContent: "center" }}>
+                  {photoUploading ? "Uploading…" : "📷 Change"}
+                </span>
+                <input type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
+              </label>
+              {animal.photo_url && (
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setShowCropModal(true)}
+                  title="Crop the current photo"
+                  style={{ flex: 1 }}
+                >
+                  ✂️ Crop
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Quick stats */}
@@ -804,6 +819,20 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             </div>
           </div>
         </div>
+      )}
+
+      {/* Crop Photo Modal */}
+      {showCropModal && animal.photo_url && (
+        <CropPhotoModal
+          photoUrl={animal.photo_url}
+          animalId={animal.id}
+          animalName={animal.name}
+          onSave={(newUrl) => {
+            save({ photo_url: newUrl });
+            setShowCropModal(false);
+          }}
+          onClose={() => setShowCropModal(false)}
+        />
       )}
 
       {/* Medical Edit Modal */}
