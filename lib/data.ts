@@ -739,16 +739,21 @@ export async function clockOutVolunteer(logId: string): Promise<import("./types"
   return data as import("./types").VolunteerLog;
 }
 
-export async function fetchPersonByPid(rawInput: string): Promise<import("./types").Person | null> {
-  const input = rawInput.trim();
-  if (!input) return null;
+export interface PersonLookupResult {
+  person: import("./types").Person | null;
+  debugLog: string[];
+}
 
-  // Extract numeric digits so "PID-01045", "01045", "1045" all produce the same number
+export async function lookupPersonForKiosk(rawInput: string): Promise<PersonLookupResult> {
+  const log: string[] = [];
+  const input = rawInput.trim();
+  if (!input) return { person: null, debugLog: ["No input provided"] };
+
   const numericOnly = input.replace(/\D/g, "");
   const num = parseInt(numericOnly, 10);
 
-  // Build every plausible PID format to check in one IN query
-  const candidates: string[] = [input.toUpperCase()];
+  // Build every plausible PID format
+  const candidates: string[] = [input, input.toUpperCase()];
   if (!isNaN(num) && numericOnly) {
     for (let pad = 3; pad <= 6; pad++) {
       candidates.push(`PID-${String(num).padStart(pad, "0")}`);
@@ -759,38 +764,71 @@ export async function fetchPersonByPid(rawInput: string): Promise<import("./type
   }
   const unique = [...new Set(candidates)];
 
-  console.log("[fetchPersonByPid] input:", JSON.stringify(input), "→ candidates:", unique);
+  log.push(`Typed: "${input}"`);
+  log.push(`Candidates: ${unique.join(", ")}`);
+  console.log("[lookupPersonForKiosk] input:", input, "candidates:", unique);
 
-  // 1. Exact match on pid column (handles all format variations)
+  // ── Step 1: pid IN (all candidates) ─────────────────────────────────────────
   const { data: byPid, error: e1 } = await supabase
-    .from("people").select("*").in("pid", unique).limit(1);
-  console.log("[fetchPersonByPid] pid IN match:", byPid?.length ?? 0, e1?.message ?? "");
-  if (byPid && byPid.length > 0) return (byPid as import("./types").Person[])[0];
+    .from("people").select("*").in("pid", unique).limit(5);
+  log.push(`pid IN query → ${byPid?.length ?? 0} rows${e1 ? ` (err: ${e1.message})` : ""}`);
+  console.log("[lookupPersonForKiosk] pid IN:", byPid, e1);
+  if (byPid && byPid.length > 0) {
+    log.push(`MATCH via pid: ${(byPid[0] as import("./types").Person).first_name} ${(byPid[0] as import("./types").Person).last_name}`);
+    return { person: (byPid as import("./types").Person[])[0], debugLog: log };
+  }
 
-  // 2. Case-insensitive ilike on pid — catches entries with different casing or padding
+  // ── Step 2: pid ilike %numericOnly% ─────────────────────────────────────────
   if (numericOnly) {
-    const { data: byIlike } = await supabase
+    const { data: byIlike, error: e2 } = await supabase
       .from("people").select("*").ilike("pid", `%${numericOnly}%`).limit(10);
-    console.log("[fetchPersonByPid] pid ilike match:", byIlike?.length ?? 0);
+    log.push(`pid ilike "%${numericOnly}%" → ${byIlike?.length ?? 0} rows${e2 ? ` (err: ${e2.message})` : ""}`);
+    console.log("[lookupPersonForKiosk] pid ilike:", byIlike, e2);
     if (byIlike && byIlike.length > 0) {
-      // Prefer the row whose numeric part matches exactly
       const exact = (byIlike as import("./types").Person[]).find(
         (p) => (p.pid || "").replace(/\D/g, "") === numericOnly
       );
-      if (exact) return exact;
+      const hit = exact || (byIlike as import("./types").Person[])[0];
+      log.push(`MATCH via pid ilike: ${hit.first_name} ${hit.last_name} (pid=${hit.pid})`);
+      return { person: hit, debugLog: log };
     }
   }
 
-  // 3. barcode_id column (may not exist on all deployments — ignore errors)
-  try {
-    const { data: byBarcode } = await supabase
-      .from("people").select("*").eq("barcode_id", input).limit(1);
-    console.log("[fetchPersonByPid] barcode_id match:", byBarcode?.length ?? 0);
-    if (byBarcode && byBarcode.length > 0) return (byBarcode as import("./types").Person[])[0];
-  } catch { /* column may not exist */ }
+  // ── Step 3: people.id exact match (UUID barcode scan) ───────────────────────
+  {
+    const { data: byId, error: e3 } = await supabase
+      .from("people").select("*").eq("id", input).limit(1);
+    log.push(`id exact "${input}" → ${byId?.length ?? 0} rows${e3 ? ` (err: ${e3.message})` : ""}`);
+    console.log("[lookupPersonForKiosk] id exact:", byId, e3);
+    if (byId && byId.length > 0) {
+      log.push(`MATCH via id: ${(byId[0] as import("./types").Person).first_name}`);
+      return { person: (byId as import("./types").Person[])[0], debugLog: log };
+    }
+  }
 
-  console.log("[fetchPersonByPid] no match found for input:", JSON.stringify(input));
-  return null;
+  // ── Step 4: barcode_id column ────────────────────────────────────────────────
+  try {
+    const { data: byBarcode, error: e4 } = await supabase
+      .from("people").select("*").eq("barcode_id", input).limit(1);
+    log.push(`barcode_id "${input}" → ${byBarcode?.length ?? 0} rows${e4 ? ` (err: ${e4.message})` : ""}`);
+    console.log("[lookupPersonForKiosk] barcode_id:", byBarcode, e4);
+    if (byBarcode && byBarcode.length > 0) {
+      log.push(`MATCH via barcode_id`);
+      return { person: (byBarcode as import("./types").Person[])[0], debugLog: log };
+    }
+  } catch (e) {
+    log.push(`barcode_id query error: ${e}`);
+  }
+
+  log.push("NO MATCH FOUND");
+  console.log("[lookupPersonForKiosk] no match. Full log:", log);
+  return { person: null, debugLog: log };
+}
+
+// Keep the old function as a thin wrapper for non-kiosk callers
+export async function fetchPersonByPid(rawInput: string): Promise<import("./types").Person | null> {
+  const { person } = await lookupPersonForKiosk(rawInput);
+  return person;
 }
 
 // ── Animal search ─────────────────────────────────────────────────────────────

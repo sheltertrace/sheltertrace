@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import {
-  fetchPersonByPid, fetchActiveVolunteerLog,
-  clockInVolunteer, clockOutVolunteer, fetchTodayActiveVolunteers,
+  lookupPersonForKiosk, fetchActiveVolunteerLog,
+  clockInVolunteer, clockOutVolunteer,
 } from "@/lib/data";
 import type { Person, VolunteerLog } from "@/lib/types";
 
@@ -35,6 +35,7 @@ export default function VolunteerClockPage() {
   const [activeLog, setActiveLog] = useState<VolunteerLog | null>(null);
   const [selectedTask, setSelectedTask] = useState(TASKS[0]);
   const [errMsg, setErrMsg] = useState("");
+  const [debugLines, setDebugLines] = useState<string[]>([]);
   const [processing, setProcessing] = useState(false);
   const [activeToday, setActiveToday] = useState<VolunteerLog[]>([]);
   const [completedToday, setCompletedToday] = useState<VolunteerLog[]>([]);
@@ -105,6 +106,7 @@ export default function VolunteerClockPage() {
         setPerson(null);
         setActiveLog(null);
         setErrMsg("");
+        setDebugLines([]);
       }
     }, ms);
   }, []);
@@ -114,49 +116,50 @@ export default function VolunteerClockPage() {
     if (!inputTrimmed) return;
     setProcessing(true);
     setErrMsg("");
+    setDebugLines([]);
     setKioskState("lookup");
-    console.log("[kiosk] handleLookup called with:", JSON.stringify(inputTrimmed));
+    console.log("[kiosk] lookup start:", JSON.stringify(inputTrimmed));
     try {
-      const found = await fetchPersonByPid(inputTrimmed);
-      console.log("[kiosk] fetchPersonByPid returned:", found ? `${found.first_name} ${found.last_name} (role: ${found.role})` : "null");
+      const { person: found, debugLog } = await lookupPersonForKiosk(inputTrimmed);
+      console.log("[kiosk] lookup result:", found ? `${found.first_name} ${found.last_name} (role: ${found.role})` : "NOT FOUND", debugLog);
 
       if (!found) {
-        setErrMsg(
-          "We couldn't find that ID. Please check your volunteer ID number and try again, or ask staff for help."
-        );
+        setErrMsg(`ID not found. You searched: "${inputTrimmed}". Please ask staff for help.`);
+        setDebugLines(debugLog);
         setKioskState("error");
-        scheduleReset(7000);
+        scheduleReset(30000); // long timeout so staff can read the debug info
         return;
       }
 
-      // Accept "Volunteer" case-insensitively; also accept blank/unset role
+      // Accept any person regardless of role — only reject clearly non-volunteer staff roles
       const role = (found.role || "").toLowerCase().trim();
-      if (role && role !== "volunteer") {
-        setErrMsg(
-          `${found.first_name} ${found.last_name} is not registered as a volunteer (role: ${found.role}). Please see staff.`
-        );
+      const nonVolunteerRoles = ["admin", "officer", "dispatcher", "vet tech", "front desk", "court clerk", "judge"];
+      if (role && nonVolunteerRoles.includes(role)) {
+        setErrMsg(`${found.first_name} ${found.last_name} is a staff member (${found.role}), not a volunteer. Please use the staff login instead.`);
+        setDebugLines(debugLog);
         setKioskState("error");
-        scheduleReset(7000);
+        scheduleReset(10000);
         return;
       }
 
       // Save PID for Remember Me
       const rm = localStorage.getItem("vol_kiosk_remember") === "true";
-      if (rm) {
-        localStorage.setItem("vol_kiosk_pid", inputTrimmed);
-      }
+      if (rm) localStorage.setItem("vol_kiosk_pid", inputTrimmed);
 
       const log = await fetchActiveVolunteerLog(found.id);
       console.log("[kiosk] active log:", log ? `id=${log.id} task=${log.task}` : "none");
       setPerson(found);
       setActiveLog(log);
       setInputVal("");
+      setDebugLines([]);
       setKioskState(log ? "confirm_out" : "confirm_in");
     } catch (err) {
       console.error("[kiosk] lookup error:", err);
+      const msg = err instanceof Error ? err.message : String(err);
       setErrMsg("A system error occurred. Please try again or ask staff for help.");
+      setDebugLines([`Error: ${msg}`, `Searched: "${inputTrimmed}"`]);
       setKioskState("error");
-      scheduleReset(5000);
+      scheduleReset(15000);
     } finally {
       setProcessing(false);
     }
@@ -580,11 +583,30 @@ export default function VolunteerClockPage() {
         {kioskState === "error" && (
           <div className="kiosk-success-card" style={{ background: "#7f1d1d", border: "2px solid #fca5a5" }}>
             <div style={{ fontSize: 56, marginBottom: 12 }}>⚠️</div>
-            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 10 }}>ID Not Found</div>
+            <div style={{ fontSize: 22, fontWeight: 700, marginBottom: 10 }}>Not Found</div>
             <div style={{ fontSize: 16, opacity: 0.85, lineHeight: 1.5, marginBottom: 20 }}>{errMsg}</div>
+
+            {/* Debug info panel — shows what was searched for staff troubleshooting */}
+            {debugLines.length > 0 && (
+              <div style={{
+                background: "rgba(0,0,0,0.35)", borderRadius: 8,
+                padding: "12px 16px", marginBottom: 20,
+                textAlign: "left", maxWidth: 480, margin: "0 auto 20px",
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#fca5a5", marginBottom: 6, textTransform: "uppercase", letterSpacing: 1 }}>
+                  Debug Info (staff only)
+                </div>
+                {debugLines.map((line, i) => (
+                  <div key={i} style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", fontFamily: "monospace", lineHeight: 1.7 }}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+            )}
+
             <button
               style={{ padding: "12px 32px", borderRadius: 10, background: "rgba(255,255,255,0.15)", color: "#fff", border: "2px solid rgba(255,255,255,0.3)", fontWeight: 700, fontSize: 16, cursor: "pointer" }}
-              onClick={() => { setKioskState("idle"); setInputVal(""); setErrMsg(""); cancelReset(); }}
+              onClick={() => { setKioskState("idle"); setInputVal(""); setErrMsg(""); setDebugLines([]); cancelReset(); }}
             >
               Try Again
             </button>
