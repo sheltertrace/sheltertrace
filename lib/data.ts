@@ -680,7 +680,7 @@ export async function createTransfer(
 
 // ── Volunteer Logs ────────────────────────────────────────────────────────────
 export async function fetchVolunteerLogs(opts?: { personId?: string; dateFrom?: string; dateTo?: string; date?: string }): Promise<import("./types").VolunteerLog[]> {
-  let q = supabase.from("volunteer_logs").select("*").order("clock_in", { ascending: false });
+  let q = supabase.from("volunteer_sessions").select("*").order("clock_in", { ascending: false });
   if (opts?.personId)  q = q.eq("person_id", opts.personId);
   if (opts?.date)      q = q.eq("date", opts.date);
   if (opts?.dateFrom)  q = q.gte("date", opts.dateFrom);
@@ -692,7 +692,7 @@ export async function fetchVolunteerLogs(opts?: { personId?: string; dateFrom?: 
 export async function fetchTodayActiveVolunteers(): Promise<import("./types").VolunteerLog[]> {
   const todayStr = new Date().toISOString().split("T")[0];
   const { data } = await supabase
-    .from("volunteer_logs")
+    .from("volunteer_sessions")
     .select("*")
     .eq("date", todayStr)
     .is("clock_out", null)
@@ -702,7 +702,7 @@ export async function fetchTodayActiveVolunteers(): Promise<import("./types").Vo
 
 export async function fetchActiveVolunteerLog(personId: string): Promise<import("./types").VolunteerLog | null> {
   const { data } = await supabase
-    .from("volunteer_logs")
+    .from("volunteer_sessions")
     .select("*")
     .eq("person_id", personId)
     .is("clock_out", null)
@@ -713,7 +713,7 @@ export async function fetchActiveVolunteerLog(personId: string): Promise<import(
 
 export async function clockInVolunteer(personId: string, personName: string, task: string): Promise<import("./types").VolunteerLog> {
   const now = new Date();
-  const { data, error } = await supabase.from("volunteer_logs").insert({
+  const { data, error } = await supabase.from("volunteer_sessions").insert({
     person_id: personId,
     person_name: personName,
     task,
@@ -726,12 +726,12 @@ export async function clockInVolunteer(personId: string, personName: string, tas
 
 export async function clockOutVolunteer(logId: string): Promise<import("./types").VolunteerLog> {
   const { data: existing, error: fetchErr } = await supabase
-    .from("volunteer_logs").select("clock_in").eq("id", logId).single();
+    .from("volunteer_sessions").select("clock_in").eq("id", logId).single();
   if (fetchErr) throw fetchErr;
   const now = new Date();
   const clockInMs = new Date((existing as { clock_in: string }).clock_in).getTime();
   const hours = Math.round((now.getTime() - clockInMs) / 36000) / 100;
-  const { data, error } = await supabase.from("volunteer_logs").update({
+  const { data, error } = await supabase.from("volunteer_sessions").update({
     clock_out: now.toISOString(),
     hours,
   }).eq("id", logId).select().single();

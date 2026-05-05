@@ -79,7 +79,7 @@ export default function VolunteerClockPage() {
       const { supabase } = await import("@/lib/supabase");
       const todayStr = new Date().toISOString().split("T")[0];
       const { data } = await supabase
-        .from("volunteer_logs").select("*").eq("date", todayStr)
+        .from("volunteer_sessions").select("*").eq("date", todayStr)
         .order("clock_in", { ascending: false });
       const all = (data as VolunteerLog[]) || [];
       setActiveToday(all.filter((l) => !l.clock_out));

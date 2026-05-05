@@ -1,5 +1,5 @@
 -- Volunteer time-clock log table
-CREATE TABLE IF NOT EXISTS volunteer_logs (
+CREATE TABLE IF NOT EXISTS volunteer_sessions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   person_id     TEXT NOT NULL,
   person_name   TEXT NOT NULL,
@@ -12,10 +12,10 @@ CREATE TABLE IF NOT EXISTS volunteer_logs (
   created_at    TIMESTAMPTZ DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_volunteer_logs_person ON volunteer_logs(person_id);
-CREATE INDEX IF NOT EXISTS idx_volunteer_logs_date   ON volunteer_logs(date);
+CREATE INDEX IF NOT EXISTS idx_volunteer_sessions_person ON volunteer_sessions(person_id);
+CREATE INDEX IF NOT EXISTS idx_volunteer_sessions_date   ON volunteer_sessions(date);
 
-ALTER TABLE volunteer_logs ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "allow_all_volunteer_logs" ON volunteer_logs;
-CREATE POLICY "allow_all_volunteer_logs" ON volunteer_logs
+ALTER TABLE volunteer_sessions ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "allow_all_volunteer_sessions" ON volunteer_sessions;
+CREATE POLICY "allow_all_volunteer_sessions" ON volunteer_sessions
   FOR ALL USING (true) WITH CHECK (true);
