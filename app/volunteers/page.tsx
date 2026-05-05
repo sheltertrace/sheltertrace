@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchPeople, fetchVolunteerLogs } from "@/lib/data";
+import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements } from "@/lib/data";
 import type { Person, VolunteerLog } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
 import Link from "next/link";
@@ -20,7 +20,7 @@ export default function VolunteersPage() {
   const [volunteers, setVolunteers] = useState<Person[]>([]);
   const [logs, setLogs]             = useState<VolunteerLog[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [tab, setTab]               = useState<"roster" | "today" | "hours" | "report">("today");
+  const [tab, setTab]               = useState<"roster" | "today" | "hours" | "report" | "tools">("today");
 
   // Filters for report
   const [filterFrom, setFilterFrom] = useState(() => {
@@ -34,11 +34,19 @@ export default function VolunteersPage() {
   const [emailSubject,  setEmailSubject]  = useState("");
   const [emailBody,     setEmailBody]     = useState("");
 
+  // Tools tab
+  const [announcements,    setAnnouncements]    = useState("");
+  const [announcementsOrig, setAnnouncementsOrig] = useState("");
+  const [annSaving,        setAnnSaving]        = useState(false);
+  const [annSaved,         setAnnSaved]         = useState(false);
+
   const load = useCallback(async () => {
     try {
-      const [p, l] = await Promise.all([fetchPeople(), fetchVolunteerLogs()]);
+      const [p, l, ann] = await Promise.all([fetchPeople(), fetchVolunteerLogs(), fetchVolunteerAnnouncements()]);
       setVolunteers(p.filter((x) => x.role === "Volunteer"));
       setLogs(l);
+      setAnnouncements(ann);
+      setAnnouncementsOrig(ann);
     } catch { } finally { setLoading(false); }
   }, []);
 
@@ -130,6 +138,7 @@ export default function VolunteersPage() {
           { key: "roster",  label: `Volunteer Roster (${volunteers.length})` },
           { key: "hours",   label: "Hours Log" },
           { key: "report",  label: "Hours Report" },
+          { key: "tools",   label: "⚙ Tools" },
         ].map(({ key, label }) => (
           <div key={key} className={`tab ${tab === key ? "active" : ""}`} onClick={() => setTab(key as typeof tab)}>{label}</div>
         ))}
@@ -310,6 +319,114 @@ export default function VolunteersPage() {
           </div>
         </div>
       )}
+
+      {/* ── TOOLS ── */}
+      {tab === "tools" && (() => {
+        const kioskUrl = typeof window !== "undefined" ? `${window.location.origin}/volunteer-clock` : "/volunteer-clock";
+        const portalUrl = typeof window !== "undefined" ? `${window.location.origin}/volunteer` : "/volunteer";
+        const qrBase = "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=";
+
+        const printQR = () => {
+          const html = `<!DOCTYPE html><html><head><title>Volunteer QR Codes</title>
+<style>body{font-family:Arial,sans-serif;padding:40px;text-align:center}h1{font-size:20pt;margin-bottom:6px}.pair{display:flex;justify-content:center;gap:60px;margin-top:30px}.box{text-align:center}.box img{display:block;margin:0 auto 12px}.url{font-size:9pt;color:#666;word-break:break-all;max-width:220px}.title{font-size:14pt;font-weight:bold;margin-bottom:4px}</style></head>
+<body><h1>Morgan County Animal Services — Volunteer Access</h1>
+<p style="color:#666;font-size:10pt">Scan a QR code with your phone to get started</p>
+<div class="pair">
+  <div class="box">
+    <div class="title">🖥️ Kiosk Clock-In</div>
+    <p style="font-size:10pt;color:#555;margin-bottom:12px">For tablet at front desk</p>
+    <img src="${qrBase}${encodeURIComponent(kioskUrl)}" width="200" height="200" />
+    <div class="url">${kioskUrl}</div>
+  </div>
+  <div class="box">
+    <div class="title">📱 My Volunteer Portal</div>
+    <p style="font-size:10pt;color:#555;margin-bottom:12px">For your personal phone</p>
+    <img src="${qrBase}${encodeURIComponent(portalUrl)}" width="200" height="200" />
+    <div class="url">${portalUrl}</div>
+  </div>
+</div></body></html>`;
+          const w = window.open("", "_blank", "width=760,height=600");
+          if (!w) return;
+          w.document.write(html);
+          w.document.close();
+          setTimeout(() => w.print(), 400);
+        };
+
+        return (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, alignItems: "start" }}>
+            {/* Announcements */}
+            <div className="card">
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>📢 Volunteer Announcements</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>
+                Shown on the volunteer portal. Leave blank to hide.
+              </div>
+              <textarea
+                className="form-textarea"
+                rows={6}
+                value={announcements}
+                onChange={(e) => { setAnnouncements(e.target.value); setAnnSaved(false); }}
+                placeholder="Enter announcements for volunteers (e.g. upcoming events, schedule changes)…"
+              />
+              <div style={{ display: "flex", gap: 10, marginTop: 10, alignItems: "center" }}>
+                <button
+                  className="btn btn-primary btn-sm"
+                  disabled={annSaving || announcements === announcementsOrig}
+                  onClick={async () => {
+                    setAnnSaving(true);
+                    try {
+                      await saveVolunteerAnnouncements(announcements);
+                      setAnnouncementsOrig(announcements);
+                      setAnnSaved(true);
+                      setTimeout(() => setAnnSaved(false), 3000);
+                    } finally { setAnnSaving(false); }
+                  }}
+                >
+                  {annSaving ? "Saving…" : "Save"}
+                </button>
+                {announcements !== announcementsOrig && !annSaving && (
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setAnnouncements(announcementsOrig); setAnnSaved(false); }}>
+                    Discard
+                  </button>
+                )}
+                {annSaved && <span style={{ fontSize: 13, color: "#16a34a", fontWeight: 600 }}>✓ Saved</span>}
+              </div>
+            </div>
+
+            {/* QR Codes */}
+            <div className="card">
+              <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>📲 QR Codes for Volunteers</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 16 }}>
+                Print these and post them for easy volunteer access.
+              </div>
+              <div style={{ display: "flex", gap: 24, justifyContent: "center", marginBottom: 16, flexWrap: "wrap" }}>
+                <div style={{ textAlign: "center" }}>
+                  <img
+                    src={`${qrBase}${encodeURIComponent(kioskUrl)}`}
+                    alt="Kiosk QR"
+                    width={160} height={160}
+                    style={{ borderRadius: 8, border: "2px solid var(--border)" }}
+                  />
+                  <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6 }}>🖥️ Kiosk Clock-In</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Tablet / front desk</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <img
+                    src={`${qrBase}${encodeURIComponent(portalUrl)}`}
+                    alt="Portal QR"
+                    width={160} height={160}
+                    style={{ borderRadius: 8, border: "2px solid var(--border)" }}
+                  />
+                  <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6 }}>📱 Volunteer Portal</div>
+                  <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Personal phone</div>
+                </div>
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={printQR} style={{ width: "100%" }}>
+                🖨 Print QR Sheet
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Mass Email Modal */}
       {showEmail && (

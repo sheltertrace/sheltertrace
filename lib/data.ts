@@ -783,6 +783,16 @@ export async function linkAnimalToPerson(animalId: string, personId: string): Pr
   await supabase.from("animal_people").upsert({ animal_id: animalId, person_id: personId });
 }
 
+// ── Volunteer Announcements ───────────────────────────────────────────────────
+export async function fetchVolunteerAnnouncements(): Promise<string> {
+  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 5).single();
+  return (data as { config_data: { text?: string } } | null)?.config_data?.text || "";
+}
+
+export async function saveVolunteerAnnouncements(text: string): Promise<void> {
+  await supabase.from("shelter_config").upsert({ id: 5, config_data: { text }, updated_at: new Date().toISOString() });
+}
+
 export async function fetchFormsByLinked(opts: { callId?: string; animalId?: string; personId?: string }): Promise<import("./types").ShelterForm[]> {
   if (opts.callId) {
     const { data } = await supabase.from("forms").select("*").eq("linked_call_id", opts.callId).order("created_at", { ascending: false });
