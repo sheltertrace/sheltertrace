@@ -678,6 +678,27 @@ export async function createTransfer(
   return data as import("./types").Transfer;
 }
 
+// ── Redemptions ───────────────────────────────────────────────────────────────
+export async function createRedemption(data: Omit<import("./types").Redemption, "id" | "created_at">): Promise<import("./types").Redemption> {
+  const { data: row, error } = await supabase.from("redemptions").insert(data).select().single();
+  if (error) {
+    console.error("[createRedemption] Supabase error:", error.message, error.hint);
+    throw error;
+  }
+  return row as import("./types").Redemption;
+}
+
+export async function fetchRedemptions(animalId?: string): Promise<import("./types").Redemption[]> {
+  let q = supabase.from("redemptions").select("*").order("redemption_date", { ascending: false });
+  if (animalId) q = q.eq("animal_id", animalId);
+  const { data } = await q;
+  return (data as import("./types").Redemption[]) || [];
+}
+
+export async function linkAnimalToPerson(animalId: string, personId: string): Promise<void> {
+  await supabase.from("animal_people").upsert({ animal_id: animalId, person_id: personId });
+}
+
 export async function fetchFormsByLinked(opts: { callId?: string; animalId?: string; personId?: string }): Promise<import("./types").ShelterForm[]> {
   if (opts.callId) {
     const { data } = await supabase.from("forms").select("*").eq("linked_call_id", opts.callId).order("created_at", { ascending: false });

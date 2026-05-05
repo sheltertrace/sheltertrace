@@ -289,6 +289,30 @@ export interface RescueGroup {
   updated_at?: string;
 }
 
+export interface Redemption {
+  id: string;
+  animal_id: string;
+  person_id: string;
+  redemption_date: string;
+  impound_fee: number;
+  boarding_fee: number;
+  boarding_days: number;
+  rabies_fee: number;
+  microchip_fee: number;
+  license_fee: number;
+  other_fees: number;
+  total_fees: number;
+  payment_method?: string;
+  waiver_reason?: string;
+  receipt_number?: string;
+  proof_of_ownership?: string;
+  conditions_notes?: string;
+  citation_issued?: boolean;
+  citation_number?: string;
+  officer?: string;
+  created_at?: string;
+}
+
 export interface Transfer {
   id: string;
   transfer_number: string;

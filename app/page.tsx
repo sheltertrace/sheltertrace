@@ -69,6 +69,8 @@ export default function DashboardPage() {
   const quarantine = animals.filter((a) => a.status === "Quarantine").length;
   const pending = animals.filter((a) => a.status === "Pending").length;
   const imported = animals.filter((a) => a.status === "Imported").length;
+  const redeemed = animals.filter((a) => a.status === "Redeemed").length;
+  const transferred = animals.filter((a) => a.status === "Transferred").length;
   const pendingCalls = calls.filter((c) => c.status === "Pending").length;
   const activeCalls = calls.filter((c) => ["Dispatched", "En Route", "On Scene"].includes(c.status || "")).length;
 
@@ -126,6 +128,8 @@ export default function DashboardPage() {
               <MiniBar label="Pending" count={pending} max={animals.length} color="#a855f7" />
               <MiniBar label="Adopted" count={adopted} max={animals.length} color="#6366f1" />
               {imported > 0 && <MiniBar label="Imported" count={imported} max={animals.length} color="#0ea5e9" />}
+              {transferred > 0 && <MiniBar label="Transferred" count={transferred} max={animals.length} color="#7c3aed" />}
+              {redeemed > 0 && <MiniBar label="Redeemed" count={redeemed} max={animals.length} color="#0891b2" />}
             </div>
 
             {/* Monthly adoptions chart */}

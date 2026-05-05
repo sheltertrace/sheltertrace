@@ -25,6 +25,7 @@ import { supabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import ReturnAnimalModal from "./ReturnAnimalModal";
 import AdoptionFromDetailModal from "./AdoptionFromDetailModal";
+const RedemptionWizard = dynamic(() => import("./RedemptionWizard"), { ssr: false });
 
 interface Props {
   animal: Animal;
@@ -48,6 +49,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [animal, setAnimal] = useState<Animal>(initialAnimal);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showAdoptionModal, setShowAdoptionModal] = useState(false);
+  const [showRedemptionWizard, setShowRedemptionWizard] = useState(false);
   const [notes, setNotes] = useState<Array<{id: string; text: string; type: string; date: string; time: string}>>([]);
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -399,8 +401,11 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
               </select>
             )}
             <button className="btn btn-secondary btn-sm" onClick={() => setShowKennelMove(true)}>📍 Move Kennel</button>
-            {!["Adopted", "Euthanized", "Foster"].includes(animal.status) && (
+            {!["Adopted", "Euthanized", "Foster", "Transferred", "Redeemed"].includes(animal.status) && (
               <button className="btn btn-sm" style={{ background: "#16a34a", color: "#fff", borderColor: "#16a34a" }} onClick={() => setShowAdoptionModal(true)}>🏡 Process Adoption</button>
+            )}
+            {!["Adopted", "Euthanized", "Foster", "Transferred", "Redeemed"].includes(animal.status) && (
+              <button className="btn btn-sm" style={{ background: "#0891b2", color: "#fff", borderColor: "#0891b2" }} onClick={() => setShowRedemptionWizard(true)}>🔑 Redeem to Owner</button>
             )}
             {animal.status === "Adopted" && (
               <button className="btn btn-sm" style={{ background: "#f59e0b", color: "#fff", borderColor: "#f59e0b" }} onClick={() => setShowReturnModal(true)}>↩ Return Animal</button>
@@ -866,6 +871,14 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           people={people}
           onSuccess={(updated) => { setAnimal(updated); onUpdate(updated); setShowAdoptionModal(false); }}
           onClose={() => setShowAdoptionModal(false)}
+        />
+      )}
+
+      {showRedemptionWizard && (
+        <RedemptionWizard
+          animal={animal}
+          onComplete={(updated) => { setAnimal(updated); onUpdate(updated); setShowRedemptionWizard(false); }}
+          onClose={() => setShowRedemptionWizard(false)}
         />
       )}
 
