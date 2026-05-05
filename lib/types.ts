@@ -158,6 +158,7 @@ export interface DispatchCall {
   evidence?: EvidenceItem[];
   involved_parties?: InvolvedParty[];
   linked_citations?: string[];
+  animal_ids?: string[];
   date_reported?: string;
   time_reported?: string;
   response_notes?: string;

@@ -678,6 +678,23 @@ export async function createTransfer(
   return data as import("./types").Transfer;
 }
 
+// ── Animal search ─────────────────────────────────────────────────────────────
+export async function searchAnimals(q: string): Promise<Animal[]> {
+  if (!q.trim()) return [];
+  const lo = q.toLowerCase();
+  const { data } = await supabase
+    .from("animals")
+    .select("id,name,species,breed,color,sex,status,microchip,kennel,intake_date")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  const rows = (data as Animal[]) || [];
+  return rows.filter((a) =>
+    a.id.toLowerCase().includes(lo) ||
+    (a.name || "").toLowerCase().includes(lo) ||
+    (a.microchip || "").toLowerCase().includes(lo)
+  ).slice(0, 10);
+}
+
 // ── Redemptions ───────────────────────────────────────────────────────────────
 export async function createRedemption(data: Omit<import("./types").Redemption, "id" | "created_at">): Promise<import("./types").Redemption> {
   const { data: row, error } = await supabase.from("redemptions").insert(data).select().single();

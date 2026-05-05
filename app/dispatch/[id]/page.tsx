@@ -2,8 +2,10 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
-import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked } from "@/lib/data";
-import type { DispatchCall, Person, Officer, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType } from "@/lib/types";
+import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked, fetchAnimals } from "@/lib/data";
+import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType } from "@/lib/types";
+import dynamic from "next/dynamic";
+const QuickIntakeModal = dynamic(() => import("@/components/dispatch/QuickIntakeModal"), { ssr: false });
 import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS } from "@/lib/constants";
 import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -172,6 +174,8 @@ function CallDetailPageInner() {
   const [saving, setSaving] = useState(false);
   const [callForms, setCallForms] = useState<ShelterForm[]>([]);
   const [showCallForms, setShowCallForms] = useState(false);
+  const [linkedAnimals, setLinkedAnimals] = useState<Animal[]>([]);
+  const [showIntakeModal, setShowIntakeModal] = useState(false);
 
   useEffect(() => {
     Promise.all([fetchCall(id), fetchPeople(), fetchOfficers(), fetchCitations(), fetchFormsByLinked({ callId: id })]).then(([c, p, o, cits, forms]) => {
@@ -179,6 +183,13 @@ function CallDetailPageInner() {
         setCall(c);
         setData(callToReportData(c));
         setLiveNarrative((c.narrative || []) as NarrativeEntry[]);
+        // Load animals linked to this call
+        const animalIds = (c.animal_ids || []) as string[];
+        if (animalIds.length > 0) {
+          fetchAnimals().then((all) => {
+            setLinkedAnimals(all.filter((a) => animalIds.includes(a.id)));
+          });
+        }
       }
       setPeople(p);
       setOfficers(o);
@@ -220,6 +231,7 @@ function CallDetailPageInner() {
     assigned_officers: data.assigned_officers,
     narrative: liveNarrative,
     involved_parties: buildInvolved(),
+    animal_ids: (call?.animal_ids || []) as string[],
     response_notes: [
       call?.response_notes,
       data.arrival_time ? `Arrival: ${data.arrival_time}` : "",
@@ -227,6 +239,27 @@ function CallDetailPageInner() {
       data.disposition_notes ? `Disposition: ${data.disposition_notes}` : "",
     ].filter(Boolean).join("\n") || undefined,
   }), [data, liveNarrative, buildInvolved, call]);
+
+  // ── Link animal to call ───────────────────────────────────────────────────
+  const handleAnimalAdded = async (animal: Animal) => {
+    if (!call) return;
+    // Avoid duplicates
+    const existing = (call.animal_ids || []) as string[];
+    if (existing.includes(animal.id)) {
+      setLinkedAnimals((prev) => prev.some((a) => a.id === animal.id) ? prev : [...prev, animal]);
+      setShowIntakeModal(false);
+      return;
+    }
+    const updated = [...existing, animal.id];
+    try {
+      const saved = await updateCall(call.id, { animal_ids: updated });
+      setCall(saved);
+      setLinkedAnimals((prev) => [...prev, animal]);
+    } catch (e: unknown) {
+      console.error("[handleAnimalAdded]", (e as { message?: string }).message);
+    }
+    setShowIntakeModal(false);
+  };
 
   // ── Save progress ──────────────────────────────────────────────────────────
   const handleSaveProgress = async () => {
@@ -1023,6 +1056,59 @@ function CallDetailPageInner() {
         </div>
       </div>
 
+      {/* Impounded Animals section */}
+      <div className="card" style={{ marginTop: 20, padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "10px 16px", background: "var(--surface-alt)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>🐾 Impounded Animals ({linkedAnimals.length})</span>
+          <button
+            className="btn btn-primary btn-sm"
+            style={{ marginLeft: "auto" }}
+            onClick={() => setShowIntakeModal(true)}
+          >
+            + Intake Animal
+          </button>
+        </div>
+        {linkedAnimals.length === 0 ? (
+          <div style={{ padding: "18px 16px", color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>
+            No animals impounded on this call yet.{" "}
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowIntakeModal(true)}>Create intake record →</button>
+          </div>
+        ) : (
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Animal ID</th>
+                <th>Name</th>
+                <th>Species / Breed</th>
+                <th>Color / Sex</th>
+                <th>Status</th>
+                <th>Kennel</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {linkedAnimals.map((a) => (
+                <tr key={a.id}>
+                  <td>
+                    <span style={{ fontFamily: "monospace", fontWeight: 800, color: "var(--teal)", fontSize: 13 }}>{a.id}</span>
+                  </td>
+                  <td style={{ fontWeight: 600 }}>{a.name}</td>
+                  <td style={{ fontSize: 12 }}>{a.species}{a.breed && a.breed !== "Unknown" ? ` — ${a.breed}` : ""}</td>
+                  <td style={{ fontSize: 12 }}>{a.color || "—"} · {a.sex || "—"}</td>
+                  <td>
+                    <span className="badge" style={{ fontSize: 10 }}>{a.status}</span>
+                  </td>
+                  <td style={{ fontSize: 12 }}>{a.kennel || "—"}</td>
+                  <td>
+                    <a href={`/animals/${a.id}`} className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}>View →</a>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
       {/* Forms section */}
       <div className="card" style={{ marginTop: 20, padding: 0, overflow: "hidden" }}>
         <div
@@ -1073,6 +1159,14 @@ function CallDetailPageInner() {
           </div>
         )}
       </div>
+      {showIntakeModal && call && (
+        <QuickIntakeModal
+          callId={call.id}
+          callType={call.type}
+          onAdded={handleAnimalAdded}
+          onClose={() => setShowIntakeModal(false)}
+        />
+      )}
     </AppShell>
   );
 }
