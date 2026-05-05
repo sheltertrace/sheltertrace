@@ -34,6 +34,9 @@ export default function VolunteersPage() {
   const [emailSubject,  setEmailSubject]  = useState("");
   const [emailBody,     setEmailBody]     = useState("");
 
+  // QR code modal
+  const [showQR, setShowQR] = useState(false);
+
   // Tools tab
   const [announcements,    setAnnouncements]    = useState("");
   const [announcementsOrig, setAnnouncementsOrig] = useState("");
@@ -120,15 +123,17 @@ export default function VolunteersPage() {
         ))}
       </div>
 
-      {/* Kiosk link banner */}
-      <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+      {/* Access banner */}
+      <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "12px 18px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
         <div>
-          <span style={{ fontWeight: 700, fontSize: 14 }}>🖥️ Volunteer Kiosk Mode</span>
-          <span style={{ fontSize: 13, color: "var(--text-secondary)", marginLeft: 12 }}>Open the self-service clock-in screen on a tablet at the front desk</span>
+          <span style={{ fontWeight: 700, fontSize: 14 }}>🖥️ Volunteer Access</span>
+          <span style={{ fontSize: 13, color: "var(--text-secondary)", marginLeft: 12 }}>Kiosk clock-in tablet · personal volunteer portal · QR codes for posting</span>
         </div>
-        <Link href="/volunteer-clock" target="_blank" className="btn btn-primary btn-sm">
-          Open Kiosk →
-        </Link>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <Link href="/volunteer-clock" target="_blank" className="btn btn-secondary btn-sm">Open Kiosk →</Link>
+          <Link href="/volunteer" target="_blank" className="btn btn-secondary btn-sm">Volunteer Portal →</Link>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowQR(true)}>📲 Generate QR Codes</button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -423,6 +428,107 @@ export default function VolunteersPage() {
               <button className="btn btn-secondary btn-sm" onClick={printQR} style={{ width: "100%" }}>
                 🖨 Print QR Sheet
               </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── QR CODE MODAL ── */}
+      {showQR && (() => {
+        const KIOSK_URL  = "https://sheltertrace.com/volunteer-clock";
+        const PORTAL_URL = "https://sheltertrace.com/volunteer";
+        const qr = (url: string, size = 220) =>
+          `https://quickchart.io/qr?text=${encodeURIComponent(url)}&size=${size}&margin=2`;
+
+        const printQR = () => {
+          const html = `<!DOCTYPE html><html><head><title>Volunteer QR Codes — Morgan County Animal Services</title>
+<style>
+  @page { size: letter; margin: 0.75in; }
+  body { font-family: Arial, sans-serif; text-align: center; color: #111; }
+  h1 { font-size: 20pt; margin: 0 0 4px; }
+  .sub { font-size: 11pt; color: #555; margin-bottom: 32px; }
+  .pair { display: flex; justify-content: center; gap: 80px; margin-top: 24px; }
+  .box { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .box img { border: 2px solid #ddd; border-radius: 8px; }
+  .label { font-size: 14pt; font-weight: bold; }
+  .desc  { font-size: 10pt; color: #555; max-width: 200px; line-height: 1.4; }
+  .url   { font-size: 8pt; color: #888; margin-top: 4px; word-break: break-all; max-width: 200px; }
+  .footer{ margin-top: 48px; font-size: 9pt; color: #aaa; }
+</style></head>
+<body>
+  <h1>Morgan County Animal Services</h1>
+  <div class="sub">Scan a QR code with your phone's camera to get started</div>
+  <div class="pair">
+    <div class="box">
+      <img src="${qr(KIOSK_URL, 240)}" width="240" height="240" />
+      <div class="label">🖥️ Scan to Clock In / Out</div>
+      <div class="desc">Use on the front-desk tablet or your phone to sign in for your volunteer shift</div>
+      <div class="url">${KIOSK_URL}</div>
+    </div>
+    <div class="box">
+      <img src="${qr(PORTAL_URL, 240)}" width="240" height="240" />
+      <div class="label">📱 Scan to View Your Hours</div>
+      <div class="desc">Check your volunteer hours, clock in or out, and see announcements from your phone</div>
+      <div class="url">${PORTAL_URL}</div>
+    </div>
+  </div>
+  <div class="footer">ShelterTrace · Volunteer Self-Service · sheltertrace.com</div>
+</body></html>`;
+          const w = window.open("", "_blank", "width=800,height=700");
+          if (!w) return;
+          w.document.write(html);
+          w.document.close();
+          setTimeout(() => w.print(), 600);
+        };
+
+        return (
+          <div className="modal-overlay" onClick={() => setShowQR(false)}>
+            <div className="modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">📲 Volunteer QR Codes</span>
+                <button className="btn btn-ghost btn-sm" onClick={() => setShowQR(false)}>✕</button>
+              </div>
+              <div className="modal-body">
+                <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
+                  Print these QR codes and post them in your shelter for volunteers to scan with their phones.
+                </div>
+                <div style={{ display: "flex", gap: 32, justifyContent: "center", flexWrap: "wrap" }}>
+                  <div style={{ textAlign: "center" }}>
+                    <img
+                      src={qr(KIOSK_URL)}
+                      alt="Kiosk QR Code"
+                      width={200} height={200}
+                      style={{ borderRadius: 10, border: "2px solid var(--border)", display: "block", margin: "0 auto 10px" }}
+                    />
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>🖥️ Scan to Clock In / Out</div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, maxWidth: 200 }}>
+                      Front-desk kiosk or personal phone
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4, fontFamily: "monospace", wordBreak: "break-all" }}>
+                      {KIOSK_URL}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "center" }}>
+                    <img
+                      src={qr(PORTAL_URL)}
+                      alt="Portal QR Code"
+                      width={200} height={200}
+                      style={{ borderRadius: 10, border: "2px solid var(--border)", display: "block", margin: "0 auto 10px" }}
+                    />
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "var(--text-primary)" }}>📱 Scan to View Your Hours</div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4, maxWidth: 200 }}>
+                      Personal volunteer portal
+                    </div>
+                    <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 4, fontFamily: "monospace", wordBreak: "break-all" }}>
+                      {PORTAL_URL}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setShowQR(false)}>Close</button>
+                <button className="btn btn-primary" onClick={printQR}>🖨 Print QR Sheet</button>
+              </div>
             </div>
           </div>
         );

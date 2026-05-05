@@ -739,10 +739,58 @@ export async function clockOutVolunteer(logId: string): Promise<import("./types"
   return data as import("./types").VolunteerLog;
 }
 
-export async function fetchPersonByPid(pid: string): Promise<import("./types").Person | null> {
-  const clean = pid.trim().toUpperCase();
-  const { data } = await supabase.from("people").select("*").eq("pid", clean).limit(1);
-  return (data as import("./types").Person[])?.[0] || null;
+export async function fetchPersonByPid(rawInput: string): Promise<import("./types").Person | null> {
+  const input = rawInput.trim();
+  if (!input) return null;
+
+  // Extract numeric digits so "PID-01045", "01045", "1045" all produce the same number
+  const numericOnly = input.replace(/\D/g, "");
+  const num = parseInt(numericOnly, 10);
+
+  // Build every plausible PID format to check in one IN query
+  const candidates: string[] = [input.toUpperCase()];
+  if (!isNaN(num) && numericOnly) {
+    for (let pad = 3; pad <= 6; pad++) {
+      candidates.push(`PID-${String(num).padStart(pad, "0")}`);
+    }
+    candidates.push(numericOnly);
+    candidates.push(String(num).padStart(5, "0"));
+    candidates.push(`PID-${numericOnly}`);
+  }
+  const unique = [...new Set(candidates)];
+
+  console.log("[fetchPersonByPid] input:", JSON.stringify(input), "→ candidates:", unique);
+
+  // 1. Exact match on pid column (handles all format variations)
+  const { data: byPid, error: e1 } = await supabase
+    .from("people").select("*").in("pid", unique).limit(1);
+  console.log("[fetchPersonByPid] pid IN match:", byPid?.length ?? 0, e1?.message ?? "");
+  if (byPid && byPid.length > 0) return (byPid as import("./types").Person[])[0];
+
+  // 2. Case-insensitive ilike on pid — catches entries with different casing or padding
+  if (numericOnly) {
+    const { data: byIlike } = await supabase
+      .from("people").select("*").ilike("pid", `%${numericOnly}%`).limit(10);
+    console.log("[fetchPersonByPid] pid ilike match:", byIlike?.length ?? 0);
+    if (byIlike && byIlike.length > 0) {
+      // Prefer the row whose numeric part matches exactly
+      const exact = (byIlike as import("./types").Person[]).find(
+        (p) => (p.pid || "").replace(/\D/g, "") === numericOnly
+      );
+      if (exact) return exact;
+    }
+  }
+
+  // 3. barcode_id column (may not exist on all deployments — ignore errors)
+  try {
+    const { data: byBarcode } = await supabase
+      .from("people").select("*").eq("barcode_id", input).limit(1);
+    console.log("[fetchPersonByPid] barcode_id match:", byBarcode?.length ?? 0);
+    if (byBarcode && byBarcode.length > 0) return (byBarcode as import("./types").Person[])[0];
+  } catch { /* column may not exist */ }
+
+  console.log("[fetchPersonByPid] no match found for input:", JSON.stringify(input));
+  return null;
 }
 
 // ── Animal search ─────────────────────────────────────────────────────────────

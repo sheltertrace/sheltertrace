@@ -51,11 +51,16 @@ export default function VolunteerClockPage() {
     return () => clearInterval(t);
   }, []);
 
+  // Focus input on idle/lookup and on initial page load
   useEffect(() => {
     if (kioskState === "idle" || kioskState === "lookup") {
-      setTimeout(() => inputRef.current?.focus(), 50);
+      setTimeout(() => inputRef.current?.focus(), 80);
     }
   }, [kioskState]);
+
+  useEffect(() => {
+    setTimeout(() => inputRef.current?.focus(), 200);
+  }, []);
 
   // Load Remember Me state on mount and auto-lookup if saved
   useEffect(() => {
@@ -105,42 +110,53 @@ export default function VolunteerClockPage() {
   }, []);
 
   const handleLookup = useCallback(async (raw: string) => {
-    const pid = raw.trim().toUpperCase();
-    if (!pid) return;
+    const inputTrimmed = raw.trim();
+    if (!inputTrimmed) return;
     setProcessing(true);
     setErrMsg("");
     setKioskState("lookup");
+    console.log("[kiosk] handleLookup called with:", JSON.stringify(inputTrimmed));
     try {
-      const normalized = /^\d+$/.test(pid)
-        ? `PID-${pid.padStart(5, "0")}`
-        : pid;
-      const found = await fetchPersonByPid(normalized);
+      const found = await fetchPersonByPid(inputTrimmed);
+      console.log("[kiosk] fetchPersonByPid returned:", found ? `${found.first_name} ${found.last_name} (role: ${found.role})` : "null");
+
       if (!found) {
-        setErrMsg(`No volunteer found for ID "${pid}". Check your ID card and try again.`);
+        setErrMsg(
+          "We couldn't find that ID. Please check your volunteer ID number and try again, or ask staff for help."
+        );
         setKioskState("error");
-        scheduleReset(6000);
+        scheduleReset(7000);
         return;
       }
-      if (found.role !== "Volunteer") {
-        setErrMsg(`${found.first_name} ${found.last_name} is not registered as a volunteer (role: ${found.role}).`);
+
+      // Accept "Volunteer" case-insensitively; also accept blank/unset role
+      const role = (found.role || "").toLowerCase().trim();
+      if (role && role !== "volunteer") {
+        setErrMsg(
+          `${found.first_name} ${found.last_name} is not registered as a volunteer (role: ${found.role}). Please see staff.`
+        );
         setKioskState("error");
-        scheduleReset(6000);
+        scheduleReset(7000);
         return;
       }
-      // Save PID if Remember Me is on
+
+      // Save PID for Remember Me
       const rm = localStorage.getItem("vol_kiosk_remember") === "true";
       if (rm) {
-        localStorage.setItem("vol_kiosk_pid", normalized);
+        localStorage.setItem("vol_kiosk_pid", inputTrimmed);
       }
+
       const log = await fetchActiveVolunteerLog(found.id);
+      console.log("[kiosk] active log:", log ? `id=${log.id} task=${log.task}` : "none");
       setPerson(found);
       setActiveLog(log);
       setInputVal("");
       setKioskState(log ? "confirm_out" : "confirm_in");
-    } catch {
-      setErrMsg("System error. Please try again.");
+    } catch (err) {
+      console.error("[kiosk] lookup error:", err);
+      setErrMsg("A system error occurred. Please try again or ask staff for help.");
       setKioskState("error");
-      scheduleReset(4000);
+      scheduleReset(5000);
     } finally {
       setProcessing(false);
     }
