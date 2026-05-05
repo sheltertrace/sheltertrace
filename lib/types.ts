@@ -290,6 +290,19 @@ export interface RescueGroup {
   updated_at?: string;
 }
 
+export interface VolunteerLog {
+  id: string;
+  person_id: string;
+  person_name: string;
+  task: string;
+  clock_in: string;
+  clock_out?: string | null;
+  hours?: number | null;
+  date: string;
+  notes?: string;
+  created_at?: string;
+}
+
 export interface Redemption {
   id: string;
   animal_id: string;
