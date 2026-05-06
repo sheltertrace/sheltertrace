@@ -375,8 +375,8 @@ function CallDetailPageInner() {
   // ── Step renderers ────────────────────────────────────────────────────────
   const renderStep = () => {
     if (!call) return null;
-    const g2: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" };
-    const g3: React.CSSProperties = { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0 12px" };
+    const g2 = "dispatch-g2";
+    const g3 = "dispatch-g3";
     const skipBanner = (label: string, skipped: boolean, onSkip: () => void, onRestore: () => void) => (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "8px 14px", background: skipped ? "#f1f5f9" : "#fff7ed", border: `1px solid ${skipped ? "#e2e8f0" : "#fed7aa"}`, borderRadius: 6, marginBottom: 14 }}>
         <span style={{ fontSize: 13, color: skipped ? "var(--text-muted)" : "#92400e" }}>{skipped ? `✓ ${label} — skipped` : `${label} — fill in details or skip`}</span>
@@ -403,7 +403,7 @@ function CallDetailPageInner() {
         return (
           <div>
             {/* Status control */}
-            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: `${CALL_STATUS_COLORS[data.status] || "#6b7280"}12`, border: `1px solid ${CALL_STATUS_COLORS[data.status] || "#6b7280"}30`, borderRadius: 8, marginBottom: 20 }}>
+            <div className="dispatch-status-banner" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", background: `${CALL_STATUS_COLORS[data.status] || "#6b7280"}12`, border: `1px solid ${CALL_STATUS_COLORS[data.status] || "#6b7280"}30`, borderRadius: 8, marginBottom: 20 }}>
               <div style={{ fontSize: 24 }}>📡</div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 900, fontSize: 18 }}>{call.type}</div>
@@ -417,7 +417,7 @@ function CallDetailPageInner() {
               </div>
             </div>
 
-            <div style={g2}>
+            <div className={g2}>
               <div className="card" style={{ padding: "14px 16px" }}>
                 <div style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>Dispatch Info</div>
                 <InfoRow label="Priority" value={call.priority} />
@@ -449,7 +449,7 @@ function CallDetailPageInner() {
               </div>
             </div>
 
-            <div style={g2}>
+            <div className={g2}>
               <F label="Arrival Time">
                 <input className="form-input" type="time" value={data.arrival_time} onChange={(e) => upd({ arrival_time: e.target.value })} />
               </F>
@@ -470,7 +470,7 @@ function CallDetailPageInner() {
               <PersonSearchRow people={people} selectedId={data.victim_person_id}
                 onSelect={(p) => upd({ victim_person_id: p.id, victim_first: p.first_name, victim_middle: p.middle_name || "", victim_last: p.last_name, victim_name: `${p.first_name} ${p.last_name}`, victim_phone: p.phone || "", victim_address: p.address || "" })}
                 onClear={() => upd({ victim_person_id: "", victim_first: "", victim_middle: "", victim_last: "", victim_name: "", victim_phone: "", victim_address: "" })} />
-              <div style={g2}>
+              <div className={g2}>
                 <F label="First Name"><input className="form-input" value={data.victim_first} onChange={(e) => upd({ victim_first: e.target.value })} /></F>
                 <F label="Middle Name"><input className="form-input" value={data.victim_middle} onChange={(e) => upd({ victim_middle: e.target.value })} /></F>
                 <F label="Last Name"><input className="form-input" value={data.victim_last} onChange={(e) => upd({ victim_last: e.target.value })} /></F>
@@ -497,7 +497,7 @@ function CallDetailPageInner() {
         <div>
           {skipBanner("Victim (Animal)", data.victim_animal_skip, () => upd({ victim_animal_skip: true }), () => upd({ victim_animal_skip: false }))}
           {!data.victim_animal_skip && (
-            <div style={g2}>
+            <div className={g2}>
               <F label="Species"><select className="form-select" value={data.victim_animal_species} onChange={(e) => upd({ victim_animal_species: e.target.value })}>{["Dog","Cat","Bird","Livestock","Wildlife","Other"].map((s) => <option key={s}>{s}</option>)}</select></F>
               <F label="Breed"><input className="form-input" value={data.victim_animal_breed} onChange={(e) => upd({ victim_animal_breed: e.target.value })} /></F>
               <F label="Color"><input className="form-input" value={data.victim_animal_color} onChange={(e) => upd({ victim_animal_color: e.target.value })} /></F>
@@ -526,7 +526,7 @@ function CallDetailPageInner() {
               <PersonSearchRow people={people} selectedId={data.suspect_person_id}
                 onSelect={(p) => upd({ suspect_person_id: p.id, suspect_first: p.first_name, suspect_middle: p.middle_name || "", suspect_last: p.last_name, suspect_name: `${p.first_name} ${p.last_name}`, suspect_phone: p.phone || "", suspect_address: p.address || "" })}
                 onClear={() => upd({ suspect_person_id: "", suspect_first: "", suspect_middle: "", suspect_last: "", suspect_name: "", suspect_phone: "", suspect_address: "" })} />
-              <div style={g2}>
+              <div className={g2}>
                 <F label="First Name"><input className="form-input" value={data.suspect_first} onChange={(e) => upd({ suspect_first: e.target.value })} /></F>
                 <F label="Middle Name"><input className="form-input" value={data.suspect_middle} onChange={(e) => upd({ suspect_middle: e.target.value })} /></F>
                 <F label="Last Name"><input className="form-input" value={data.suspect_last} onChange={(e) => upd({ suspect_last: e.target.value })} /></F>
@@ -537,7 +537,7 @@ function CallDetailPageInner() {
                 <F label="Sex"><select className="form-select" value={data.suspect_sex} onChange={(e) => upd({ suspect_sex: e.target.value })}><option value="">—</option>{["Male","Female","Unknown"].map((s) => <option key={s}>{s}</option>)}</select></F>
               </div>
               <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", color: "var(--text-secondary)", margin: "8px 0 4px" }}>Physical Description</div>
-              <div style={g3}>
+              <div className={g3}>
                 <F label="Hair"><input className="form-input" value={data.suspect_hair} onChange={(e) => upd({ suspect_hair: e.target.value })} /></F>
                 <F label="Eyes"><input className="form-input" value={data.suspect_eyes} onChange={(e) => upd({ suspect_eyes: e.target.value })} /></F>
                 <F label="Weight (lbs)"><input className="form-input" value={data.suspect_weight} onChange={(e) => upd({ suspect_weight: e.target.value })} /></F>
@@ -559,7 +559,7 @@ function CallDetailPageInner() {
         <div>
           {skipBanner("Suspect (Animal)", data.suspect_animal_skip, () => upd({ suspect_animal_skip: true }), () => upd({ suspect_animal_skip: false }))}
           {!data.suspect_animal_skip && (
-            <div style={g2}>
+            <div className={g2}>
               <F label="Species"><select className="form-select" value={data.suspect_animal_species} onChange={(e) => upd({ suspect_animal_species: e.target.value })}>{["Dog","Cat","Bird","Livestock","Wildlife","Other"].map((s) => <option key={s}>{s}</option>)}</select></F>
               <F label="Breed"><input className="form-input" value={data.suspect_animal_breed} onChange={(e) => upd({ suspect_animal_breed: e.target.value })} /></F>
               <F label="Color"><input className="form-input" value={data.suspect_animal_color} onChange={(e) => upd({ suspect_animal_color: e.target.value })} /></F>
@@ -581,7 +581,7 @@ function CallDetailPageInner() {
         <div>
           <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "14px 16px", marginBottom: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", color: "#0369a1", marginBottom: 8 }}>Add Narrative Entry</div>
-            <div style={{ display: "flex", gap: 8 }}>
+            <div className="dispatch-narrative-input" style={{ display: "flex", gap: 8 }}>
               <textarea className="form-textarea" rows={3} style={{ flex: 1 }} value={newNarrText} onChange={(e) => setNewNarrText(e.target.value)} placeholder="Officer observations, actions taken, details gathered on scene…" />
               <button className="btn btn-primary" style={{ alignSelf: "flex-end", whiteSpace: "nowrap" }} onClick={handleAddNarrative} disabled={!newNarrText.trim()}>+ Add Entry</button>
             </div>
@@ -742,7 +742,7 @@ function CallDetailPageInner() {
           </div>
 
           {/* Add backup / Transfer */}
-          <div style={g2}>
+          <div className={g2}>
             <div>
               <label className="form-label">Add Backup Officer</label>
               <select className="form-select" value={data.backup_id} onChange={(e) => {
@@ -771,7 +771,7 @@ function CallDetailPageInner() {
           </div>
 
           {/* Times & disposition */}
-          <div style={{ ...g2, marginTop: 16 }}>
+          <div className={g2} style={{ marginTop: 16 }}>
             <F label="Arrival Time"><input className="form-input" type="time" value={data.arrival_time} onChange={(e) => upd({ arrival_time: e.target.value })} /></F>
             <F label="Departure Time"><input className="form-input" type="time" value={data.departure_time} onChange={(e) => upd({ departure_time: e.target.value })} /></F>
           </div>
@@ -786,7 +786,7 @@ function CallDetailPageInner() {
         const Sect = ({ title, items }: { title: string; items: [string, string][] }) => (
           <div style={{ marginBottom: 10, border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
             <div style={{ padding: "6px 14px", background: "#f8fafc", borderBottom: "1px solid var(--border)", fontWeight: 700, fontSize: 12, textTransform: "uppercase", color: "var(--text-secondary)" }}>{title}</div>
-            <div style={{ padding: "8px 14px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "3px 16px" }}>
+            <div className="dispatch-sect-grid">
               {items.map(([label, value]) => (
                 <div key={label} style={{ fontSize: 12 }}><span style={{ color: "var(--text-muted)" }}>{label}: </span><strong>{value || "—"}</strong></div>
               ))}
@@ -979,40 +979,39 @@ function CallDetailPageInner() {
   return (
     <AppShell title="">
       {/* Page header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20, flexWrap: "wrap" }}>
+      <div className="dispatch-page-header">
         <button className="btn btn-ghost btn-sm" onClick={() => router.push("/dispatch")} style={{ color: "var(--text-secondary)" }}>
-          ← Back to Dispatch Board
+          ← Back
         </button>
-        <div style={{ width: 1, height: 20, background: "var(--border)" }} />
-        <div>
+        <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 11, fontFamily: "monospace", color: "var(--text-muted)" }}>{call.id}</div>
-          <h1 style={{ fontSize: 20, fontWeight: 900, margin: 0, color: "#0f2942" }}>{call.type}</h1>
+          <h1 style={{ fontSize: 18, fontWeight: 900, margin: 0, color: "#0f2942", wordBreak: "break-word" }}>{call.type}</h1>
         </div>
-        <span className="badge" style={{ background: `${CALL_STATUS_COLORS[data.status] || "#6b7280"}20`, color: CALL_STATUS_COLORS[data.status] || "#6b7280", fontWeight: 700 }}>
+        <span className="badge" style={{ background: `${CALL_STATUS_COLORS[data.status] || "#6b7280"}20`, color: CALL_STATUS_COLORS[data.status] || "#6b7280", fontWeight: 700, flexShrink: 0 }}>
           {data.status}
         </span>
-        <span style={{ fontSize: 13, fontWeight: 700, color: PRIORITY_COLORS[call.priority] || "var(--text-secondary)", padding: "2px 10px", background: `${PRIORITY_COLORS[call.priority] || "#6b7280"}15`, borderRadius: 10 }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: PRIORITY_COLORS[call.priority] || "var(--text-secondary)", padding: "2px 10px", background: `${PRIORITY_COLORS[call.priority] || "#6b7280"}15`, borderRadius: 10, flexShrink: 0 }}>
           {call.priority}
         </span>
-        <span style={{ fontSize: 13, color: "var(--text-secondary)", marginLeft: 4 }}>
+        <span style={{ fontSize: 13, color: "var(--text-secondary)", wordBreak: "break-word", minWidth: 0 }}>
           {call.address}{call.city ? `, ${call.city}` : ""}
         </span>
-        <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+        <div className="dispatch-page-header-actions" style={{ marginLeft: "auto" }}>
           {saveState === "saved" && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 700 }}>✓ Saved</span>}
           {saveState === "saving" && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Saving…</span>}
           <button className="btn btn-secondary btn-sm" onClick={printCallReview} title="Print narrative and call review">
-            🖨 Print Call Review
+            🖨 Print
           </button>
           <button className="btn btn-secondary btn-sm" onClick={handleSaveProgress} disabled={saveState === "saving"}>
-            💾 Save Progress
+            💾 Save
           </button>
         </div>
       </div>
 
       {/* Two-column layout */}
-      <div style={{ display: "flex", gap: 20, alignItems: "flex-start" }}>
+      <div className="dispatch-detail-layout">
         {/* Left: Step navigation */}
-        <div style={{ width: 200, flexShrink: 0, position: "sticky", top: 76 }}>
+        <div className="dispatch-step-nav">
           {STEPS.map((name, i) => (
             <StepNavItem key={i} n={i + 1} name={name} current={step === i + 1} done={stepComplete(i + 1)} onClick={() => setStep(i + 1)} />
           ))}
@@ -1028,16 +1027,21 @@ function CallDetailPageInner() {
         </div>
 
         {/* Right: Step content */}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ background: "var(--card)", border: "1px solid var(--border)", borderRadius: 10, padding: "24px 28px", marginBottom: 14 }}>
-            <h2 style={{ fontSize: 18, fontWeight: 800, margin: "0 0 20px", color: "#0f2942" }}>
+        <div className="dispatch-step-content">
+          {/* Mobile step indicator */}
+          <div className="dispatch-mobile-step-header">
+            <span>Step {step} of {STEPS.length} — {STEPS[step - 1]}</span>
+            <span style={{ fontSize: 12, color: "var(--text-muted)", fontWeight: 400 }}>{call?.type}</span>
+          </div>
+          <div className="dispatch-step-card">
+            <h2 className="dispatch-step-title" style={{ fontSize: 18, fontWeight: 800, margin: "0 0 20px", color: "#0f2942" }}>
               Step {step} — {STEPS[step - 1]}
             </h2>
             {renderStep()}
           </div>
 
           {/* Navigation bar */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div className="dispatch-nav-bar" style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <button className="btn btn-secondary" onClick={() => setStep((s) => Math.max(1, s - 1))} disabled={step === 1}>← Prev</button>
             <button className="btn btn-secondary" onClick={handleSaveProgress} disabled={saveState === "saving"} style={{ gap: 6 }}>
               {saveState === "saving" ? "Saving…" : "💾 Save Progress"}

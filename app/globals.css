@@ -837,6 +837,244 @@ html, body {
   }
 }
 
+/* ── Dispatch Layout ── */
+.dispatch-detail-layout {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.dispatch-step-nav {
+  width: 200px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 76px;
+}
+
+.dispatch-step-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.dispatch-step-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 24px 28px;
+  margin-bottom: 14px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-width: 100%;
+}
+
+.dispatch-page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.dispatch-g2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 16px;
+}
+
+.dispatch-g3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 0 12px;
+}
+
+.dispatch-sect-grid {
+  padding: 8px 14px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px 16px;
+}
+
+/* Desktop: table visible, cards hidden */
+.dispatch-table-desktop { display: block; }
+.dispatch-cards-mobile { display: none; }
+.dispatch-mobile-step-header { display: none; }
+
+.dispatch-call-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background 0.15s;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.dispatch-call-card:hover { background: var(--hover-bg); }
+
+.dispatch-call-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.dispatch-call-card-type {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  word-break: break-word;
+}
+
+.dispatch-call-card-address {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 4px 0 6px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.dispatch-call-card-meta {
+  display: flex;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--text-muted);
+  flex-wrap: wrap;
+}
+
+.dispatch-call-card-officers {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 5px;
+}
+
+@media (max-width: 768px) {
+  /* Show cards, hide table on mobile */
+  .dispatch-table-desktop { display: none !important; }
+  .dispatch-cards-mobile {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  /* Mobile step indicator */
+  .dispatch-mobile-step-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    word-break: break-word;
+  }
+
+  /* Hide the step sidebar nav on mobile */
+  .dispatch-step-nav {
+    display: none;
+  }
+
+  .dispatch-step-content {
+    width: 100%;
+  }
+
+  .dispatch-detail-layout {
+    flex-direction: column;
+  }
+
+  .dispatch-step-card {
+    padding: 14px 16px;
+  }
+
+  /* All form grids → single column */
+  .dispatch-g2,
+  .dispatch-g3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .dispatch-sect-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Page header stacks vertically */
+  .dispatch-page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .dispatch-page-header-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    width: 100%;
+    margin-left: 0 !important;
+  }
+
+  .dispatch-page-header-actions .btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 100px;
+  }
+
+  /* Narrative: textarea stacks above button */
+  .dispatch-narrative-input {
+    flex-direction: column !important;
+  }
+
+  .dispatch-narrative-input > .btn {
+    align-self: stretch !important;
+    justify-content: center;
+  }
+
+  /* Nav buttons row */
+  .dispatch-nav-bar {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .dispatch-nav-bar > .btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 80px;
+  }
+
+  /* Status banner in step 1 stacks */
+  .dispatch-status-banner {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  /* Hide desktop step title (mobile header shows it instead) */
+  .dispatch-step-title {
+    display: none;
+  }
+
+  /* Ensure all text wraps */
+  .dispatch-step-card * {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+  }
+
+  /* Filters wrap cleanly */
+  .dispatch-filters {
+    gap: 6px;
+  }
+
+  .dispatch-filters .btn {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+}
+
 /* ── Print — always light ── */
 @media print {
   :root, [data-theme="dark"] {

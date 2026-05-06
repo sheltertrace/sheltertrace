@@ -71,7 +71,7 @@ export default function DispatchPage() {
 
       {/* Filters */}
       {(tab === "queue" || tab === "history") && (
-        <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+        <div className="dispatch-filters" style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
           <input className="form-input" style={{ flex: "1 1 200px", maxWidth: 260 }} placeholder="Search calls…" value={search} onChange={(e) => setSearch(e.target.value)} />
           <button className="btn btn-primary" onClick={() => router.push("/dispatch/new")}>+ New Call</button>
           {["All", ...CALL_PRIORITIES].map((p) => (
@@ -85,35 +85,70 @@ export default function DispatchPage() {
 
       {/* Call Queue / History */}
       {(tab === "queue" || tab === "history") && (
-        <div className="card" style={{ padding: 0, overflow: "hidden" }}>
-          <table className="data-table">
-            <thead>
-              <tr><th>Priority</th><th>ID</th><th>Type</th><th>Address</th><th>Caller</th><th>Status</th><th>Officers</th><th>Reported</th></tr>
-            </thead>
-            <tbody>
-              {loading
-                ? <tr><td colSpan={8} className="empty-state">Loading…</td></tr>
-                : (tab === "queue" ? activeQueue : historyQueue).length === 0
-                  ? <tr><td colSpan={8} className="empty-state">No calls</td></tr>
-                  : (tab === "queue" ? activeQueue : historyQueue).map((call) => (
-                    <tr key={call.id} onClick={() => router.push(`/dispatch/${call.id}`)} style={{ cursor: "pointer" }} title="Click to open field report">
-                      <td>
-                        <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: PRIORITY_COLORS[call.priority || ""] || "#ccc", marginRight: 6 }} />
-                        {call.priority}
-                      </td>
-                      <td style={{ fontFamily: "monospace", fontSize: 11 }}>{call.id}</td>
-                      <td style={{ fontWeight: 600 }}>{call.type}</td>
-                      <td style={{ fontSize: 12 }}>{call.address}{call.city ? `, ${call.city}` : ""}</td>
-                      <td style={{ fontSize: 12 }}>{call.caller || "Anonymous"}</td>
-                      <td><span className="badge" style={{ background: `${CALL_STATUS_COLORS[call.status || ""]}20`, color: CALL_STATUS_COLORS[call.status || ""] || "#6b7280" }}>{call.status}</span></td>
-                      <td style={{ fontSize: 12 }}>{(call.assigned_officers || []).map((o) => o.name).join(", ") || "—"}</td>
-                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{call.date_reported} {call.time_reported}</td>
-                    </tr>
-                  ))
-              }
-            </tbody>
-          </table>
-        </div>
+        <>
+          {/* Desktop table */}
+          <div className="dispatch-table-desktop card" style={{ padding: 0, overflow: "hidden" }}>
+            <table className="data-table">
+              <thead>
+                <tr><th>Priority</th><th>ID</th><th>Type</th><th>Address</th><th>Caller</th><th>Status</th><th>Officers</th><th>Reported</th></tr>
+              </thead>
+              <tbody>
+                {loading
+                  ? <tr><td colSpan={8} className="empty-state">Loading…</td></tr>
+                  : (tab === "queue" ? activeQueue : historyQueue).length === 0
+                    ? <tr><td colSpan={8} className="empty-state">No calls</td></tr>
+                    : (tab === "queue" ? activeQueue : historyQueue).map((call) => (
+                      <tr key={call.id} onClick={() => router.push(`/dispatch/${call.id}`)} style={{ cursor: "pointer" }} title="Click to open field report">
+                        <td>
+                          <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: PRIORITY_COLORS[call.priority || ""] || "#ccc", marginRight: 6 }} />
+                          {call.priority}
+                        </td>
+                        <td style={{ fontFamily: "monospace", fontSize: 11 }}>{call.id}</td>
+                        <td style={{ fontWeight: 600 }}>{call.type}</td>
+                        <td style={{ fontSize: 12 }}>{call.address}{call.city ? `, ${call.city}` : ""}</td>
+                        <td style={{ fontSize: 12 }}>{call.caller || "Anonymous"}</td>
+                        <td><span className="badge" style={{ background: `${CALL_STATUS_COLORS[call.status || ""]}20`, color: CALL_STATUS_COLORS[call.status || ""] || "#6b7280" }}>{call.status}</span></td>
+                        <td style={{ fontSize: 12 }}>{(call.assigned_officers || []).map((o) => o.name).join(", ") || "—"}</td>
+                        <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{call.date_reported} {call.time_reported}</td>
+                      </tr>
+                    ))
+                }
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile cards */}
+          <div className="dispatch-cards-mobile">
+            {loading ? (
+              <div className="card empty-state" style={{ padding: "20px 0" }}>Loading…</div>
+            ) : (tab === "queue" ? activeQueue : historyQueue).length === 0 ? (
+              <div className="card empty-state" style={{ padding: "20px 0" }}>No calls</div>
+            ) : (tab === "queue" ? activeQueue : historyQueue).map((call) => (
+              <div key={call.id} className="dispatch-call-card" onClick={() => router.push(`/dispatch/${call.id}`)}>
+                <div className="dispatch-call-card-header">
+                  <div className="dispatch-call-card-type">
+                    <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: PRIORITY_COLORS[call.priority || ""] || "#ccc", marginRight: 8, flexShrink: 0 }} />
+                    {call.type}
+                  </div>
+                  <span className="badge" style={{ background: `${CALL_STATUS_COLORS[call.status || ""]}20`, color: CALL_STATUS_COLORS[call.status || ""] || "#6b7280", flexShrink: 0 }}>{call.status}</span>
+                </div>
+                {call.address && (
+                  <div className="dispatch-call-card-address">📍 {call.address}{call.city ? `, ${call.city}` : ""}</div>
+                )}
+                <div className="dispatch-call-card-meta">
+                  <span>{call.caller || "Anonymous"}</span>
+                  <span>{call.date_reported} {call.time_reported}</span>
+                  {call.priority && (
+                    <span style={{ fontWeight: 700, color: PRIORITY_COLORS[call.priority] || "var(--text-muted)" }}>{call.priority}</span>
+                  )}
+                </div>
+                {(call.assigned_officers || []).length > 0 && (
+                  <div className="dispatch-call-card-officers">👮 {(call.assigned_officers || []).map((o) => o.name).join(", ")}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {/* Officers Tab */}
