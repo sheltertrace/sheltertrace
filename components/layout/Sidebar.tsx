@@ -25,7 +25,12 @@ const NAV = [
   { href: "/admin", label: "Admin", perm: "admin", icon: "⚙️" },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  open?: boolean;
+  onClose?: () => void;
+}
+
+export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
@@ -36,7 +41,7 @@ export default function Sidebar() {
   const isAdmin = user.permissions.includes("all");
 
   return (
-    <nav className="sidebar">
+    <nav className={`sidebar${open ? " open" : ""}`}>
       <div className="sidebar-logo">
         <Image src="/logo.jpg" alt="ShelterTrace" width={44} height={44} style={{ borderRadius: 8, background: "#ececec", padding: 3 }} />
         <div className="sidebar-brand">
@@ -60,6 +65,7 @@ export default function Sidebar() {
               key={item.href}
               href={item.href}
               className={`nav-item${isActive ? " active" : ""}`}
+              onClick={() => onClose?.()}
             >
               <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{item.icon}</span>
               {item.label}

@@ -1,6 +1,6 @@
 "use client";
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/providers";
 import Sidebar from "./Sidebar";
 
@@ -13,12 +13,19 @@ interface AppShellProps {
 export default function AppShell({ children, title, action }: AppShellProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
       router.replace("/login");
     }
   }, [user, loading, router]);
+
+  // Close drawer on any navigation
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [pathname]);
 
   if (loading || !user) {
     return (
@@ -33,11 +40,29 @@ export default function AppShell({ children, title, action }: AppShellProps) {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      {/* Mobile overlay — tap to close sidebar */}
+      {mobileOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setMobileOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
+      <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+
       <div className="main-content">
         <div className="top-bar">
+          {/* Hamburger — visible only on mobile via CSS */}
+          <button
+            className="hamburger-btn"
+            onClick={() => setMobileOpen((v) => !v)}
+            aria-label="Open navigation menu"
+          >
+            ☰
+          </button>
           <h1 className="top-bar-title">{title}</h1>
-          {action && <div>{action}</div>}
+          {action && <div className="top-bar-action">{action}</div>}
         </div>
         <div className="page-content">
           {children}
