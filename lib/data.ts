@@ -825,6 +825,41 @@ export async function lookupPersonForKiosk(rawInput: string): Promise<PersonLook
   return { person: null, debugLog: log };
 }
 
+// ── Volunteer session management (staff edits) ────────────────────────────────
+export async function updateVolunteerSession(
+  id: string,
+  updates: { clock_in?: string; clock_out?: string; task?: string; notes?: string }
+): Promise<import("./types").VolunteerLog> {
+  const patch: Record<string, unknown> = { ...updates, manually_edited: true };
+  if (updates.clock_in && updates.clock_out) {
+    const ms = new Date(updates.clock_out).getTime() - new Date(updates.clock_in).getTime();
+    patch.hours = Math.round(ms / 36000) / 100;
+  }
+  const { data, error } = await supabase
+    .from("volunteer_sessions").update(patch).eq("id", id).select().single();
+  if (error) throw error;
+  return data as import("./types").VolunteerLog;
+}
+
+export async function deleteVolunteerSession(id: string): Promise<void> {
+  const { error } = await supabase.from("volunteer_sessions").delete().eq("id", id);
+  if (error) throw error;
+}
+
+export async function addManualSession(payload: {
+  person_id: string; person_name: string; task: string;
+  clock_in: string; clock_out: string; date: string; notes?: string;
+}): Promise<import("./types").VolunteerLog> {
+  const ms = new Date(payload.clock_out).getTime() - new Date(payload.clock_in).getTime();
+  const hours = Math.round(ms / 36000) / 100;
+  const { data, error } = await supabase
+    .from("volunteer_sessions")
+    .insert({ ...payload, hours, is_manual: true })
+    .select().single();
+  if (error) throw error;
+  return data as import("./types").VolunteerLog;
+}
+
 // Keep the old function as a thin wrapper for non-kiosk callers
 export async function fetchPersonByPid(rawInput: string): Promise<import("./types").Person | null> {
   const { person } = await lookupPersonForKiosk(rawInput);

@@ -303,6 +303,8 @@ export interface VolunteerLog {
   hours?: number | null;
   date: string;
   notes?: string;
+  manually_edited?: boolean;
+  is_manual?: boolean;
   created_at?: string;
 }
 

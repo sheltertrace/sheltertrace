@@ -131,10 +131,20 @@ export default function VolunteerClockPage() {
         return;
       }
 
-      // Accept any person regardless of role — only reject clearly non-volunteer staff roles
       const role = (found.role || "").toLowerCase().trim();
-      const nonVolunteerRoles = ["admin", "officer", "dispatcher", "vet tech", "front desk", "court clerk", "judge"];
-      if (role && nonVolunteerRoles.includes(role)) {
+
+      // Block inactive volunteers
+      if (role.includes("inactive")) {
+        setErrMsg(`${found.first_name} ${found.last_name}'s volunteer account is currently inactive. Please see a staff member to reactivate it.`);
+        setDebugLines(debugLog);
+        setKioskState("error");
+        scheduleReset(10000);
+        return;
+      }
+
+      // Block non-volunteer staff
+      const staffRoles = ["admin", "officer", "dispatcher", "vet tech", "front desk", "court clerk", "judge"];
+      if (role && staffRoles.includes(role)) {
         setErrMsg(`${found.first_name} ${found.last_name} is a staff member (${found.role}), not a volunteer. Please use the staff login instead.`);
         setDebugLines(debugLog);
         setKioskState("error");

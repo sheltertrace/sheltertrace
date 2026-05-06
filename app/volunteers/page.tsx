@@ -5,6 +5,7 @@ import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolun
 import type { Person, VolunteerLog } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AddVolunteerModal, { printBadge } from "@/components/volunteers/AddVolunteerModal";
 
 const TASKS = ["Dog Walking", "Cat Socialization", "Kennel Cleaning", "Administrative", "Photography", "Transport", "Training", "Events", "Laundry / Dishes", "Other"];
@@ -18,6 +19,7 @@ function fmt12(iso: string): string {
 }
 
 export default function VolunteersPage() {
+  const router = useRouter();
   const [volunteers, setVolunteers] = useState<Person[]>([]);
   const [logs, setLogs]             = useState<VolunteerLog[]>([]);
   const [loading, setLoading]       = useState(true);
@@ -40,8 +42,7 @@ export default function VolunteersPage() {
 
   // Add / edit / view volunteer modals
   const [showAddVolunteer, setShowAddVolunteer] = useState(false);
-  const [editVolunteer,    setEditVolunteer]    = useState<Person | null>(null);
-  const [viewVolunteer,    setViewVolunteer]    = useState<Person | null>(null);
+  const [editVolunteer, setEditVolunteer] = useState<Person | null>(null);
 
   // Tools tab
   const [announcements,    setAnnouncements]    = useState("");
@@ -172,7 +173,9 @@ export default function VolunteersPage() {
                 <tbody>
                   {activeLogs.map((l) => (
                     <tr key={l.id}>
-                      <td style={{ fontWeight: 600 }}>{l.person_name}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        <Link href={`/volunteers/${l.person_id}`} style={{ color: "var(--teal)", textDecoration: "none", fontWeight: 700 }}>{l.person_name}</Link>
+                      </td>
                       <td style={{ fontSize: 12 }}>{l.task}</td>
                       <td style={{ fontSize: 12, color: "#16a34a", fontWeight: 700 }}>{fmt12(l.clock_in)}</td>
                     </tr>
@@ -194,7 +197,9 @@ export default function VolunteersPage() {
                 <tbody>
                   {todayLogs.filter((l) => l.clock_out).map((l) => (
                     <tr key={l.id}>
-                      <td style={{ fontWeight: 600 }}>{l.person_name}</td>
+                      <td style={{ fontWeight: 600 }}>
+                        <Link href={`/volunteers/${l.person_id}`} style={{ color: "var(--teal)", textDecoration: "none", fontWeight: 700 }}>{l.person_name}</Link>
+                      </td>
                       <td style={{ fontSize: 12 }}>{l.task}</td>
                       <td style={{ fontSize: 12 }}>{fmt12(l.clock_in)}</td>
                       <td style={{ fontSize: 12 }}>{l.clock_out ? fmt12(l.clock_out) : "—"}</td>
@@ -245,12 +250,12 @@ export default function VolunteersPage() {
                     return (
                       <tr key={v.id} style={{ opacity: isActive ? 1 : 0.5 }}>
                         <td>
-                          <button
-                            style={{ fontWeight: 700, background: "none", border: "none", cursor: "pointer", color: "var(--teal)", padding: 0, fontSize: "inherit", textAlign: "left" }}
-                            onClick={() => setViewVolunteer(v)}
+                          <Link
+                            href={`/volunteers/${v.id}`}
+                            style={{ fontWeight: 700, color: "var(--teal)", textDecoration: "none" }}
                           >
                             {v.first_name} {v.last_name}
-                          </button>
+                          </Link>
                         </td>
                         <td style={{ fontSize: 12, fontFamily: "monospace", color: "var(--text-secondary)" }}>{v.pid || "—"}</td>
                         <td style={{ fontSize: 12 }}>{v.phone || "—"}</td>
@@ -514,85 +519,6 @@ export default function VolunteersPage() {
           }}
         />
       )}
-
-      {/* ── VIEW VOLUNTEER DETAIL MODAL ── */}
-      {viewVolunteer && (() => {
-        const v = viewVolunteer;
-        const volLogs = logs.filter((l) => l.person_id === v.id);
-        const hrs = volLogs.reduce((s, l) => s + (l.hours || 0), 0);
-        const recentLogs = volLogs.slice(0, 20);
-        return (
-          <div className="modal-overlay" onClick={() => setViewVolunteer(null)}>
-            <div className="modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
-              <div className="modal-header">
-                <div>
-                  <span className="modal-title">{v.first_name} {v.last_name}</span>
-                  <span style={{ marginLeft: 10, fontSize: 12, fontFamily: "monospace", color: "var(--teal)", fontWeight: 700 }}>{v.pid}</span>
-                </div>
-                <button className="btn btn-ghost btn-sm" onClick={() => setViewVolunteer(null)}>✕</button>
-              </div>
-              <div className="modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
-                {/* Contact info */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Contact</div>
-                    {v.phone && <div style={{ fontSize: 13, marginBottom: 2 }}>📞 {v.phone}</div>}
-                    {v.email && <div style={{ fontSize: 13, marginBottom: 2 }}>✉️ {v.email}</div>}
-                    {v.address && <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>📍 {v.address}{v.city ? `, ${v.city}` : ""}{v.state ? ` ${v.state}` : ""} {v.zip || ""}</div>}
-                    {!v.phone && !v.email && !v.address && <div style={{ fontSize: 13, color: "var(--text-muted)" }}>—</div>}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Emergency Contact</div>
-                    {v.emergency_contact_name
-                      ? <><div style={{ fontSize: 13, fontWeight: 600 }}>{v.emergency_contact_name}</div><div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{v.emergency_contact_phone || "—"}</div></>
-                      : <div style={{ fontSize: 13, color: "var(--text-muted)" }}>—</div>}
-                  </div>
-                </div>
-
-                {/* Stats */}
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-                  {[
-                    { label: "Total Hours", value: `${hrs.toFixed(1)}h`, color: "var(--teal)" },
-                    { label: "Total Shifts", value: volLogs.filter((l) => l.clock_out).length, color: "#6366f1" },
-                    { label: "Last Session", value: volLogs.filter((l) => l.clock_out)[0]?.date ? formatDate(volLogs.filter((l) => l.clock_out)[0].date) : "—", color: "#f59e0b" },
-                  ].map(({ label, value, color }) => (
-                    <div key={label} style={{ background: "var(--surface-2)", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
-                      <div style={{ fontSize: 18, fontWeight: 900, color }}>{value}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{label}</div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Session history */}
-                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Session History</div>
-                {recentLogs.length === 0 ? (
-                  <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "16px 0" }}>No sessions logged yet</div>
-                ) : (
-                  <table className="data-table" style={{ fontSize: 12 }}>
-                    <thead><tr><th>Date</th><th>Task</th><th>In</th><th>Out</th><th style={{ textAlign: "right" }}>Hours</th></tr></thead>
-                    <tbody>
-                      {recentLogs.map((l) => (
-                        <tr key={l.id}>
-                          <td>{formatDate(l.date)}</td>
-                          <td>{l.task}</td>
-                          <td style={{ fontFamily: "monospace" }}>{fmt12(l.clock_in)}</td>
-                          <td style={{ fontFamily: "monospace" }}>{l.clock_out ? fmt12(l.clock_out) : <span style={{ color: "#16a34a", fontWeight: 600 }}>Active</span>}</td>
-                          <td style={{ textAlign: "right", fontWeight: 600, color: l.hours ? "var(--teal)" : "var(--text-muted)" }}>{l.hours != null ? `${l.hours.toFixed(2)}h` : "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
-              <div className="modal-footer">
-                <button className="btn btn-ghost" onClick={() => setViewVolunteer(null)}>Close</button>
-                <button className="btn btn-secondary" onClick={() => { setEditVolunteer(v); setViewVolunteer(null); }}>✏️ Edit</button>
-                <button className="btn btn-primary" onClick={() => printBadge(v)}>🖨 Print Badge</button>
-              </div>
-            </div>
-          </div>
-        );
-      })()}
 
       {/* ── QR CODE MODAL ── */}
       {showQR && (() => {
