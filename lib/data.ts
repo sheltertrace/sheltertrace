@@ -869,6 +869,23 @@ export async function linkAnimalToPerson(animalId: string, personId: string): Pr
   await supabase.from("animal_people").upsert({ animal_id: animalId, person_id: personId });
 }
 
+// ── Volunteer helpers ─────────────────────────────────────────────────────────
+export async function genNextPid(): Promise<string> {
+  const { data } = await supabase
+    .from("people")
+    .select("pid")
+    .like("pid", "PID-%")
+    .order("pid", { ascending: false })
+    .limit(20);
+  const rows = (data as { pid: string }[]) || [];
+  let maxNum = 0;
+  for (const row of rows) {
+    const n = parseInt((row.pid || "").replace(/^PID-/, ""), 10);
+    if (!isNaN(n) && n > maxNum) maxNum = n;
+  }
+  return `PID-${String(maxNum + 1).padStart(5, "0")}`;
+}
+
 // ── Volunteer Announcements ───────────────────────────────────────────────────
 export async function fetchVolunteerAnnouncements(): Promise<string> {
   const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 5).single();

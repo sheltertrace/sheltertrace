@@ -83,6 +83,9 @@ export interface Person {
   id_expiration?: string;
   date_added?: string;
   photo_id_url?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  barcode_id?: string;
   sex?: string;
   dob?: string;
   hair_color?: string;

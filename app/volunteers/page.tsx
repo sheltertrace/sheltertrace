@@ -1,10 +1,11 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements } from "@/lib/data";
+import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements, updatePerson } from "@/lib/data";
 import type { Person, VolunteerLog } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
 import Link from "next/link";
+import AddVolunteerModal, { printBadge } from "@/components/volunteers/AddVolunteerModal";
 
 const TASKS = ["Dog Walking", "Cat Socialization", "Kennel Cleaning", "Administrative", "Photography", "Transport", "Training", "Events", "Laundry / Dishes", "Other"];
 
@@ -37,6 +38,11 @@ export default function VolunteersPage() {
   // QR code modal
   const [showQR, setShowQR] = useState(false);
 
+  // Add / edit / view volunteer modals
+  const [showAddVolunteer, setShowAddVolunteer] = useState(false);
+  const [editVolunteer,    setEditVolunteer]    = useState<Person | null>(null);
+  const [viewVolunteer,    setViewVolunteer]    = useState<Person | null>(null);
+
   // Tools tab
   const [announcements,    setAnnouncements]    = useState("");
   const [announcementsOrig, setAnnouncementsOrig] = useState("");
@@ -46,7 +52,7 @@ export default function VolunteersPage() {
   const load = useCallback(async () => {
     try {
       const [p, l, ann] = await Promise.all([fetchPeople(), fetchVolunteerLogs(), fetchVolunteerAnnouncements()]);
-      setVolunteers(p.filter((x) => x.role === "Volunteer"));
+      setVolunteers(p.filter((x) => (x.role || "").toLowerCase().startsWith("volunteer")));
       setLogs(l);
       setAnnouncements(ann);
       setAnnouncementsOrig(ann);
@@ -129,10 +135,11 @@ export default function VolunteersPage() {
           <span style={{ fontWeight: 700, fontSize: 14 }}>🖥️ Volunteer Access</span>
           <span style={{ fontSize: 13, color: "var(--text-secondary)", marginLeft: 12 }}>Kiosk clock-in tablet · personal volunteer portal · QR codes for posting</span>
         </div>
-        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+        <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAddVolunteer(true)}>+ Add Volunteer</button>
           <Link href="/volunteer-clock" target="_blank" className="btn btn-secondary btn-sm">Open Kiosk →</Link>
           <Link href="/volunteer" target="_blank" className="btn btn-secondary btn-sm">Volunteer Portal →</Link>
-          <button className="btn btn-primary btn-sm" onClick={() => setShowQR(true)}>📲 Generate QR Codes</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowQR(true)}>📲 QR Codes</button>
         </div>
       </div>
 
@@ -204,27 +211,79 @@ export default function VolunteersPage() {
       {/* ── ROSTER ── */}
       {tab === "roster" && (
         <div>
-          <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+              {volunteers.filter((v) => v.role === "Volunteer").length} active · {volunteers.filter((v) => v.role !== "Volunteer").length} inactive
+            </div>
             <button className="btn btn-secondary btn-sm" onClick={() => setShowEmail(true)}>📧 Mass Email</button>
           </div>
           <div className="card" style={{ padding: 0, overflow: "hidden" }}>
             <table className="data-table">
-              <thead><tr><th>Name</th><th>PID</th><th>Phone</th><th>Email</th><th>Total Hours</th></tr></thead>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>PID</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th style={{ textAlign: "right" }}>Total Hrs</th>
+                  <th>Last Session</th>
+                  <th>Status</th>
+                  <th style={{ textAlign: "center" }}>Actions</th>
+                </tr>
+              </thead>
               <tbody>
-                {loading ? <tr><td colSpan={5} className="empty-state">Loading…</td></tr>
-                  : volunteers.length === 0 ? <tr><td colSpan={5} className="empty-state">No volunteers registered (add via People with role "Volunteer")</td></tr>
-                  : volunteers.map((v) => {
-                    const hrs = logs.filter((l) => l.person_id === v.id && l.hours).reduce((s, l) => s + (l.hours || 0), 0);
+                {loading ? (
+                  <tr><td colSpan={8} className="empty-state">Loading…</td></tr>
+                ) : volunteers.length === 0 ? (
+                  <tr><td colSpan={8} className="empty-state">No volunteers yet — click "Add Volunteer" to register one</td></tr>
+                ) : (
+                  volunteers.map((v) => {
+                    const volLogs = logs.filter((l) => l.person_id === v.id);
+                    const hrs = volLogs.reduce((s, l) => s + (l.hours || 0), 0);
+                    const lastSession = volLogs.filter((l) => l.clock_out).sort((a, b) => b.date.localeCompare(a.date))[0];
+                    const isActive = v.role === "Volunteer";
                     return (
-                      <tr key={v.id}>
-                        <td style={{ fontWeight: 700 }}>{v.first_name} {v.last_name}</td>
-                        <td style={{ fontSize: 12, fontFamily: "monospace" }}>{v.pid || "—"}</td>
+                      <tr key={v.id} style={{ opacity: isActive ? 1 : 0.5 }}>
+                        <td>
+                          <button
+                            style={{ fontWeight: 700, background: "none", border: "none", cursor: "pointer", color: "var(--teal)", padding: 0, fontSize: "inherit", textAlign: "left" }}
+                            onClick={() => setViewVolunteer(v)}
+                          >
+                            {v.first_name} {v.last_name}
+                          </button>
+                        </td>
+                        <td style={{ fontSize: 12, fontFamily: "monospace", color: "var(--text-secondary)" }}>{v.pid || "—"}</td>
                         <td style={{ fontSize: 12 }}>{v.phone || "—"}</td>
                         <td style={{ fontSize: 12 }}>{v.email || "—"}</td>
-                        <td style={{ fontSize: 12, fontWeight: 600, color: hrs > 0 ? "var(--teal)" : "var(--text-muted)" }}>{hrs.toFixed(1)}h</td>
+                        <td style={{ fontSize: 12, fontWeight: 600, color: hrs > 0 ? "var(--teal)" : "var(--text-muted)", textAlign: "right" }}>{hrs.toFixed(1)}h</td>
+                        <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{lastSession ? formatDate(lastSession.date) : "—"}</td>
+                        <td>
+                          {isActive
+                            ? <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>Active</span>
+                            : <span style={{ fontSize: 11, background: "#f1f5f9", color: "#94a3b8", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>Inactive</span>
+                          }
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 4, justifyContent: "center" }}>
+                            <button className="btn btn-ghost btn-sm" title="Print Badge" onClick={() => printBadge(v)}>🖨</button>
+                            <button className="btn btn-ghost btn-sm" title="Edit" onClick={() => setEditVolunteer(v)}>✏️</button>
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              title={isActive ? "Deactivate" : "Reactivate"}
+                              onClick={async () => {
+                                const newRole = isActive ? "Volunteer (Inactive)" : "Volunteer";
+                                const updated = await updatePerson(v.id, { role: newRole });
+                                setVolunteers((prev) => prev.map((x) => x.id === v.id ? updated : x));
+                              }}
+                            >
+                              {isActive ? "🚫" : "✅"}
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
-                  })}
+                  })
+                )}
               </tbody>
             </table>
           </div>
@@ -428,6 +487,108 @@ export default function VolunteersPage() {
               <button className="btn btn-secondary btn-sm" onClick={printQR} style={{ width: "100%" }}>
                 🖨 Print QR Sheet
               </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── ADD VOLUNTEER MODAL ── */}
+      {showAddVolunteer && (
+        <AddVolunteerModal
+          onClose={() => setShowAddVolunteer(false)}
+          onSaved={(p) => {
+            setVolunteers((prev) => [...prev, p]);
+            setShowAddVolunteer(false);
+          }}
+        />
+      )}
+
+      {/* ── EDIT VOLUNTEER MODAL ── */}
+      {editVolunteer && (
+        <AddVolunteerModal
+          editPerson={editVolunteer}
+          onClose={() => setEditVolunteer(null)}
+          onSaved={(p) => {
+            setVolunteers((prev) => prev.map((x) => x.id === p.id ? p : x));
+            setEditVolunteer(null);
+          }}
+        />
+      )}
+
+      {/* ── VIEW VOLUNTEER DETAIL MODAL ── */}
+      {viewVolunteer && (() => {
+        const v = viewVolunteer;
+        const volLogs = logs.filter((l) => l.person_id === v.id);
+        const hrs = volLogs.reduce((s, l) => s + (l.hours || 0), 0);
+        const recentLogs = volLogs.slice(0, 20);
+        return (
+          <div className="modal-overlay" onClick={() => setViewVolunteer(null)}>
+            <div className="modal" style={{ maxWidth: 620 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <div>
+                  <span className="modal-title">{v.first_name} {v.last_name}</span>
+                  <span style={{ marginLeft: 10, fontSize: 12, fontFamily: "monospace", color: "var(--teal)", fontWeight: 700 }}>{v.pid}</span>
+                </div>
+                <button className="btn btn-ghost btn-sm" onClick={() => setViewVolunteer(null)}>✕</button>
+              </div>
+              <div className="modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+                {/* Contact info */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Contact</div>
+                    {v.phone && <div style={{ fontSize: 13, marginBottom: 2 }}>📞 {v.phone}</div>}
+                    {v.email && <div style={{ fontSize: 13, marginBottom: 2 }}>✉️ {v.email}</div>}
+                    {v.address && <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>📍 {v.address}{v.city ? `, ${v.city}` : ""}{v.state ? ` ${v.state}` : ""} {v.zip || ""}</div>}
+                    {!v.phone && !v.email && !v.address && <div style={{ fontSize: 13, color: "var(--text-muted)" }}>—</div>}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 }}>Emergency Contact</div>
+                    {v.emergency_contact_name
+                      ? <><div style={{ fontSize: 13, fontWeight: 600 }}>{v.emergency_contact_name}</div><div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{v.emergency_contact_phone || "—"}</div></>
+                      : <div style={{ fontSize: 13, color: "var(--text-muted)" }}>—</div>}
+                  </div>
+                </div>
+
+                {/* Stats */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
+                  {[
+                    { label: "Total Hours", value: `${hrs.toFixed(1)}h`, color: "var(--teal)" },
+                    { label: "Total Shifts", value: volLogs.filter((l) => l.clock_out).length, color: "#6366f1" },
+                    { label: "Last Session", value: volLogs.filter((l) => l.clock_out)[0]?.date ? formatDate(volLogs.filter((l) => l.clock_out)[0].date) : "—", color: "#f59e0b" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background: "var(--surface-2)", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
+                      <div style={{ fontSize: 18, fontWeight: 900, color }}>{value}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Session history */}
+                <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Session History</div>
+                {recentLogs.length === 0 ? (
+                  <div style={{ fontSize: 13, color: "var(--text-muted)", textAlign: "center", padding: "16px 0" }}>No sessions logged yet</div>
+                ) : (
+                  <table className="data-table" style={{ fontSize: 12 }}>
+                    <thead><tr><th>Date</th><th>Task</th><th>In</th><th>Out</th><th style={{ textAlign: "right" }}>Hours</th></tr></thead>
+                    <tbody>
+                      {recentLogs.map((l) => (
+                        <tr key={l.id}>
+                          <td>{formatDate(l.date)}</td>
+                          <td>{l.task}</td>
+                          <td style={{ fontFamily: "monospace" }}>{fmt12(l.clock_in)}</td>
+                          <td style={{ fontFamily: "monospace" }}>{l.clock_out ? fmt12(l.clock_out) : <span style={{ color: "#16a34a", fontWeight: 600 }}>Active</span>}</td>
+                          <td style={{ textAlign: "right", fontWeight: 600, color: l.hours ? "var(--teal)" : "var(--text-muted)" }}>{l.hours != null ? `${l.hours.toFixed(2)}h` : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-ghost" onClick={() => setViewVolunteer(null)}>Close</button>
+                <button className="btn btn-secondary" onClick={() => { setEditVolunteer(v); setViewVolunteer(null); }}>✏️ Edit</button>
+                <button className="btn btn-primary" onClick={() => printBadge(v)}>🖨 Print Badge</button>
+              </div>
             </div>
           </div>
         );
