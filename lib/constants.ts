@@ -33,7 +33,7 @@ export const MEDICAL_DESC_MAP: Record<string, string[]> = {
   Dental: ["Dental Cleaning","Tooth Extraction","Dental Exam","Oral Surgery"],
   Checkup: ["Wellness Exam","Follow-up Exam","Intake Exam","Pre-adoption Exam","Behavioral Assessment"],
   Surgery: ["Mass Removal","Orthopedic","Laceration Repair","Enucleation","Amputation","Exploratory","Other Surgery"],
-  Treatment: ["Antibiotics","Anti-inflammatory","Wound Care","Ear Treatment","Eye Treatment","Skin Treatment","Fluid Therapy","Deworming","Flea/Tick Treatment","Heartworm Treatment","Pain Management"],
+  Treatment: ["Antibiotics","Anti-inflammatory","Wound Care","Ear Treatment","Eye Treatment","Skin Treatment","Fluid Therapy","Strongid / Dewormer","Flea/Tick Treatment","Heartworm Treatment","Pain Management"],
   Microchip: ["Microchip Implant","Microchip Scan","Microchip Registration"],
 };
 

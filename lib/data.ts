@@ -46,11 +46,11 @@ const INTAKE_VACCINES: Record<string, Array<{ type: string; description: string 
   Dog: [
     { type: "Vaccination", description: "DHPP (Distemper/Parvo)" },
     { type: "Vaccination", description: "Bordetella" },
-    { type: "Treatment", description: "Strongyle / Dewormer" },
+    { type: "Treatment", description: "Strongid / Dewormer" },
   ],
   Cat: [
     { type: "Vaccination", description: "FVRCP" },
-    { type: "Treatment", description: "Strongyle / Dewormer" },
+    { type: "Treatment", description: "Strongid / Dewormer" },
   ],
 };
 
