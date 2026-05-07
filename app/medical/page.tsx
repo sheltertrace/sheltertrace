@@ -4,7 +4,8 @@ import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
 import { fetchMedical, fetchAnimals, createMedical, updateMedical, deleteMedical } from "@/lib/data";
 import type { MedicalRecord, Animal } from "@/lib/types";
-import { MEDICAL_TYPES, MEDICAL_DESC_MAP, VET_STAFF_LIST } from "@/lib/constants";
+import { MEDICAL_TYPES, MEDICAL_DESC_MAP } from "@/lib/constants";
+import StaffSelect from "@/components/ui/StaffSelect";
 import { formatDate, today } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import MedicalEditModal from "@/components/medical/MedicalEditModal";
@@ -29,7 +30,7 @@ export default function MedicalPage() {
   const [medType, setMedType] = useState(medTypes[0]);
   const [medDesc, setMedDesc] = useState("");
   const [medDate, setMedDate] = useState(today());
-  const [medVet, setMedVet] = useState(VET_STAFF_LIST[0]);
+  const [medVet, setMedVet] = useState("");
   const [medNextDue, setMedNextDue] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -209,9 +210,7 @@ export default function MedicalPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Vet / Staff</label>
-                  <select className="form-select" value={medVet} onChange={(e) => setMedVet(e.target.value)}>
-                    {VET_STAFF_LIST.map((v) => <option key={v}>{v}</option>)}
-                  </select>
+                  <StaffSelect value={medVet} onChange={setMedVet} placeholder="— None —" />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Next Due</label>

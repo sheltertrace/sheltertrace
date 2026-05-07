@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { StaffAccount } from "@/lib/types";
 import { getCurrentUser, login as authLogin, logout as authLogout } from "@/lib/auth";
-import { updateStaffTheme, fetchShelterConfig, kennelLabelsFromConfig } from "@/lib/data";
+import { updateStaffTheme, fetchShelterConfig, kennelLabelsFromConfig, fetchStaffOptions } from "@/lib/data";
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 type Theme = "light" | "dark";
@@ -42,6 +42,21 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+// ── Staff ─────────────────────────────────────────────────────────────────────
+interface StaffContextType {
+  staffOptions: string[];
+  refreshStaff: () => Promise<void>;
+}
+
+const StaffContext = createContext<StaffContextType>({
+  staffOptions: [],
+  refreshStaff: async () => {},
+});
+
+export function useStaff() {
+  return useContext(StaffContext);
+}
+
 // ── Kennels ───────────────────────────────────────────────────────────────────
 interface KennelContextType {
   kennelLabels: string[];
@@ -63,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [theme, setThemeState] = useState<Theme>("light");
   const [kennelLabels, setKennelLabels] = useState<string[]>([]);
+  const [staffOptions, setStaffOptions] = useState<string[]>([]);
 
   // Apply theme to <html> element
   const applyTheme = useCallback((t: Theme) => {
@@ -115,10 +131,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Fetch kennel list whenever user logs in
+  const refreshStaff = useCallback(async () => {
+    try {
+      setStaffOptions(await fetchStaffOptions());
+    } catch {
+      setStaffOptions([]);
+    }
+  }, []);
+
+  // Fetch kennel list and staff list whenever user logs in
   useEffect(() => {
-    if (user) refreshKennels();
-  }, [user, refreshKennels]);
+    if (user) {
+      refreshKennels();
+      refreshStaff();
+    }
+  }, [user, refreshKennels, refreshStaff]);
 
   const login = useCallback(async (username: string, password: string): Promise<StaffAccount | null> => {
     const account = await authLogin(username, password);
@@ -142,7 +169,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       <AuthContext.Provider value={{ user, login, logout, loading }}>
         <KennelContext.Provider value={{ kennelLabels, refreshKennels }}>
-          {children}
+          <StaffContext.Provider value={{ staffOptions, refreshStaff }}>
+            {children}
+          </StaffContext.Provider>
         </KennelContext.Provider>
       </AuthContext.Provider>
     </ThemeContext.Provider>

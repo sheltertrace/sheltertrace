@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { fetchPeople, createPerson, createRedemption, linkAnimalToPerson, updateAnimal } from "@/lib/data";
 import type { Animal, Person } from "@/lib/types";
 import { today } from "@/lib/utils";
+import StaffSelect from "@/components/ui/StaffSelect";
 
 interface Props {
   animal: Animal;
@@ -559,7 +560,7 @@ export default function RedemptionWizard({ animal, onComplete, onClose }: Props)
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginTop: 12 }}>
                 <div>
                   <label className="form-label">Processing Officer</label>
-                  <input className="form-input" value={officer} onChange={(e) => setOfficer(e.target.value)} placeholder="Officer name" />
+                  <StaffSelect value={officer} onChange={setOfficer} placeholder="— Select officer —" />
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                   <label className="form-label">Citation Issued?</label>

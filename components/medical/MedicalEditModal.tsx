@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import type { MedicalRecord } from "@/lib/types";
-import { MEDICAL_TYPES, MEDICAL_DESC_MAP, VET_STAFF_LIST } from "@/lib/constants";
+import { MEDICAL_TYPES, MEDICAL_DESC_MAP } from "@/lib/constants";
+import StaffSelect from "@/components/ui/StaffSelect";
 import { updateMedical, deleteMedical } from "@/lib/data";
 import { useAuth } from "@/app/providers";
 import { formatDate, today } from "@/lib/utils";
@@ -143,10 +144,7 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
             </div>
             <div className="form-group">
               <label className="form-label">Vet / Staff</label>
-              <select className="form-select" value={vet} onChange={(e) => setVet(e.target.value)}>
-                <option value="">— None —</option>
-                {VET_STAFF_LIST.map((v) => <option key={v}>{v}</option>)}
-              </select>
+              <StaffSelect value={vet} onChange={setVet} placeholder="— None —" />
             </div>
             <div className="form-group">
               <label className="form-label">Next Due</label>

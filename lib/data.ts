@@ -517,6 +517,27 @@ export async function deleteAnimalDocument(doc: AnimalDocument): Promise<void> {
   await supabase.from("animal_documents").delete().eq("id", doc.id);
 }
 
+// ── Staff Options ──────────────────────────────────────────────────────────────
+// Returns a sorted list of "First Last" names from the people table, excluding
+// purely public-facing roles so only shelter staff / vets show in dropdowns.
+const NON_STAFF_ROLES = ["adopter", "foster", "volunteer", "owner", "witness", "complainant", "media", "donor", "attorney"];
+
+export async function fetchStaffOptions(): Promise<string[]> {
+  try {
+    let query = supabase.from("people").select("first_name, last_name, role");
+    for (const kw of NON_STAFF_ROLES) {
+      query = query.not("role", "ilike", `%${kw}%`);
+    }
+    const { data } = await query.order("last_name").order("first_name");
+    if (!data) return [];
+    return data
+      .map((p) => [p.first_name, p.last_name].filter(Boolean).join(" ").trim())
+      .filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
 // ── Shelter Config ─────────────────────────────────────────────────────────────
 
 // Extract a flat ordered list of kennel label strings from raw shelter config data.

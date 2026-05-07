@@ -37,11 +37,6 @@ export const MEDICAL_DESC_MAP: Record<string, string[]> = {
   Microchip: ["Microchip Implant","Microchip Scan","Microchip Registration"],
 };
 
-export const VET_STAFF_LIST = [
-  "Dr. Smith","Dr. Johnson","Dr. Williams","Dr. Garcia","Dr. Martinez",
-  "Dr. Brown","Dr. Davis","Tech - Casey","Tech - Morgan","Tech - Taylor",
-  "Director Stevenson",
-];
 
 export const ALL_BREEDS_DOG = [
   "","Labrador Retriever","German Shepherd","Golden Retriever","Pit Bull Mix","Pit Bull",

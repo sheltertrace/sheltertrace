@@ -8,8 +8,9 @@ import {
   STATUSES, SUB_STATUSES, BEHAVIOR_FLAGS, EUTH_DRUGS, EUTH_REASONS,
   CIRCUMSTANCE_TYPES, COAT_TYPES, EAR_TYPES, EYE_COLORS, SIZE_OPTIONS,
   ALL_BREEDS_DOG, ALL_BREEDS_CAT, ALL_COLORS,
-  VET_STAFF_LIST, MEDICAL_TYPES, MEDICAL_DESC_MAP,
+  MEDICAL_TYPES, MEDICAL_DESC_MAP,
 } from "@/lib/constants";
+import StaffSelect from "@/components/ui/StaffSelect";
 import { useKennels } from "@/app/providers";
 import { calcAge, formatDate, today, nowTime, genId } from "@/lib/utils";
 import {
@@ -70,7 +71,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [medType, setMedType] = useState(MEDICAL_TYPES[0]);
   const [medDesc, setMedDesc] = useState("");
   const [medDate, setMedDate] = useState(today());
-  const [medVet, setMedVet] = useState(VET_STAFF_LIST[0]);
+  const [medVet, setMedVet] = useState("");
   const [medNextDue, setMedNextDue] = useState("");
   const [medLotNumber, setMedLotNumber] = useState("");
   const [medManufacturer, setMedManufacturer] = useState("");
@@ -639,10 +640,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   </div>
                   <div className="form-group">
                     <label className="form-label">Vet / Staff</label>
-                    <select className="form-select" value={medVet} onChange={(e) => setMedVet(e.target.value)}>
-                      <option value="">— None —</option>
-                      {VET_STAFF_LIST.map((v) => <option key={v}>{v}</option>)}
-                    </select>
+                    <StaffSelect value={medVet} onChange={setMedVet} placeholder="— None —" />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Next Due</label>
@@ -996,7 +994,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <F label="Drug"><select className="form-select" value={euthDrug} onChange={(e) => setEuthDrug(e.target.value)}>{EUTH_DRUGS.map((d) => <option key={d}>{d}</option>)}</select></F>
                 <F label="Dosage"><input className="form-input" value={euthDose} onChange={(e) => setEuthDose(e.target.value)} placeholder="Amount" /></F>
                 <F label="Unit"><select className="form-select" value={euthUnit} onChange={(e) => setEuthUnit(e.target.value)}>{["ml","cc","mg"].map((u) => <option key={u}>{u}</option>)}</select></F>
-                <F label="Performed By (Vet)"><select className="form-select" value={euthVet} onChange={(e) => setEuthVet(e.target.value)}><option value="">— Select —</option>{VET_STAFF_LIST.map((v) => <option key={v}>{v}</option>)}</select></F>
+                <F label="Performed By (Vet)"><StaffSelect value={euthVet} onChange={setEuthVet} placeholder="— Select —" /></F>
                 <F label="Date"><input className="form-input" type="date" value={euthDate} onChange={(e) => setEuthDate(e.target.value)} /></F>
                 <F label="Authorized By"><input className="form-input" value={euthAuthorizedBy} onChange={(e) => setEuthAuthorizedBy(e.target.value)} /></F>
                 <F label="Witness"><input className="form-input" value={euthWitness} onChange={(e) => setEuthWitness(e.target.value)} /></F>
