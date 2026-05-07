@@ -3,7 +3,7 @@
 import { supabase } from "./supabase";
 import type { FieldActivity, FieldStatus, OfficerFieldProfile } from "./types";
 
-const OFFICER_ROLES = ["Officer", "Administrator"];
+const OFFICER_ROLES = ["Administrator", "Officer", "Staff"];
 
 export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]> {
   const { data } = await supabase
