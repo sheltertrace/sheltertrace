@@ -4,6 +4,7 @@ import AppShell from "@/components/layout/AppShell";
 import {
   fetchRescueGroups, createRescueGroup, updateRescueGroup, deleteRescueGroup,
   fetchTransfers, fetchAnimals, fetchMedical,
+  safeArray, safeAnimalNames,
 } from "@/lib/data";
 import type { RescueGroup, Transfer, Animal, MedicalRecord } from "@/lib/types";
 import { formatDate, today } from "@/lib/utils";
@@ -115,7 +116,7 @@ export default function TransfersPage() {
 
   const handlePrintTransfer = (t: Transfer) => {
     const group = groups.find((g) => g.id === t.rescue_group_id);
-    const tAnimals = animals.filter((a) => t.animal_ids.includes(a.id));
+    const tAnimals = animals.filter((a) => safeArray(t.animal_ids).includes(a.id));
     if (!group) { alert("Rescue group not found"); return; }
     printTransferReceipt(t, group, tAnimals, medicalByAnimal);
   };
@@ -240,8 +241,8 @@ export default function TransfersPage() {
                     <td style={{ fontSize: 12 }}>{formatDate(t.date)}</td>
                     <td style={{ fontWeight: 600 }}>{t.rescue_group_name || "—"}</td>
                     <td>
-                      <div style={{ fontWeight: 700 }}>{t.animal_ids.length} animal{t.animal_ids.length !== 1 ? "s" : ""}</div>
-                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{(t.animal_names || []).slice(0, 3).join(", ")}{(t.animal_names || []).length > 3 ? "…" : ""}</div>
+                      <div style={{ fontWeight: 700 }}>{safeArray(t.animal_ids).length} animal{safeArray(t.animal_ids).length !== 1 ? "s" : ""}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{safeAnimalNames(t.animal_names, 3)}</div>
                     </td>
                     <td style={{ fontSize: 12 }}>{t.officer || "—"}</td>
                     <td style={{ fontSize: 12, maxWidth: 200, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{t.notes || "—"}</td>
@@ -257,7 +258,7 @@ export default function TransfersPage() {
           {/* Expanded detail row */}
           {selectedTransfer && (() => {
             const t = selectedTransfer;
-            const tAnimals = animals.filter((a) => t.animal_ids.includes(a.id));
+            const tAnimals = animals.filter((a) => safeArray(t.animal_ids).includes(a.id));
             const group = groups.find((g) => g.id === t.rescue_group_id);
             return (
               <div style={{ marginTop: 12, border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>

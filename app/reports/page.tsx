@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers } from "@/lib/data";
+import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers, safeArray, safeAnimalNames, safeJsonArray, safeJsonObject } from "@/lib/data";
 import type { Animal, AdoptionRecord, MedicalRecord, Transfer, RescueGroup } from "@/lib/types";
 import { formatDate, today } from "@/lib/utils";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
@@ -105,9 +105,9 @@ export default function ReportsPage() {
   const transferRows = useMemo<TransferRow[]>(() => {
     const rows: TransferRow[] = [];
     for (const t of transfers) {
-      const ids: string[] = t.animal_ids || [];
-      const names: string[] = (t.animal_names as string[] | undefined) || [];
-      const snapshots = (t.animal_info_snapshot || []) as Record<string, unknown>[];
+      const ids: string[] = safeArray(t.animal_ids);
+      const names: string[] = safeArray(t.animal_names);
+      const snapshots = safeJsonArray(t.animal_info_snapshot);
       ids.forEach((id, i) => {
         const snap = snapshots[i];
         const liveAnimal = animals.find((a) => a.id === id);
@@ -156,7 +156,7 @@ export default function ReportsPage() {
     const byAgency: Record<string, number> = {};
     transfers.forEach((t) => {
       const name = t.rescue_group_name || "Unknown";
-      byAgency[name] = (byAgency[name] || 0) + (t.animal_ids || []).length;
+      byAgency[name] = (byAgency[name] || 0) + safeArray(t.animal_ids).length;
     });
 
     const bySpecies: Record<string, number> = {};
@@ -165,8 +165,8 @@ export default function ReportsPage() {
     });
 
     return {
-      thisMonth: thisMonth.reduce((s, t) => s + (t.animal_ids || []).length, 0),
-      thisYear: thisYear.reduce((s, t) => s + (t.animal_ids || []).length, 0),
+      thisMonth: thisMonth.reduce((s, t) => s + safeArray(t.animal_ids).length, 0),
+      thisYear: thisYear.reduce((s, t) => s + safeArray(t.animal_ids).length, 0),
       total: transferRows.length,
       byAgency: Object.entries(byAgency).sort((a, b) => b[1] - a[1]).slice(0, 5),
       bySpecies: Object.entries(bySpecies).sort((a, b) => b[1] - a[1]),
@@ -399,13 +399,13 @@ export default function ReportsPage() {
                   <tr><td colSpan={6} className="empty-state">No transfers match the selected filters</td></tr>
                 ) : transferTableRows.map((r) => {
                   const t = r.transfer;
-                  const animalList = (t.animal_names as string[] | undefined)?.join(", ") || (t.animal_ids || []).join(", ");
+                  const animalList = safeAnimalNames(t.animal_names) !== "N/A" ? safeAnimalNames(t.animal_names) : safeArray(t.animal_ids).join(", ");
                   return (
                     <tr key={t.id} className="hover-row">
                       <td style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{t.transfer_number}</td>
                       <td style={{ fontSize: 12 }}>{formatDate(t.date)}</td>
                       <td style={{ fontSize: 12 }}>
-                        <div style={{ fontWeight: 600 }}>{(t.animal_ids || []).length} animal{(t.animal_ids || []).length !== 1 ? "s" : ""}</div>
+                        <div style={{ fontWeight: 600 }}>{safeArray(t.animal_ids).length} animal{safeArray(t.animal_ids).length !== 1 ? "s" : ""}</div>
                         <div style={{ fontSize: 11, color: "var(--text-muted)", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{animalList}</div>
                       </td>
                       <td style={{ fontSize: 12 }}>{t.rescue_group_name || "—"}</td>
@@ -415,9 +415,9 @@ export default function ReportsPage() {
                           <button
                             className="btn btn-ghost btn-sm"
                             onClick={() => {
-                              const grp = t.agency_info_snapshot as unknown as RescueGroup;
+                              const grp = (safeJsonObject(t.agency_info_snapshot) || t.agency_info_snapshot) as unknown as RescueGroup;
                               type SnapAnimal = Animal & { medical_records?: MedicalRecord[] };
-                              const raw = (t.animal_info_snapshot || []) as unknown as SnapAnimal[];
+                              const raw = safeJsonArray(t.animal_info_snapshot) as unknown as SnapAnimal[];
                               const snapAnimals: Animal[] = raw.map(({ medical_records: _mr, ...a }) => a as Animal);
                               const medMap: Record<string, MedicalRecord[]> = {};
                               raw.forEach((a) => { if (a.id && a.medical_records) medMap[a.id] = a.medical_records; });

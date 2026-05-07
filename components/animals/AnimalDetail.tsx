@@ -16,7 +16,7 @@ import { calcAge, formatDate, today, nowTime, genId } from "@/lib/utils";
 import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical,
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
-  fetchTransfersByAnimal,
+  fetchTransfersByAnimal, safeJsonArray, safeJsonObject,
   type AnimalDocument,
 } from "@/lib/data";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
@@ -923,9 +923,9 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                             <button
                               className="btn btn-ghost btn-sm"
                               onClick={() => {
-                                const grp = t.agency_info_snapshot as unknown as RescueGroup;
+                                const grp = (safeJsonObject(t.agency_info_snapshot) || t.agency_info_snapshot) as unknown as RescueGroup;
                                 type SnapAnimal = Animal & { medical_records?: MedicalRecord[] };
-                                const raw = (t.animal_info_snapshot || []) as unknown as SnapAnimal[];
+                                const raw = safeJsonArray(t.animal_info_snapshot) as unknown as SnapAnimal[];
                                 const snapAnimals: Animal[] = raw.map(({ medical_records: _mr, ...a }) => a as Animal);
                                 const medMap: Record<string, MedicalRecord[]> = {};
                                 raw.forEach((a) => { if (a.id && a.medical_records) medMap[a.id] = a.medical_records; });

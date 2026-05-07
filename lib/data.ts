@@ -3,6 +3,47 @@ import { supabase } from "./supabase";
 import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry } from "./types";
 import { genId, genReceiptId, today } from "./utils";
 
+// ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
+
+/** Returns a string[] regardless of whether the DB stored it as TEXT, JSON array, or actual array. */
+export function safeArray(value: unknown): string[] {
+  if (Array.isArray(value)) return value as string[];
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try { const p = JSON.parse(value); if (Array.isArray(p)) return p as string[]; } catch { /* fall through */ }
+  }
+  if (typeof value === "string" && value.trim()) return value.split(",").map((s) => s.trim()).filter(Boolean);
+  return [];
+}
+
+/** Joins an animal_names field safely — handles string, array, or null. */
+export function safeAnimalNames(value: unknown, limit?: number): string {
+  if (!value) return "N/A";
+  const arr = typeof value === "string" && !value.trim().startsWith("[")
+    ? value.split(",").map((s) => s.trim()).filter(Boolean)
+    : safeArray(value);
+  if (!arr.length) return typeof value === "string" && value.trim() ? value : "N/A";
+  const shown = limit ? arr.slice(0, limit) : arr;
+  return shown.join(", ") + (limit && arr.length > limit ? "…" : "");
+}
+
+/** Parses a JSONB/TEXT field that should be an array of objects. */
+export function safeJsonArray(value: unknown): Record<string, unknown>[] {
+  if (Array.isArray(value)) return value as Record<string, unknown>[];
+  if (typeof value === "string" && value.trim().startsWith("[")) {
+    try { const p = JSON.parse(value); if (Array.isArray(p)) return p as Record<string, unknown>[]; } catch { /* fall through */ }
+  }
+  return [];
+}
+
+/** Parses a JSONB/TEXT field that should be a single object. */
+export function safeJsonObject(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) return value as Record<string, unknown>;
+  if (typeof value === "string" && value.trim().startsWith("{")) {
+    try { return JSON.parse(value) as Record<string, unknown>; } catch { /* fall through */ }
+  }
+  return null;
+}
+
 // ── Animals ──────────────────────────────────────────────────────────────────
 export async function fetchAnimals(): Promise<Animal[]> {
   const PAGE = 1000;
