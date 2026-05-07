@@ -518,22 +518,54 @@ export async function deleteAnimalDocument(doc: AnimalDocument): Promise<void> {
 }
 
 // ── Staff Options ──────────────────────────────────────────────────────────────
-// Returns a sorted list of "First Last" names from the people table, excluding
-// purely public-facing roles so only shelter staff / vets show in dropdowns.
-const NON_STAFF_ROLES = ["adopter", "foster", "volunteer", "owner", "witness", "complainant", "media", "donor", "attorney"];
+// Returns a sorted, deduplicated list of "First Last" names for vet/staff dropdowns.
+// Primary source: staff_accounts (active shelter staff, vets, officers).
+// Secondary source: people table entries that have an explicit staff-type role.
+// The people table stores public contacts (adopters, fosters, etc.) — any vet or
+// specialist added there with a staff role will also appear.
+const NON_CONTACT_ROLES = ["Volunteer", "Adopter", "Foster", "Owner", "Witness", "Complainant", "Media", "Donor", "Attorney"];
 
 export async function fetchStaffOptions(): Promise<string[]> {
+  console.log("[fetchStaffOptions] fetching…");
   try {
-    let query = supabase.from("people").select("first_name, last_name, role");
-    for (const kw of NON_STAFF_ROLES) {
-      query = query.not("role", "ilike", `%${kw}%`);
+    type NameRow = { first_name?: string | null; last_name?: string | null };
+
+    // Primary: active staff accounts (the main source of vet/staff names)
+    const { data: staffData, error: staffError } = await supabase
+      .from("staff_accounts")
+      .select("first_name, last_name")
+      .eq("active", true)
+      .order("last_name")
+      .order("first_name");
+    if (staffError) console.warn("[fetchStaffOptions] staff_accounts error:", staffError.message);
+    console.log("[fetchStaffOptions] staff_accounts rows:", staffData?.length ?? 0, staffData);
+
+    // Secondary: people with an explicit staff/medical role (not a public-contact role)
+    const { data: peopleData, error: peopleError } = await supabase
+      .from("people")
+      .select("first_name, last_name, role")
+      .not("role", "is", null)
+      .not("role", "in", `(${NON_CONTACT_ROLES.map((r) => `"${r}"`).join(",")})`)
+      .order("last_name")
+      .order("first_name");
+    if (peopleError) console.warn("[fetchStaffOptions] people error:", peopleError.message);
+    console.log("[fetchStaffOptions] people rows:", peopleData?.length ?? 0, peopleData);
+
+    const names = new Set<string>();
+    const toName = (p: NameRow) => [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
+
+    for (const p of (staffData as NameRow[] | null) ?? []) {
+      const n = toName(p); if (n) names.add(n);
     }
-    const { data } = await query.order("last_name").order("first_name");
-    if (!data) return [];
-    return (data as { first_name: string | null; last_name: string | null }[])
-      .map((p) => [p.first_name, p.last_name].filter(Boolean).join(" ").trim())
-      .filter(Boolean);
-  } catch {
+    for (const p of (peopleData as NameRow[] | null) ?? []) {
+      const n = toName(p); if (n) names.add(n);
+    }
+
+    const result = [...names].sort((a, b) => a.localeCompare(b));
+    console.log("[fetchStaffOptions] final list:", result);
+    return result;
+  } catch (err) {
+    console.error("[fetchStaffOptions] unexpected error:", err);
     return [];
   }
 }
