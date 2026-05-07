@@ -545,6 +545,37 @@ export interface OfficerFieldProfile {
   last_status_update?: string | null;
 }
 
+// 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
+export interface OfficerSchedule {
+  id?: string;
+  officer_id: string;
+  day_of_week: number;
+  is_scheduled: boolean;
+  start_time?: string | null; // "HH:MM" 24h
+  end_time?: string | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface ScheduleOverride {
+  id?: string;
+  officer_id: string;
+  override_date: string; // "YYYY-MM-DD"
+  is_working: boolean;
+  start_time?: string | null;
+  end_time?: string | null;
+  reason?: string;
+  created_at?: string;
+}
+
+export interface EffectiveShift {
+  isScheduled: boolean;          // true if should be working right now
+  shiftStart?: string;           // "HH:MM" local
+  shiftEnd?: string;
+  overrideReason?: string;
+  isOverride: boolean;
+}
+
 export type Database = {
   public: {
     Tables: {
