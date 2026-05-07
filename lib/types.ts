@@ -349,6 +349,13 @@ export interface Transfer {
   animal_names?: string[];
   notes?: string;
   officer?: string;
+  officer_badge?: string;
+  condition_at_transfer?: string;
+  terms_accepted?: boolean;
+  // Full snapshots of agency + animals (with embedded medical_records[]) captured at
+  // transfer time so receipts remain accurate even if records are later edited.
+  animal_info_snapshot?: Record<string, unknown>[];
+  agency_info_snapshot?: Record<string, unknown>;
   created_at?: string;
 }
 

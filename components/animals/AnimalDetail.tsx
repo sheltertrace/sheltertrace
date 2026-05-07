@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill } from "@/lib/types";
+import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill, Transfer, RescueGroup } from "@/lib/types";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import StatusBadge from "@/components/ui/StatusBadge";
 import {
@@ -16,8 +16,10 @@ import { calcAge, formatDate, today, nowTime, genId } from "@/lib/utils";
 import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical,
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
+  fetchTransfersByAnimal,
   type AnimalDocument,
 } from "@/lib/data";
+import { printTransferReceipt } from "@/components/transfers/TransferWizard";
 import MedicalEditModal from "@/components/medical/MedicalEditModal";
 import dynamic from "next/dynamic";
 const CropPhotoModal = dynamic(() => import("./CropPhotoModal"), { ssr: false });
@@ -110,6 +112,9 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   // Forms
   const [animalForms, setAnimalForms] = useState<ShelterForm[]>([]);
 
+  // Transfer history
+  const [animalTransfers, setAnimalTransfers] = useState<Transfer[]>([]);
+
   // People attachment
   const [showAttachPerson, setShowAttachPerson] = useState(false);
   const [personSearch, setPersonSearch] = useState("");
@@ -122,6 +127,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchAnimalNotes(animal.id).then((n) => setNotes(n as typeof notes));
     fetchAnimalDocuments(animal.id).then(setDocs);
     fetchFormsByLinked({ animalId: animal.id }).then(setAnimalForms);
+    fetchTransfersByAnimal(animal.id).then(setAnimalTransfers);
   }, [animal.id]);
 
   const save = useCallback(async (updates: Partial<Animal>) => {
@@ -887,6 +893,56 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   ))}
                 </tbody>
               </table>
+            )}
+          </CollapsibleSection>
+
+          <CollapsibleSection title={`Transfer History (${animalTransfers.length})`} color="#0f2942">
+            {animalTransfers.length === 0 ? (
+              <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "8px 0" }}>No transfer history for this animal.</div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Receipt #</th>
+                      <th>Date</th>
+                      <th>Receiving Agency</th>
+                      <th>Officer</th>
+                      <th style={{ width: 130 }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {animalTransfers.map((t) => (
+                      <tr key={t.id}>
+                        <td style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{t.transfer_number}</td>
+                        <td style={{ fontSize: 12 }}>{formatDate(t.date)}</td>
+                        <td style={{ fontSize: 12 }}>{t.rescue_group_name || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{t.officer || "—"}</td>
+                        <td>
+                          {t.agency_info_snapshot ? (
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => {
+                                const grp = t.agency_info_snapshot as unknown as RescueGroup;
+                                type SnapAnimal = Animal & { medical_records?: MedicalRecord[] };
+                                const raw = (t.animal_info_snapshot || []) as unknown as SnapAnimal[];
+                                const snapAnimals: Animal[] = raw.map(({ medical_records: _mr, ...a }) => a as Animal);
+                                const medMap: Record<string, MedicalRecord[]> = {};
+                                raw.forEach((a) => { if (a.id && a.medical_records) medMap[a.id] = a.medical_records; });
+                                printTransferReceipt(t, grp, snapAnimals, medMap);
+                              }}
+                            >
+                              🖨 Print Receipt
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic" }}>No receipt data</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             )}
           </CollapsibleSection>
         </div>

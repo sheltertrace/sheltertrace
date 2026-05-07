@@ -714,6 +714,39 @@ export async function deleteRescueGroup(id: string): Promise<void> {
 }
 
 // ── Transfers ─────────────────────────────────────────────────────────────────
+
+// Generate sequential receipt number TR-YYYY-NNNN by querying the highest
+// existing number for this year. Race conditions are negligible at shelter volume.
+export async function genTransferReceiptNumber(): Promise<string> {
+  const year = new Date().getFullYear();
+  const prefix = `TR-${year}-`;
+  const { data } = await supabase
+    .from("transfers")
+    .select("transfer_number")
+    .like("transfer_number", `${prefix}%`)
+    .order("transfer_number", { ascending: false })
+    .limit(1);
+  let seq = 1;
+  if (data && (data as { transfer_number: string }[]).length > 0) {
+    const last = parseInt(
+      ((data as { transfer_number: string }[])[0].transfer_number || "").split("-").pop() || "0",
+      10
+    );
+    if (!isNaN(last)) seq = last + 1;
+  }
+  return `${prefix}${String(seq).padStart(4, "0")}`;
+}
+
+// Returns all transfers that include the given animal_id in their animal_ids array.
+export async function fetchTransfersByAnimal(animalId: string): Promise<import("./types").Transfer[]> {
+  const { data } = await supabase
+    .from("transfers")
+    .select("*")
+    .order("date", { ascending: false });
+  const all = (data as import("./types").Transfer[]) || [];
+  return all.filter((t) => (t.animal_ids || []).includes(animalId));
+}
+
 export async function fetchTransfers(): Promise<import("./types").Transfer[]> {
   const { data } = await supabase.from("transfers").select("*").order("date", { ascending: false });
   return (data as import("./types").Transfer[]) || [];
