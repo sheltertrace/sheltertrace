@@ -728,8 +728,12 @@ export async function createTransfer(
   transfer: Omit<import("./types").Transfer, "id" | "created_at">,
   animals: import("./types").Animal[]
 ): Promise<import("./types").Transfer> {
+  console.log("[transfer insert data]", JSON.stringify(transfer, null, 2));
   const { data, error } = await supabase.from("transfers").insert(transfer).select().single();
-  if (error) throw error;
+  if (error) {
+    console.log("[transfer error]", JSON.stringify(error, null, 2));
+    throw error;
+  }
   // Update each animal status to Transferred
   const transferDate = transfer.date;
   const groupName = transfer.rescue_group_name || "";
