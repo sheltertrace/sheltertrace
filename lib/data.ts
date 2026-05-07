@@ -518,38 +518,32 @@ export async function deleteAnimalDocument(doc: AnimalDocument): Promise<void> {
 }
 
 // ── Staff Options ──────────────────────────────────────────────────────────────
-// Returns a sorted, deduplicated list of "First Last" names for vet/staff dropdowns.
-// Primary source: staff_accounts (active shelter staff, vets, officers).
-// Secondary source: people table entries that have an explicit staff-type role.
-// The people table stores public contacts (adopters, fosters, etc.) — any vet or
-// specialist added there with a staff role will also appear.
-const NON_CONTACT_ROLES = ["Volunteer", "Adopter", "Foster", "Owner", "Witness", "Complainant", "Media", "Donor", "Attorney"];
+// Returns a sorted, deduplicated "First Last" list for vet/staff dropdowns.
+// Primary source : staff_accounts (active shelter staff — always included).
+// Secondary source: people table rows whose role exactly matches STAFF_ROLES.
+// Only exact-match roles are included so adopters, fosters, volunteers, etc.
+// never appear even if their role string contains a staff keyword.
+const STAFF_ROLES = ["Administrator", "Officer", "Vet Tech", "Veterinarian", "Staff"];
 
 export async function fetchStaffOptions(): Promise<string[]> {
-  console.log("[fetchStaffOptions] fetching…");
   try {
     type NameRow = { first_name?: string | null; last_name?: string | null };
 
-    // Primary: active staff accounts (the main source of vet/staff names)
-    const { data: staffData, error: staffError } = await supabase
+    // Primary: all active staff accounts
+    const { data: staffData } = await supabase
       .from("staff_accounts")
       .select("first_name, last_name")
       .eq("active", true)
       .order("last_name")
       .order("first_name");
-    if (staffError) console.warn("[fetchStaffOptions] staff_accounts error:", staffError.message);
-    console.log("[fetchStaffOptions] staff_accounts rows:", staffData?.length ?? 0, staffData);
 
-    // Secondary: people with an explicit staff/medical role (not a public-contact role)
-    const { data: peopleData, error: peopleError } = await supabase
+    // Secondary: people with an explicit staff role (exact match, not substring)
+    const { data: peopleData } = await supabase
       .from("people")
       .select("first_name, last_name, role")
-      .not("role", "is", null)
-      .not("role", "in", `(${NON_CONTACT_ROLES.map((r) => `"${r}"`).join(",")})`)
+      .in("role", STAFF_ROLES)
       .order("last_name")
       .order("first_name");
-    if (peopleError) console.warn("[fetchStaffOptions] people error:", peopleError.message);
-    console.log("[fetchStaffOptions] people rows:", peopleData?.length ?? 0, peopleData);
 
     const names = new Set<string>();
     const toName = (p: NameRow) => [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
@@ -561,11 +555,8 @@ export async function fetchStaffOptions(): Promise<string[]> {
       const n = toName(p); if (n) names.add(n);
     }
 
-    const result = [...names].sort((a, b) => a.localeCompare(b));
-    console.log("[fetchStaffOptions] final list:", result);
-    return result;
-  } catch (err) {
-    console.error("[fetchStaffOptions] unexpected error:", err);
+    return [...names].sort((a, b) => a.localeCompare(b));
+  } catch {
     return [];
   }
 }
