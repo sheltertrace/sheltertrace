@@ -3,20 +3,18 @@
 import { supabase } from "./supabase";
 import type { FieldActivity, FieldStatus, OfficerFieldProfile } from "./types";
 
-const OFFICER_ROLES = ["Administrator", "Officer", "Staff"];
-
 export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]> {
   const { data } = await supabase
-    .from("people")
-    .select(
-      "id, pid, first_name, last_name, role, id_number, current_field_status, last_location_lat, last_location_lng, last_status_update"
-    )
-    .in("role", OFFICER_ROLES)
+    .from("staff_accounts")
+    .select("id, username, first_name, last_name, role, badge, active, current_field_status, last_location_lat, last_location_lng, last_status_update")
+    .eq("active", true)
     .order("last_name")
     .order("first_name");
 
   return ((data as OfficerFieldProfile[] | null) ?? []).map((p) => ({
     ...p,
+    first_name: (p as unknown as Record<string, string>).first_name || "",
+    last_name: (p as unknown as Record<string, string>).last_name || "",
     current_field_status: (p.current_field_status as FieldStatus) || "Off Duty",
   }));
 }
@@ -31,7 +29,7 @@ export async function updateOfficerFieldStatus(
   } = {}
 ): Promise<void> {
   await supabase
-    .from("people")
+    .from("staff_accounts")
     .update({
       current_field_status: status,
       last_location_lat: opts.lat ?? null,
@@ -81,16 +79,18 @@ export async function fetchTodayActivity(officerId?: string): Promise<FieldActiv
   return fetchFieldActivity({ officerId, since: today.toISOString(), limit: 500 });
 }
 
-export async function fetchOfficerByPid(pid: string): Promise<OfficerFieldProfile | null> {
+export async function fetchOfficerByUsername(username: string): Promise<OfficerFieldProfile | null> {
   const { data } = await supabase
-    .from("people")
-    .select(
-      "id, pid, first_name, last_name, role, id_number, current_field_status, last_location_lat, last_location_lng, last_status_update"
-    )
-    .eq("pid", pid)
-    .in("role", OFFICER_ROLES)
+    .from("staff_accounts")
+    .select("id, username, first_name, last_name, role, badge, active, current_field_status, last_location_lat, last_location_lng, last_status_update")
+    .eq("username", username.toLowerCase())
+    .eq("active", true)
     .limit(1);
 
   const rows = (data as OfficerFieldProfile[] | null) ?? [];
-  return rows[0] ?? null;
+  if (!rows[0]) return null;
+  return {
+    ...rows[0],
+    current_field_status: (rows[0].current_field_status as FieldStatus) || "Off Duty",
+  };
 }

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import {
-  fetchOfficerByPid,
+  fetchOfficerByUsername,
   updateOfficerFieldStatus,
   logFieldActivity,
 } from "@/lib/fieldOps";
@@ -34,7 +34,7 @@ function Spinner() {
 
 export default function FieldStatusPage() {
   const [step, setStep] = useState<Step>("identify");
-  const [pidInput, setPidInput] = useState("");
+  const [usernameInput, setUsernameInput] = useState("");
   const [officer, setOfficer] = useState<OfficerFieldProfile | null>(null);
   const [identifyError, setIdentifyError] = useState("");
   const [identifyLoading, setIdentifyLoading] = useState(false);
@@ -54,13 +54,13 @@ export default function FieldStatusPage() {
   const mileageStartRef = useRef<HTMLInputElement>(null);
 
   async function handleIdentify() {
-    if (!pidInput.trim()) return;
+    if (!usernameInput.trim()) return;
     setIdentifyLoading(true);
     setIdentifyError("");
-    const p = await fetchOfficerByPid(pidInput.trim().toUpperCase());
+    const p = await fetchOfficerByUsername(usernameInput.trim());
     setIdentifyLoading(false);
     if (!p) {
-      setIdentifyError("Officer not found. Check your PID and try again.");
+      setIdentifyError("Username not found. Use your ShelterTrace login username.");
       return;
     }
     setOfficer(p);
@@ -99,7 +99,7 @@ export default function FieldStatusPage() {
       logFieldActivity({
         officer_id: officer.id,
         officer_name: `${officer.first_name} ${officer.last_name}`,
-        officer_badge: (officer as unknown as Record<string, unknown>).id_number as string | undefined,
+        officer_badge: officer.badge,
         status,
         location_lat: gpsLat,
         location_lng: gpsLng,
@@ -154,14 +154,16 @@ export default function FieldStatusPage() {
           boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
         }}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 16, color: "#0f2942" }}>
-            Enter Your Officer PID
+            Enter Your Username
           </div>
           <input
             autoFocus
-            value={pidInput}
-            onChange={(e) => setPidInput(e.target.value.toUpperCase())}
+            value={usernameInput}
+            onChange={(e) => setUsernameInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === "Enter") handleIdentify(); }}
-            placeholder="e.g. PID-01001"
+            placeholder="Your ShelterTrace login username"
+            autoCapitalize="none"
+            autoCorrect="off"
             style={{
               width: "100%",
               border: "1px solid #ccc",
@@ -170,7 +172,6 @@ export default function FieldStatusPage() {
               fontSize: 16,
               marginBottom: 12,
               boxSizing: "border-box",
-              letterSpacing: 1,
             }}
           />
           {identifyError && (
@@ -219,10 +220,8 @@ export default function FieldStatusPage() {
             {officer?.first_name} {officer?.last_name}
           </div>
           <div style={{ color: "#7fc6c6", fontSize: 13 }}>
-            {officer?.pid}
-            {(officer as unknown as Record<string, unknown>)?.id_number
-              ? ` · Badge ${(officer as unknown as Record<string, unknown>).id_number}`
-              : ""}
+            @{officer?.username}
+            {officer?.badge ? ` · Badge ${officer.badge}` : ""}
           </div>
         </div>
         <div style={{
@@ -379,7 +378,7 @@ export default function FieldStatusPage() {
       )}
 
       <button
-        onClick={() => { setStep("identify"); setOfficer(null); setPidInput(""); setHistory([]); }}
+        onClick={() => { setStep("identify"); setOfficer(null); setUsernameInput(""); setHistory([]); }}
         style={{
           marginTop: 20,
           background: "transparent",

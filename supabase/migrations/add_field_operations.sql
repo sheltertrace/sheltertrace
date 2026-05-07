@@ -1,7 +1,8 @@
 -- Field Activity tracking table
+-- officer_id references staff_accounts (the login accounts managed in Admin)
 CREATE TABLE IF NOT EXISTS field_activity (
   id                UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  officer_id        UUID        NOT NULL REFERENCES people(id) ON DELETE CASCADE,
+  officer_id        UUID        NOT NULL REFERENCES staff_accounts(id) ON DELETE CASCADE,
   officer_name      TEXT        NOT NULL,
   officer_badge     TEXT,
   status            TEXT        NOT NULL CHECK (status IN ('On Duty', 'En Route', 'On Scene', 'Available', 'Off Duty', 'Break')),
@@ -21,8 +22,8 @@ CREATE INDEX IF NOT EXISTS idx_field_activity_officer_id   ON field_activity(off
 CREATE INDEX IF NOT EXISTS idx_field_activity_recorded_at  ON field_activity(recorded_at DESC);
 CREATE INDEX IF NOT EXISTS idx_field_activity_status       ON field_activity(status);
 
--- People table additions for live officer status
-ALTER TABLE people
+-- staff_accounts additions for live field status
+ALTER TABLE staff_accounts
   ADD COLUMN IF NOT EXISTS current_field_status  TEXT        DEFAULT 'Off Duty',
   ADD COLUMN IF NOT EXISTS last_location_lat     NUMERIC(10, 7),
   ADD COLUMN IF NOT EXISTS last_location_lng     NUMERIC(10, 7),

@@ -533,11 +533,12 @@ export interface FieldActivity {
 
 export interface OfficerFieldProfile {
   id: string;
-  pid: string;
+  username: string;
   first_name: string;
   last_name: string;
   role: string;
   badge?: string;
+  active?: boolean;
   current_field_status: FieldStatus;
   last_location_lat?: number | null;
   last_location_lng?: number | null;

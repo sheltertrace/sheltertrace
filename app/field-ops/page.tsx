@@ -60,10 +60,8 @@ function OfficerCard({ officer }: { officer: OfficerFieldProfile }) {
         </span>
       </div>
       <div style={{ fontSize: 13, color: "#555" }}>
-        {officer.pid}
-        {(officer as unknown as Record<string, unknown>).id_number
-          ? ` · Badge ${(officer as unknown as Record<string, unknown>).id_number}`
-          : ""}
+        @{officer.username}
+        {officer.badge ? ` · Badge ${officer.badge}` : ""}
       </div>
       <div style={{ fontSize: 12, color: "#888" }}>
         Updated: {elapsed(officer.last_status_update)}
