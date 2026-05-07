@@ -122,136 +122,148 @@ export function printTransferReceipt(
   w.document.write(`<!DOCTYPE html><html><head><title>Transfer Receipt — ${transfer.transfer_number}</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
-body{background:#fff;font-family:Arial,Helvetica,sans-serif;}
-@page{size:letter;margin:0;}
-@media print{.no-print{display:none!important;}}
+body{background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:11px;}
+@page{size:letter;margin:0.5in;}
+@media print{
+  .no-print{display:none!important;}
+  body{font-size:11px;}
+  .receipt-header{margin-bottom:6px;}
+  .receipt-section{break-inside:avoid;page-break-inside:avoid;}
+  .agency-and-signatures{break-inside:avoid;page-break-inside:avoid;}
+  .signatures-section{break-before:avoid;page-break-before:avoid;break-inside:avoid;page-break-inside:avoid;}
+  .terms-section{break-inside:avoid;page-break-inside:avoid;}
+  table{break-inside:auto;}
+  tr{break-inside:avoid;page-break-inside:avoid;}
+}
 </style></head><body>
 
 <!-- Cover page -->
-<div style="padding:0.6in;font-family:Arial,sans-serif;">
+<div style="font-family:Arial,sans-serif;">
   <!-- Header -->
-  <div style="background:#0f2942;color:#fff;padding:16px 20px;border-radius:8px 8px 0 0;display:flex;justify-content:space-between;align-items:flex-start;">
+  <div class="receipt-header" style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:flex-start;">
     <div>
-      <div style="font-size:18px;font-weight:900;letter-spacing:0.5px;">MORGAN COUNTY ANIMAL SERVICES</div>
-      <div style="font-size:11px;color:#93c5fd;margin-top:3px;">2392 Athens Hwy, Madison, GA 30650 · ShelterTrace · Shelter Data Systems</div>
+      <div style="font-size:15px;font-weight:900;letter-spacing:0.5px;">MORGAN COUNTY ANIMAL SERVICES</div>
+      <div style="font-size:9px;color:#93c5fd;margin-top:2px;">2392 Athens Hwy, Madison, GA 30650 · ShelterTrace · Shelter Data Systems</div>
     </div>
     <div style="text-align:right;">
-      <div style="font-size:11px;color:#bfdbfe;font-weight:700;letter-spacing:1px;">ANIMAL TRANSFER RECEIPT</div>
-      <div style="font-size:26px;font-weight:900;letter-spacing:1px;font-family:monospace;">${transfer.transfer_number}</div>
-      <div style="font-size:11px;color:#bfdbfe;">Date: ${formatDate(transfer.date)}</div>
+      <div style="font-size:10px;color:#bfdbfe;font-weight:700;letter-spacing:1px;">ANIMAL TRANSFER RECEIPT</div>
+      <div style="font-size:22px;font-weight:900;letter-spacing:1px;font-family:monospace;">${transfer.transfer_number}</div>
+      <div style="font-size:10px;color:#bfdbfe;">Date: ${formatDate(transfer.date)}</div>
     </div>
   </div>
 
-  <!-- Receiving agency -->
-  <div style="border:1px solid #cbd5e1;border-top:none;border-radius:0 0 8px 8px;padding:16px 20px;margin-bottom:20px;">
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#1e3a5f;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-bottom:12px;">Receiving Agency Information</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 24px;">
-      <div style="grid-column:1/-1;margin-bottom:8px;">
-        <div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Organization Name</div>
-        <div style="font-size:16px;font-weight:800;color:#0f2942;margin-top:2px;">${group.organization_name}</div>
-      </div>
-      ${fld("Contact Person", group.contact_person)}
-      ${fld("Phone", group.phone)}
-      ${fld("Email", group.email)}
-      ${fld("Address", [group.address, group.city, group.state, group.zip].filter(Boolean).join(", "))}
-      <div style="margin-bottom:8px;">
-        <span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Agency License #</span>
-        <div style="font-size:12px;color:${licColor};font-weight:700;margin-top:2px;">${group.license_number || "—"}${warn ? `  <span style="background:${warn === "EXPIRED" ? "#fee2e2" : "#fef3c7"};color:${licColor};padding:1px 6px;border-radius:3px;font-size:9px;">⚠ ${warn}</span>` : ""}</div>
-      </div>
-      ${fld("License Expiration", group.license_expiration ? formatDate(group.license_expiration) : undefined)}
-    </div>
-  </div>
-
-  <!-- Transferring officer -->
-  <div style="border:1px solid #cbd5e1;border-radius:8px;padding:14px 20px;margin-bottom:20px;">
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#1e3a5f;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-bottom:12px;">Transferring Officer</div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0 24px;">
-      ${fld("Officer Name", transfer.officer)}
-      ${fld("Badge / ID Number", transfer.officer_badge)}
-    </div>
+  <!-- Transferring officer (compact, above fold) -->
+  <div class="receipt-section" style="border:1px solid #cbd5e1;border-top:none;padding:8px 14px;margin-bottom:8px;display:flex;gap:32px;background:#f8fafc;">
+    <div><span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Officer:</span> <span style="font-size:11px;font-weight:700;">${transfer.officer || "—"}</span></div>
+    <div><span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;">Badge:</span> <span style="font-size:11px;">${transfer.officer_badge || "—"}</span></div>
   </div>
 
   <!-- Animal summary table -->
-  <div style="margin-bottom:20px;">
-    <div style="background:#1e3a5f;color:#fff;padding:7px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-radius:4px 4px 0 0;">
+  <div class="receipt-section" style="margin-bottom:8px;">
+    <div style="background:#1e3a5f;color:#fff;padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-radius:4px 4px 0 0;">
       Animals Being Transferred (${animals.length})
     </div>
     <table style="width:100%;border-collapse:collapse;border:1px solid #e2e8f0;border-top:none;">
       <thead>
         <tr style="background:#f8fafc;">
-          <th style="padding:5px 10px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">ID</th>
-          <th style="padding:5px 10px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Name</th>
-          <th style="padding:5px 10px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Species</th>
-          <th style="padding:5px 10px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Breed</th>
-          <th style="padding:5px 10px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Sex</th>
-          <th style="padding:5px 10px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Microchip</th>
-          <th style="padding:5px 10px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Fixed</th>
+          <th style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">ID</th>
+          <th style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Name</th>
+          <th style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Species</th>
+          <th style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Breed</th>
+          <th style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Sex</th>
+          <th style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Microchip</th>
+          <th style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;font-weight:700;text-align:left;text-transform:uppercase;color:#64748b;">Fixed</th>
         </tr>
       </thead>
       <tbody>
         ${animals.map((a, i) => `
           <tr style="${i % 2 === 1 ? "background:#f8fafc;" : ""}">
-            <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:10px;font-family:monospace;">${a.id}</td>
-            <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:11px;font-weight:700;">${a.name}</td>
-            <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:10px;">${a.species}</td>
-            <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:10px;">${a.breed}</td>
-            <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:10px;">${a.sex}</td>
-            <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:10px;">${a.microchip || "—"}</td>
-            <td style="padding:5px 10px;border:1px solid #e2e8f0;font-size:10px;">${a.fixed ? "Yes" : "No"}</td>
+            <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:9px;font-family:monospace;">${a.id}</td>
+            <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:10px;font-weight:700;">${a.name}</td>
+            <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:10px;">${a.species}</td>
+            <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:10px;">${a.breed}</td>
+            <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:10px;">${a.sex}</td>
+            <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:10px;">${a.microchip || "—"}</td>
+            <td style="padding:4px 8px;border:1px solid #e2e8f0;font-size:10px;">${a.fixed ? "Yes" : "No"}</td>
           </tr>`).join("")}
       </tbody>
     </table>
   </div>
 
   ${transfer.condition_at_transfer ? `
-  <div style="margin-bottom:20px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-    <div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Condition at Time of Transfer</div>
-    <div style="font-size:12px;color:#0f172a;line-height:1.5;">${transfer.condition_at_transfer}</div>
+  <div class="receipt-section" style="margin-bottom:8px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;">
+    <span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Condition at Transfer:</span>
+    <span style="font-size:11px;color:#0f172a;margin-left:6px;">${transfer.condition_at_transfer}</span>
   </div>` : ""}
 
   ${transfer.notes ? `
-  <div style="margin-bottom:20px;padding:12px 16px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;">
-    <div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px;">Transfer Notes / Special Instructions</div>
-    <div style="font-size:12px;color:#0f172a;line-height:1.5;">${transfer.notes}</div>
+  <div class="receipt-section" style="margin-bottom:8px;padding:8px 12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:5px;">
+    <span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Notes:</span>
+    <span style="font-size:11px;color:#0f172a;margin-left:6px;">${transfer.notes}</span>
   </div>` : ""}
 
-  <!-- Terms -->
-  <div style="margin-bottom:24px;border:1px solid #cbd5e1;border-radius:8px;padding:16px 20px;background:#f8fafc;">
-    <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#1e3a5f;border-bottom:2px solid #e2e8f0;padding-bottom:6px;margin-bottom:12px;">Terms and Conditions of Transfer</div>
-    <div style="font-size:11px;color:#0f172a;line-height:1.7;">
-      <div style="margin-bottom:8px;">1. The receiving organization accepts full responsibility for the care and welfare of the above animal(s) effective the date and time of this transfer.</div>
-      <div style="margin-bottom:8px;">2. The receiving organization agrees not to return the animal(s) to Morgan County Animal Services without prior written authorization from shelter management.</div>
-      <div style="margin-bottom:8px;">3. The receiving organization agrees to provide veterinary care as needed and to comply with all applicable state and local animal welfare regulations.</div>
-    </div>
-  </div>
+  <!-- Receiving agency + Terms + Signatures — all in one unbreakable block -->
+  <div class="agency-and-signatures">
 
-  <!-- Signatures -->
-  <div style="border-top:2px solid #e2e8f0;padding-top:20px;">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:40px;">
-      <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;margin-bottom:30px;">Transferring Officer — Morgan County Animal Services</div>
-        <div style="border-bottom:1px solid #000;margin-bottom:4px;height:28px;"></div>
-        <div style="font-size:10px;color:#475569;">Signature</div>
-        <div style="margin-top:14px;border-bottom:1px solid #000;margin-bottom:4px;padding-bottom:2px;font-size:12px;">${transfer.officer || ""}</div>
-        <div style="font-size:10px;color:#475569;">Print Name</div>
-        <div style="margin-top:14px;display:flex;gap:24px;">
-          <div><div style="border-bottom:1px solid #000;width:110px;height:20px;"></div><div style="font-size:10px;color:#475569;margin-top:4px;">Date</div></div>
-          <div><div style="border-bottom:1px solid #000;width:110px;height:20px;padding-bottom:2px;font-size:12px;">${transfer.officer_badge || ""}</div><div style="font-size:10px;color:#475569;margin-top:4px;">Badge #</div></div>
+    <!-- Receiving agency -->
+    <div class="receipt-section" style="border:1px solid #cbd5e1;border-radius:6px;padding:10px 14px;margin-bottom:8px;">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#1e3a5f;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-bottom:8px;">Receiving Agency Information</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 20px;">
+        <div style="grid-column:1/-1;margin-bottom:6px;">
+          <div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Organization Name</div>
+          <div style="font-size:14px;font-weight:800;color:#0f2942;margin-top:1px;">${group.organization_name}</div>
         </div>
+        ${fld("Contact Person", group.contact_person)}
+        ${fld("Phone", group.phone)}
+        ${fld("Email", group.email)}
+        ${fld("Address", [group.address, group.city, group.state, group.zip].filter(Boolean).join(", "))}
+        <div style="margin-bottom:6px;">
+          <span style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Agency License #</span>
+          <div style="font-size:11px;color:${licColor};font-weight:700;margin-top:1px;">${group.license_number || "—"}${warn ? `  <span style="background:${warn === "EXPIRED" ? "#fee2e2" : "#fef3c7"};color:${licColor};padding:1px 5px;border-radius:3px;font-size:9px;">⚠ ${warn}</span>` : ""}</div>
+        </div>
+        ${fld("License Expiration", group.license_expiration ? formatDate(group.license_expiration) : undefined)}
       </div>
-      <div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;margin-bottom:30px;">Receiving Organization Representative</div>
-        <div style="border-bottom:1px solid #000;margin-bottom:4px;height:28px;"></div>
-        <div style="font-size:10px;color:#475569;">Signature</div>
-        <div style="margin-top:14px;border-bottom:1px solid #000;margin-bottom:4px;height:20px;"></div>
-        <div style="font-size:10px;color:#475569;">Print Name / Title</div>
-        <div style="margin-top:14px;display:flex;gap:24px;">
-          <div><div style="border-bottom:1px solid #000;width:110px;height:20px;"></div><div style="font-size:10px;color:#475569;margin-top:4px;">Date</div></div>
-          <div><div style="border-bottom:1px solid #000;width:150px;height:20px;"></div><div style="font-size:10px;color:#475569;margin-top:4px;">Representing Organization</div></div>
+    </div>
+
+    <!-- Terms -->
+    <div class="terms-section" style="margin-bottom:8px;border:1px solid #cbd5e1;border-radius:6px;padding:8px 14px;background:#f8fafc;">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#1e3a5f;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-bottom:6px;">Terms and Conditions of Transfer</div>
+      <div style="font-size:9px;color:#334155;line-height:1.55;">
+        <div style="margin-bottom:4px;">1. The receiving organization accepts full responsibility for the care and welfare of the above animal(s) effective the date and time of this transfer.</div>
+        <div style="margin-bottom:4px;">2. The receiving organization agrees not to return the animal(s) to Morgan County Animal Services without prior written authorization from shelter management.</div>
+        <div>3. The receiving organization agrees to provide veterinary care as needed and to comply with all applicable state and local animal welfare regulations.</div>
+      </div>
+    </div>
+
+    <!-- Signatures -->
+    <div class="signatures-section" style="border-top:2px solid #e2e8f0;padding-top:14px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+        <div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;margin-bottom:22px;">Transferring Officer — Morgan County Animal Services</div>
+          <div style="border-bottom:1px solid #000;margin-bottom:3px;height:24px;"></div>
+          <div style="font-size:9px;color:#475569;">Signature</div>
+          <div style="margin-top:10px;border-bottom:1px solid #000;margin-bottom:3px;padding-bottom:2px;font-size:11px;">${transfer.officer || ""}</div>
+          <div style="font-size:9px;color:#475569;">Print Name</div>
+          <div style="margin-top:10px;display:flex;gap:20px;">
+            <div><div style="border-bottom:1px solid #000;width:100px;height:18px;"></div><div style="font-size:9px;color:#475569;margin-top:3px;">Date</div></div>
+            <div><div style="border-bottom:1px solid #000;width:100px;height:18px;padding-bottom:2px;font-size:11px;">${transfer.officer_badge || ""}</div><div style="font-size:9px;color:#475569;margin-top:3px;">Badge #</div></div>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;margin-bottom:22px;">Receiving Organization Representative</div>
+          <div style="border-bottom:1px solid #000;margin-bottom:3px;height:24px;"></div>
+          <div style="font-size:9px;color:#475569;">Signature</div>
+          <div style="margin-top:10px;border-bottom:1px solid #000;margin-bottom:3px;height:18px;"></div>
+          <div style="font-size:9px;color:#475569;">Print Name / Title</div>
+          <div style="margin-top:10px;display:flex;gap:20px;">
+            <div><div style="border-bottom:1px solid #000;width:100px;height:18px;"></div><div style="font-size:9px;color:#475569;margin-top:3px;">Date</div></div>
+            <div><div style="border-bottom:1px solid #000;width:140px;height:18px;"></div><div style="font-size:9px;color:#475569;margin-top:3px;">Representing Organization</div></div>
+          </div>
         </div>
       </div>
     </div>
-  </div>
+
+  </div><!-- end agency-and-signatures -->
 </div>
 
 ${animalSections}
