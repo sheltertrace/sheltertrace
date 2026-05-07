@@ -128,7 +128,14 @@ export interface MedicalRecord {
   next_due?: string;
   cost?: number | null;
   status?: string;
+  lot_number?: string;
+  manufacturer?: string;
+  route?: string;
+  dosage?: string;
+  notes?: string;
+  result?: string;
   updated_at?: string;
+  updated_by?: string;
   created_at?: string;
 }
 

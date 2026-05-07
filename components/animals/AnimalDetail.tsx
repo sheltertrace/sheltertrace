@@ -72,6 +72,16 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [medDate, setMedDate] = useState(today());
   const [medVet, setMedVet] = useState(VET_STAFF_LIST[0]);
   const [medNextDue, setMedNextDue] = useState("");
+  const [medLotNumber, setMedLotNumber] = useState("");
+  const [medManufacturer, setMedManufacturer] = useState("");
+  const [medRoute, setMedRoute] = useState("");
+  const [medDosage, setMedDosage] = useState("");
+  const [medNotes, setMedNotes] = useState("");
+  const [medResult, setMedResult] = useState("");
+  const [medCost, setMedCost] = useState("");
+  const [medStatus, setMedStatus] = useState("");
+  const [medSaving, setMedSaving] = useState(false);
+  const [medSaved, setMedSaved] = useState(false);
   const [medRecords, setMedRecords] = useState<MedicalRecord[]>(medical);
   const [editMedRecord, setEditMedRecord] = useState<MedicalRecord | null>(null);
 
@@ -164,18 +174,34 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   };
 
   const handleAddMedical = async () => {
-    const rec = await createMedical({
-      animal_id: animal.id,
-      animal_name: animal.name,
-      type: medType,
-      description: medDesc,
-      date: medDate,
-      vet: medVet,
-      next_due: medNextDue || undefined,
-    });
-    setMedRecords((prev) => [rec, ...prev]);
-    setShowAddMed(false);
-    setMedDesc(""); setMedNextDue("");
+    setMedSaving(true);
+    try {
+      const rec = await createMedical({
+        animal_id: animal.id,
+        animal_name: animal.name,
+        type: medType,
+        description: medDesc,
+        date: medDate,
+        vet: medVet || undefined,
+        next_due: medNextDue || undefined,
+        lot_number: medLotNumber || undefined,
+        manufacturer: medManufacturer || undefined,
+        route: medRoute || undefined,
+        dosage: medDosage || undefined,
+        notes: medNotes || undefined,
+        result: medResult || undefined,
+        cost: medCost !== "" ? parseFloat(medCost) : null,
+        status: medStatus || undefined,
+      });
+      setMedRecords((prev) => [rec, ...prev]);
+      setMedSaved(true);
+      setTimeout(() => {
+        setShowAddMed(false);
+        setMedSaved(false);
+        setMedDesc(""); setMedNextDue(""); setMedLotNumber(""); setMedManufacturer("");
+        setMedRoute(""); setMedDosage(""); setMedNotes(""); setMedResult(""); setMedCost(""); setMedStatus("");
+      }, 800);
+    } finally { setMedSaving(false); }
   };
 
   const handleEuthanize = async () => {
@@ -588,7 +614,12 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             </div>
             {showAddMed && (
               <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: 14, marginBottom: 12 }}>
-                <div className="grid-3">
+                {medSaved && (
+                  <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, padding: "8px 12px", marginBottom: 10, fontSize: 13, color: "#15803d", fontWeight: 600 }}>
+                    ✓ Medical record added
+                  </div>
+                )}
+                <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Type</label>
                     <select className="form-select" value={medType} onChange={(e) => { setMedType(e.target.value); setMedDesc(""); }}>
@@ -609,6 +640,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   <div className="form-group">
                     <label className="form-label">Vet / Staff</label>
                     <select className="form-select" value={medVet} onChange={(e) => setMedVet(e.target.value)}>
+                      <option value="">— None —</option>
                       {VET_STAFF_LIST.map((v) => <option key={v}>{v}</option>)}
                     </select>
                   </div>
@@ -616,9 +648,57 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     <label className="form-label">Next Due</label>
                     <input className="form-input" type="date" value={medNextDue} onChange={(e) => setMedNextDue(e.target.value)} />
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">Status</label>
+                    <select className="form-select" value={medStatus} onChange={(e) => setMedStatus(e.target.value)}>
+                      <option value="">— None —</option>
+                      {["Pending", "Completed", "Overdue"].map((s) => <option key={s}>{s}</option>)}
+                    </select>
+                  </div>
+                </div>
+                <div style={{ borderTop: "1px solid #bae6fd", margin: "8px 0 10px", paddingTop: 10 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#0369a1", marginBottom: 8, letterSpacing: 0.5 }}>Additional Details</div>
+                  <div className="grid-2">
+                    <div className="form-group">
+                      <label className="form-label">Lot Number</label>
+                      <input className="form-input" value={medLotNumber} onChange={(e) => setMedLotNumber(e.target.value)} placeholder="e.g. AB12345" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Manufacturer</label>
+                      <input className="form-input" value={medManufacturer} onChange={(e) => setMedManufacturer(e.target.value)} placeholder="e.g. Merck" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Route</label>
+                      <select className="form-select" value={medRoute} onChange={(e) => setMedRoute(e.target.value)}>
+                        <option value="">— None —</option>
+                        {["Oral","Subcutaneous","Intramuscular","Intranasal","Topical","Intravenous","Other"].map((r) => <option key={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Dosage</label>
+                      <input className="form-input" value={medDosage} onChange={(e) => setMedDosage(e.target.value)} placeholder="e.g. 1 ml or 2 tabs" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Result</label>
+                      <select className="form-select" value={medResult} onChange={(e) => setMedResult(e.target.value)}>
+                        <option value="">— None —</option>
+                        {["Positive","Negative","Pending","Inconclusive"].map((r) => <option key={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Cost ($)</label>
+                      <input className="form-input" type="number" min="0" step="0.01" value={medCost} onChange={(e) => setMedCost(e.target.value)} placeholder="0.00" />
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Notes</label>
+                    <textarea className="form-textarea" rows={2} value={medNotes} onChange={(e) => setMedNotes(e.target.value)} placeholder="Any additional notes…" />
+                  </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-primary btn-sm" onClick={handleAddMedical}>Save</button>
+                  <button className="btn btn-primary btn-sm" onClick={handleAddMedical} disabled={medSaving || medSaved}>
+                    {medSaving ? "Saving…" : medSaved ? "✓ Saved" : "Save Record"}
+                  </button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setShowAddMed(false)}>Cancel</button>
                 </div>
               </div>
@@ -627,19 +707,34 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
               <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>No medical records</div>
             ) : (
               <table className="data-table">
-                <thead><tr><th>Type</th><th>Description</th><th>Date</th><th>Vet / Staff</th><th>Next Due</th></tr></thead>
+                <thead><tr><th>Type</th><th>Description</th><th>Date</th><th>Vet / Staff</th><th>Next Due</th><th></th></tr></thead>
                 <tbody>
                   {animalMed.map((m) => (
-                    <tr key={m.id} style={{ cursor: "pointer" }} onClick={() => setEditMedRecord(m)} className="hover-row">
+                    <tr key={m.id}>
                       <td><span className="badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>{m.type}</span></td>
                       <td style={{ fontWeight: 600 }}>
                         {m.description}
-                        {m.updated_at && <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Updated {formatDate(m.updated_at.slice(0, 10))}</div>}
+                        {m.updated_by
+                          ? <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Edited by {m.updated_by}{m.updated_at ? ` · ${formatDate(m.updated_at.slice(0, 10))}` : ""}</div>
+                          : m.updated_at
+                            ? <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Updated {formatDate(m.updated_at.slice(0, 10))}</div>
+                            : null
+                        }
                       </td>
                       <td style={{ fontSize: 12 }}>{formatDate(m.date)}</td>
                       <td style={{ fontSize: 12 }}>{m.vet || "—"}</td>
                       <td style={{ fontSize: 12, color: m.next_due && new Date(m.next_due) < new Date() ? "#dc2626" : "var(--text-secondary)" }}>
                         {m.next_due ? formatDate(m.next_due) : "—"}
+                      </td>
+                      <td>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 13, padding: "3px 8px" }}
+                          onClick={() => setEditMedRecord(m)}
+                          title="Edit record"
+                        >
+                          ✏️
+                        </button>
                       </td>
                     </tr>
                   ))}
