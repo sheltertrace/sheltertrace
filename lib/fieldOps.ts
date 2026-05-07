@@ -8,13 +8,12 @@ export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]
     .from("staff_accounts")
     .select("id, username, first_name, last_name, role, badge, active, current_field_status, last_location_lat, last_location_lng, last_status_update")
     .eq("active", true)
+    .neq("role", "Volunteer")
     .order("last_name")
     .order("first_name");
 
   return ((data as OfficerFieldProfile[] | null) ?? []).map((p) => ({
     ...p,
-    first_name: (p as unknown as Record<string, string>).first_name || "",
-    last_name: (p as unknown as Record<string, string>).last_name || "",
     current_field_status: (p.current_field_status as FieldStatus) || "Off Duty",
   }));
 }
@@ -85,6 +84,7 @@ export async function fetchOfficerByUsername(username: string): Promise<OfficerF
     .select("id, username, first_name, last_name, role, badge, active, current_field_status, last_location_lat, last_location_lng, last_status_update")
     .eq("username", username.toLowerCase())
     .eq("active", true)
+    .neq("role", "Volunteer")
     .limit(1);
 
   const rows = (data as OfficerFieldProfile[] | null) ?? [];

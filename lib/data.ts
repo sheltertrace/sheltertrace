@@ -390,14 +390,10 @@ export async function fetchOfficers(): Promise<Officer[]> {
 
   const officerRows = (officersRes.data as Officer[]) || [];
 
-  // Map active staff with officer-relevant roles into Officer shape
+  // Map active staff into Officer shape — exclude Volunteers
   const staffRows = (staffRes.data as Array<Record<string, unknown>>) || [];
   const staffOfficers: Officer[] = staffRows
-    .filter((s) => {
-      const role = (s.role as string) || "";
-      const perms = (s.permissions as string[]) || [];
-      return OFFICER_ROLES.includes(role) || perms.includes("dispatch") || perms.includes("all");
-    })
+    .filter((s) => (s.role as string || "").toLowerCase() !== "volunteer")
     .map((s) => ({
       id: `staff-${s.id as string}`,
       name: `${s.first_name || ""} ${s.last_name || ""}`.trim(),
@@ -518,44 +514,24 @@ export async function deleteAnimalDocument(doc: AnimalDocument): Promise<void> {
 }
 
 // ── Staff Options ──────────────────────────────────────────────────────────────
-// Returns a sorted, deduplicated "First Last" list for vet/staff dropdowns.
-// Primary source : staff_accounts (active shelter staff — always included).
-// Secondary source: people table rows whose role exactly matches STAFF_ROLES.
-// Only exact-match roles are included so adopters, fosters, volunteers, etc.
-// never appear even if their role string contains a staff keyword.
-const STAFF_ROLES = ["Administrator", "Officer", "Vet Tech", "Veterinarian", "Staff"];
-
+// Returns a sorted "First Last" list for vet/staff dropdowns.
+// Source: staff_accounts only — active accounts that are not Volunteers.
 export async function fetchStaffOptions(): Promise<string[]> {
   try {
-    type NameRow = { first_name?: string | null; last_name?: string | null };
+    type NameRow = { first_name?: string | null; last_name?: string | null; role?: string | null };
 
-    // Primary: all active staff accounts
-    const { data: staffData } = await supabase
+    const { data } = await supabase
       .from("staff_accounts")
-      .select("first_name, last_name")
+      .select("first_name, last_name, role")
       .eq("active", true)
       .order("last_name")
       .order("first_name");
 
-    // Secondary: people with an explicit staff role (exact match, not substring)
-    const { data: peopleData } = await supabase
-      .from("people")
-      .select("first_name, last_name, role")
-      .in("role", STAFF_ROLES)
-      .order("last_name")
-      .order("first_name");
-
-    const names = new Set<string>();
-    const toName = (p: NameRow) => [p.first_name, p.last_name].filter(Boolean).join(" ").trim();
-
-    for (const p of (staffData as NameRow[] | null) ?? []) {
-      const n = toName(p); if (n) names.add(n);
-    }
-    for (const p of (peopleData as NameRow[] | null) ?? []) {
-      const n = toName(p); if (n) names.add(n);
-    }
-
-    return [...names].sort((a, b) => a.localeCompare(b));
+    return ((data as NameRow[] | null) ?? [])
+      .filter((p) => (p.role || "").toLowerCase() !== "volunteer")
+      .map((p) => [p.first_name, p.last_name].filter(Boolean).join(" ").trim())
+      .filter(Boolean)
+      .sort((a, b) => a.localeCompare(b));
   } catch {
     return [];
   }
