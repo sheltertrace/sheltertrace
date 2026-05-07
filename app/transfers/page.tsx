@@ -7,7 +7,7 @@ import {
 } from "@/lib/data";
 import type { RescueGroup, Transfer, Animal, MedicalRecord } from "@/lib/types";
 import { formatDate, today } from "@/lib/utils";
-import TransferWizard, { printTransferSheet } from "@/components/transfers/TransferWizard";
+import TransferWizard, { printTransferReceipt } from "@/components/transfers/TransferWizard";
 
 const US_STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","DC"];
 
@@ -117,7 +117,7 @@ export default function TransfersPage() {
     const group = groups.find((g) => g.id === t.rescue_group_id);
     const tAnimals = animals.filter((a) => t.animal_ids.includes(a.id));
     if (!group) { alert("Rescue group not found"); return; }
-    printTransferSheet(t, group, tAnimals, medicalByAnimal);
+    printTransferReceipt(t, group, tAnimals, medicalByAnimal);
   };
 
   const gf = (label: string, field: keyof RescueGroup, type = "text", opts?: string[]) => (
