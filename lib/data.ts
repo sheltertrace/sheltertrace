@@ -530,7 +530,7 @@ export async function fetchStaffOptions(): Promise<string[]> {
     }
     const { data } = await query.order("last_name").order("first_name");
     if (!data) return [];
-    return data
+    return (data as { first_name: string | null; last_name: string | null }[])
       .map((p) => [p.first_name, p.last_name].filter(Boolean).join(" ").trim())
       .filter(Boolean);
   } catch {
