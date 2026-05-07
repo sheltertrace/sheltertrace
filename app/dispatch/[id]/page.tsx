@@ -3,7 +3,8 @@ import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked, fetchAnimals } from "@/lib/data";
-import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType } from "@/lib/types";
+import { fetchOfficerFieldStatuses } from "@/lib/fieldOps";
+import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType, OfficerFieldProfile, FieldStatus } from "@/lib/types";
 import dynamic from "next/dynamic";
 const QuickIntakeModal = dynamic(() => import("@/components/dispatch/QuickIntakeModal"), { ssr: false });
 import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS } from "@/lib/constants";
@@ -176,8 +177,10 @@ function CallDetailPageInner() {
   const [showCallForms, setShowCallForms] = useState(false);
   const [linkedAnimals, setLinkedAnimals] = useState<Animal[]>([]);
   const [showIntakeModal, setShowIntakeModal] = useState(false);
+  const [officerStatuses, setOfficerStatuses] = useState<OfficerFieldProfile[]>([]);
 
   useEffect(() => {
+    fetchOfficerFieldStatuses().then(setOfficerStatuses);
     Promise.all([fetchCall(id), fetchPeople(), fetchOfficers(), fetchCitations(), fetchFormsByLinked({ callId: id })]).then(([c, p, o, cits, forms]) => {
       if (c) {
         setCall(c);
@@ -440,11 +443,26 @@ function CallDetailPageInner() {
                 <div style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>Assigned Officers</div>
                 {officers_assigned.length === 0
                   ? <div style={{ color: "var(--text-muted)", fontSize: 13 }}>No officers assigned</div>
-                  : officers_assigned.map((o) => (
-                    <div key={o.id} style={{ fontSize: 13, padding: "3px 0", borderBottom: "1px solid var(--border-light)" }}>
-                      <strong>{o.name}</strong>{o.badge ? ` · #${o.badge}` : ""}{o.vehicle ? ` · ${o.vehicle}` : ""}
-                    </div>
-                  ))
+                  : officers_assigned.map((o) => {
+                    const profile = officerStatuses.find(
+                      (p) => `${p.first_name} ${p.last_name}`.toLowerCase() === (o.name || "").toLowerCase()
+                    );
+                    const fs = profile?.current_field_status as FieldStatus | undefined;
+                    const FS_COLOR: Record<FieldStatus, string> = { "On Duty": "#28a745", "En Route": "#ffc107", "On Scene": "#0d6efd", "Available": "#17a2b8", "Break": "#dc3545", "Off Duty": "#adb5bd" };
+                    const FS_BG: Record<FieldStatus, string> = { "On Duty": "#e6f4ea", "En Route": "#fff3cd", "On Scene": "#cce5ff", "Available": "#d1ecf1", "Break": "#f8d7da", "Off Duty": "#f0f0f0" };
+                    return (
+                      <div key={o.id} style={{ fontSize: 13, padding: "5px 0", borderBottom: "1px solid var(--border-light)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                        <span>
+                          <strong>{o.name}</strong>{o.badge ? ` · #${o.badge}` : ""}{o.vehicle ? ` · ${o.vehicle}` : ""}
+                        </span>
+                        {fs && (
+                          <span style={{ background: FS_BG[fs], color: FS_COLOR[fs], borderRadius: 12, padding: "2px 9px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+                            {fs}
+                          </span>
+                        )}
+                      </div>
+                    );
+                  })
                 }
               </div>
             </div>

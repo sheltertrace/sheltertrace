@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "./providers";
 import { fetchAnimals, fetchCalls, fetchAdoptions, fetchMedical } from "@/lib/data";
-import type { Animal, DispatchCall, AdoptionRecord, MedicalRecord } from "@/lib/types";
+import { fetchOfficerFieldStatuses } from "@/lib/fieldOps";
+import type { Animal, DispatchCall, AdoptionRecord, MedicalRecord, OfficerFieldProfile, FieldStatus } from "@/lib/types";
 import { STATUS_COLORS } from "@/lib/constants";
 import { formatDate, currencyFmt } from "@/lib/utils";
 import Link from "next/link";
@@ -43,15 +44,17 @@ export default function DashboardPage() {
   const [calls, setCalls] = useState<DispatchCall[]>([]);
   const [adoptions, setAdoptions] = useState<AdoptionRecord[]>([]);
   const [medical, setMedical] = useState<MedicalRecord[]>([]);
+  const [officers, setOfficers] = useState<OfficerFieldProfile[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [a, c, ad, m] = await Promise.all([fetchAnimals(), fetchCalls(), fetchAdoptions(), fetchMedical()]);
+      const [a, c, ad, m, offs] = await Promise.all([fetchAnimals(), fetchCalls(), fetchAdoptions(), fetchMedical(), fetchOfficerFieldStatuses()]);
       setAnimals(a);
       setCalls(c);
       setAdoptions(ad);
       setMedical(m);
+      setOfficers(offs);
     } catch {
       // Supabase may not have data yet — start empty
     } finally {
@@ -156,6 +159,60 @@ export default function DashboardPage() {
                 <Link href="/medical" className="btn btn-secondary" style={{ justifyContent: "flex-start" }}>💊 Add Medical Record</Link>
                 <Link href="/receipts" className="btn btn-secondary" style={{ justifyContent: "flex-start" }}>🧾 Create Receipt</Link>
                 <Link href="/people" className="btn btn-secondary" style={{ justifyContent: "flex-start" }}>👥 New Contact</Link>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            {/* Field Ops */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">🚓 Officer Field Status</span>
+                <Link href="/field-ops" style={{ fontSize: 12, color: "var(--teal)", textDecoration: "none" }}>View board →</Link>
+              </div>
+              {officers.length === 0 ? (
+                <div style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: "20px 0" }}>No officers on record</div>
+              ) : (
+                <div>
+                  {(["On Duty", "En Route", "On Scene", "Available", "Break"] as FieldStatus[]).map((s) => {
+                    const list = officers.filter((o) => o.current_field_status === s);
+                    if (list.length === 0) return null;
+                    const COLOR: Record<FieldStatus, string> = { "On Duty": "#28a745", "En Route": "#ffc107", "On Scene": "#0d6efd", "Available": "#17a2b8", "Break": "#dc3545", "Off Duty": "#adb5bd" };
+                    return (
+                      <div key={s} style={{ marginBottom: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: COLOR[s], marginBottom: 3 }}>{s.toUpperCase()}</div>
+                        {list.map((o) => (
+                          <div key={o.id} style={{ fontSize: 13, paddingLeft: 10, color: "var(--text)" }}>
+                            {o.first_name} {o.last_name}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 6 }}>
+                    {officers.filter((o) => o.current_field_status === "Off Duty").length} off duty
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Active calls stat */}
+            <div className="card">
+              <div className="card-header">
+                <span className="card-title">📊 Dispatch Overview</span>
+                <Link href="/dispatch" style={{ fontSize: 12, color: "var(--teal)", textDecoration: "none" }}>View all →</Link>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { label: "Pending", value: calls.filter((c) => c.status === "Pending").length, color: "#f59e0b" },
+                  { label: "Active (En Route / On Scene)", value: activeCalls, color: "#0d6efd" },
+                  { label: "Closed (all time)", value: calls.filter((c) => c.status === "Closed").length, color: "#22c55e" },
+                ].map((r) => (
+                  <div key={r.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: 13, color: "var(--text)" }}>{r.label}</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: r.color }}>{r.value}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>

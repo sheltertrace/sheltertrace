@@ -511,6 +511,39 @@ export interface ShelterRoom {
   labels?: string[];
 }
 
+export type FieldStatus = 'On Duty' | 'En Route' | 'On Scene' | 'Available' | 'Off Duty' | 'Break';
+
+export interface FieldActivity {
+  id: string;
+  officer_id: string;
+  officer_name: string;
+  officer_badge?: string;
+  status: FieldStatus;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  location_label?: string;
+  call_id?: string | null;
+  call_number?: string;
+  notes?: string;
+  mileage_start?: number | null;
+  mileage_end?: number | null;
+  recorded_at: string;
+  created_at?: string;
+}
+
+export interface OfficerFieldProfile {
+  id: string;
+  pid: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  badge?: string;
+  current_field_status: FieldStatus;
+  last_location_lat?: number | null;
+  last_location_lng?: number | null;
+  last_status_update?: string | null;
+}
+
 export type Database = {
   public: {
     Tables: {
