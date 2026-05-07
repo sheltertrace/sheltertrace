@@ -3,6 +3,7 @@ import { useState } from "react";
 import { createAnimal, searchAnimals } from "@/lib/data";
 import type { Animal } from "@/lib/types";
 import { ALL_BREEDS_DOG, ALL_BREEDS_CAT, ALL_COLORS } from "@/lib/constants";
+import { useKennels } from "@/app/providers";
 import { today } from "@/lib/utils";
 
 interface Props {
@@ -32,6 +33,7 @@ function breedList(species: string): string[] {
 }
 
 export default function QuickIntakeModal({ callId, callType, onAdded, onClose }: Props) {
+  const { kennelLabels } = useKennels();
   const [mode, setMode] = useState<"create" | "link">("create");
   const [saving, setSaving] = useState(false);
   const [errMsg, setErrMsg] = useState("");
@@ -241,7 +243,13 @@ export default function QuickIntakeModal({ callId, callType, onAdded, onClose }:
                     </div>
                     <div className="form-group">
                       <label className="form-label">Kennel Assignment</label>
-                      <input className="form-input" value={kennel} onChange={(e) => setKennel(e.target.value)} placeholder="e.g. A-1 (assign later OK)" />
+                      <select className="form-select" value={kennel} onChange={(e) => setKennel(e.target.value)}>
+                        <option value="">— Assign later —</option>
+                        {kennelLabels.length === 0
+                          ? <option value="" disabled>No kennels configured — see Kennel page</option>
+                          : kennelLabels.map((k) => <option key={k}>{k}</option>)
+                        }
+                      </select>
                     </div>
                   </div>
 

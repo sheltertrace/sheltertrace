@@ -2,7 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { StaffAccount } from "@/lib/types";
 import { getCurrentUser, login as authLogin, logout as authLogout } from "@/lib/auth";
-import { updateStaffTheme } from "@/lib/data";
+import { updateStaffTheme, fetchShelterConfig, kennelLabelsFromConfig } from "@/lib/data";
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
 type Theme = "light" | "dark";
@@ -42,11 +42,27 @@ export function useAuth() {
   return useContext(AuthContext);
 }
 
+// ── Kennels ───────────────────────────────────────────────────────────────────
+interface KennelContextType {
+  kennelLabels: string[];
+  refreshKennels: () => Promise<void>;
+}
+
+const KennelContext = createContext<KennelContextType>({
+  kennelLabels: [],
+  refreshKennels: async () => {},
+});
+
+export function useKennels() {
+  return useContext(KennelContext);
+}
+
 // ── Combined Provider ─────────────────────────────────────────────────────────
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser]     = useState<StaffAccount | null>(null);
   const [loading, setLoading] = useState(true);
   const [theme, setThemeState] = useState<Theme>("light");
+  const [kennelLabels, setKennelLabels] = useState<string[]>([]);
 
   // Apply theme to <html> element
   const applyTheme = useCallback((t: Theme) => {
@@ -90,6 +106,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
   }, [applyTheme]);
 
+  const refreshKennels = useCallback(async () => {
+    try {
+      const raw = await fetchShelterConfig();
+      setKennelLabels(kennelLabelsFromConfig(raw));
+    } catch {
+      setKennelLabels([]);
+    }
+  }, []);
+
+  // Fetch kennel list whenever user logs in
+  useEffect(() => {
+    if (user) refreshKennels();
+  }, [user, refreshKennels]);
+
   const login = useCallback(async (username: string, password: string): Promise<StaffAccount | null> => {
     const account = await authLogin(username, password);
     if (account) {
@@ -111,7 +141,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
       <AuthContext.Provider value={{ user, login, logout, loading }}>
-        {children}
+        <KennelContext.Provider value={{ kennelLabels, refreshKennels }}>
+          {children}
+        </KennelContext.Provider>
       </AuthContext.Provider>
     </ThemeContext.Provider>
   );

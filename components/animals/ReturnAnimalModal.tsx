@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import type { Animal } from "@/lib/types";
-import { KENNEL_LABELS } from "@/lib/constants";
 import { today } from "@/lib/utils";
+import { useKennels } from "@/app/providers";
 import { updateAnimal, addAnimalNote, fetchAdoptions } from "@/lib/data";
 
 const RETURN_REASONS = [
@@ -30,6 +30,7 @@ interface Props {
 }
 
 export default function ReturnAnimalModal({ animal, adopterName: adopterNameProp, onSuccess, onClose }: Props) {
+  const { kennelLabels } = useKennels();
   const [reason, setReason] = useState(RETURN_REASONS[0]);
   const [otherReason, setOtherReason] = useState("");
   const [returnDate, setReturnDate] = useState(today());
@@ -124,7 +125,10 @@ export default function ReturnAnimalModal({ animal, adopterName: adopterNameProp
               <label className="form-label">Kennel Assignment</label>
               <select className="form-select" value={kennel} onChange={(e) => setKennel(e.target.value)}>
                 <option value="">Unassigned</option>
-                {KENNEL_LABELS.map((k) => <option key={k} value={k}>{k}</option>)}
+                {kennelLabels.length === 0
+                  ? <option value="" disabled>No kennels configured — see Kennel page</option>
+                  : kennelLabels.map((k) => <option key={k} value={k}>{k}</option>)
+                }
               </select>
             </div>
           </div>

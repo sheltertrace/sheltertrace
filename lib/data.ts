@@ -518,6 +518,21 @@ export async function deleteAnimalDocument(doc: AnimalDocument): Promise<void> {
 }
 
 // ── Shelter Config ─────────────────────────────────────────────────────────────
+
+// Extract a flat ordered list of kennel label strings from raw shelter config data.
+// Safe to call with null / unknown input.
+export function kennelLabelsFromConfig(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  const labels: string[] = [];
+  for (const room of raw) {
+    if (room && typeof room === "object" && (room as Record<string, unknown>).type === "kennels") {
+      const roomLabels = (room as Record<string, unknown>).labels;
+      if (Array.isArray(roomLabels)) labels.push(...roomLabels as string[]);
+    }
+  }
+  return labels;
+}
+
 export async function fetchShelterConfig() {
   const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 1).single();
   const raw = data?.config_data;

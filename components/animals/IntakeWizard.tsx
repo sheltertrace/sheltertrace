@@ -4,8 +4,9 @@ import type { Animal, Person } from "@/lib/types";
 import {
   INTAKE_TYPES, CIRCUMSTANCE_TYPES, ALL_BREEDS_DOG, ALL_BREEDS_CAT,
   ALL_COLORS, COAT_TYPES, EAR_TYPES, EYE_COLORS, SIZE_OPTIONS,
-  KENNEL_LABELS, BEHAVIOR_FLAGS,
+  BEHAVIOR_FLAGS,
 } from "@/lib/constants";
+import { useKennels } from "@/app/providers";
 import { calcAge, genId, today, nowTime } from "@/lib/utils";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
@@ -29,6 +30,7 @@ function F({ label, children }: { label: string; children: React.ReactNode }) {
 }
 
 export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson }: Props) {
+  const { kennelLabels } = useKennels();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
@@ -469,7 +471,10 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
               <label className="form-label">Assign to Kennel</label>
               <select className="form-select" value={kennel} onChange={(e) => setKennel(e.target.value)} style={{ maxWidth: 220 }}>
                 <option value="Unassigned">Unassigned</option>
-                {KENNEL_LABELS.map((k) => <option key={k}>{k}</option>)}
+                {kennelLabels.length === 0
+                  ? <option value="" disabled>No kennels configured — see Kennel page</option>
+                  : kennelLabels.map((k) => <option key={k}>{k}</option>)
+                }
               </select>
             </div>
 

@@ -7,9 +7,10 @@ import StatusBadge from "@/components/ui/StatusBadge";
 import {
   STATUSES, SUB_STATUSES, BEHAVIOR_FLAGS, EUTH_DRUGS, EUTH_REASONS,
   CIRCUMSTANCE_TYPES, COAT_TYPES, EAR_TYPES, EYE_COLORS, SIZE_OPTIONS,
-  ALL_BREEDS_DOG, ALL_BREEDS_CAT, ALL_COLORS, KENNEL_LABELS,
+  ALL_BREEDS_DOG, ALL_BREEDS_CAT, ALL_COLORS,
   VET_STAFF_LIST, MEDICAL_TYPES, MEDICAL_DESC_MAP,
 } from "@/lib/constants";
+import { useKennels } from "@/app/providers";
 import { calcAge, formatDate, today, nowTime, genId } from "@/lib/utils";
 import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical,
@@ -46,6 +47,7 @@ function F({ label, children }: { label: string; children: React.ReactNode }) {
 
 export default function AnimalDetail({ animal: initialAnimal, medical, people, dispatchCalls, onUpdate }: Props) {
   const router = useRouter();
+  const { kennelLabels } = useKennels();
   const [animal, setAnimal] = useState<Animal>(initialAnimal);
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showAdoptionModal, setShowAdoptionModal] = useState(false);
@@ -814,7 +816,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <select className="form-select" value={newKennel} onChange={(e) => setNewKennel(e.target.value)}>
                   <option value="">— Select destination —</option>
                   <option value="Unassigned">Unassigned</option>
-                  {KENNEL_LABELS.map((k) => <option key={k}>{k}</option>)}
+                  {kennelLabels.length === 0
+                    ? <option value="" disabled>No kennels configured — see Kennel page</option>
+                    : kennelLabels.map((k) => <option key={k}>{k}</option>)
+                  }
                 </select>
               </div>
             </div>

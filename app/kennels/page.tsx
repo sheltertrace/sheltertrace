@@ -4,7 +4,7 @@ import AppShell from "@/components/layout/AppShell";
 import { fetchAnimals, updateAnimal, fetchShelterConfig, saveShelterConfig, fetchMedical } from "@/lib/data";
 import type { Animal, ShelterRoom, MedicalRecord } from "@/lib/types";
 import { DEFAULT_SHELTER_CONFIG, STATUS_COLORS, BEHAVIOR_FLAGS } from "@/lib/constants";
-import { useAuth } from "@/app/providers";
+import { useAuth, useKennels } from "@/app/providers";
 import { useRouter } from "next/navigation";
 import { genId, calcAge } from "@/lib/utils";
 
@@ -492,6 +492,7 @@ function ShelterDesigner({ initial, onSave, onClose }: DesignerProps) {
 // ── Main Kennel Page ──────────────────────────────────────────────────────────
 export default function KennelPage() {
   const { user } = useAuth();
+  const { refreshKennels } = useKennels();
   const router = useRouter();
   const isAdmin = user?.permissions?.includes("all") ?? false;
   const [animals, setAnimals] = useState<Animal[]>([]);
@@ -551,6 +552,7 @@ export default function KennelPage() {
     await saveShelterConfig(rooms);
     setShelterConfig(rooms);
     setShowDesigner(false);
+    refreshKennels(); // update the global kennel list cache
   };
 
   const canvasW = useMemo(() => Math.max(...safeConfig.map((r) => r.x + r.w), 760), [safeConfig]);
