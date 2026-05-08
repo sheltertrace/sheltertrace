@@ -372,7 +372,7 @@ export default function AdminPage() {
           <div className="card" style={{ padding: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--teal)" }}>📧 Court Email Addresses</div>
             <div className="form-group">
-              <label className="form-label">Magistrate Court Email</label>
+              <label className="form-label">Morgan County Magistrate Court Email</label>
               <input
                 className="form-input"
                 type="email"
@@ -380,18 +380,18 @@ export default function AdminPage() {
                 value={courtSettings.magistrate_email}
                 onChange={(e) => setCourtSettings((s) => ({ ...s, magistrate_email: e.target.value }))}
               />
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>149 E Jefferson St, Covington, GA</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>149 E Jefferson St, Madison, GA 30650</div>
             </div>
             <div className="form-group">
-              <label className="form-label">Municipal Court Email</label>
+              <label className="form-label">Morgan County State Court Email</label>
               <input
                 className="form-input"
                 type="email"
-                placeholder="e.g. municipal@cityofcovington.org"
+                placeholder="e.g. statecourt@morgancountyga.gov"
                 value={courtSettings.municipal_email}
                 onChange={(e) => setCourtSettings((s) => ({ ...s, municipal_email: e.target.value }))}
               />
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>118 N Main St, Covington, GA</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>118 N Main St, Madison, GA 30650</div>
             </div>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, marginTop: 8, color: "var(--teal)" }}>🔗 Court Portal</div>
             <div className="form-group">

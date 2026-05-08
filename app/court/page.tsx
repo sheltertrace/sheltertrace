@@ -153,8 +153,8 @@ export default function CourtPage() {
     : (cit.violator_name || "—");
 
   const courtAddr = (cit: Citation) =>
-    cit.court_type === "Magistrate" ? "149 E Jefferson St, Covington, GA" :
-    cit.court_type === "Municipal"  ? "118 N Main St, Covington, GA" : "—";
+    cit.court_type === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" :
+    (cit.court_type === "State" || cit.court_type === "Municipal") ? "118 N Main St, Madison, GA 30650" : "—";
 
   // Table format — matches physical MCAS citation form
   const renderViolationTable = (vios: any[]) => `

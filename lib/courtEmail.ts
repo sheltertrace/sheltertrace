@@ -2,7 +2,7 @@ import type { Citation, CourtSettings } from "./types";
 
 export function buildCourtEmailUrl(citation: Citation, settings: CourtSettings): string {
   const courtType = citation.court_type || "Magistrate";
-  const recipientEmail = courtType === "Municipal" ? settings.municipal_email : settings.magistrate_email;
+  const recipientEmail = (courtType === "State" || courtType === "Municipal") ? settings.municipal_email : settings.magistrate_email;
   if (!recipientEmail) return "";
 
   const citNumber = citation.citation_number || "—";
@@ -25,7 +25,7 @@ export function buildCourtEmailUrl(citation: Citation, settings: CourtSettings):
     citation.court_time ? `at ${citation.court_time} ${citation.court_am_pm || ""}`.trim() : "",
   ].filter(Boolean).join(" ");
 
-  const courtLabel = courtType === "Municipal" ? "Municipal Court" : "Magistrate Court";
+  const courtLabel = (courtType === "State" || courtType === "Municipal") ? "Morgan County State Court" : "Morgan County Magistrate Court";
   const portalUrl = settings.portal_url || "https://sheltertrace.com/court";
 
   const subject = `New Citation Issued \u2014 Citation #${citNumber}`;

@@ -14,7 +14,7 @@ import { useAuth } from "@/app/providers";
 function printCitation(cit: Citation) {
   const w = window.open("", "_blank", "width=700,height=900");
   if (!w) return;
-  const courtAddr = cit.court_type === "Magistrate" ? "149 E Jefferson St, Covington, GA" : "118 N Main St, Covington, GA";
+  const courtAddr = cit.court_type === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650";
   const formalName = cit.violator_last
     ? [cit.violator_last, (cit.violator_first || "") + (cit.violator_middle ? ` ${cit.violator_middle.charAt(0).toUpperCase()}.` : "")].filter(Boolean).join(", ")
     : (cit.violator_name || "—");
@@ -144,7 +144,7 @@ export default function CitationsPage() {
 
   const handleNotifyCourt = useCallback(async (cit: Citation) => {
     const courtType = cit.court_type || "Magistrate";
-    const email = courtType === "Municipal" ? courtSettings.municipal_email : courtSettings.magistrate_email;
+    const email = (courtType === "State" || courtType === "Municipal") ? courtSettings.municipal_email : courtSettings.magistrate_email;
     if (!email) {
       alert(`No ${courtType} Court email configured. Go to Admin → Court Settings to add one.`);
       return;

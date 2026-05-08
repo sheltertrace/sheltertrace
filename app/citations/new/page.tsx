@@ -388,11 +388,11 @@ function CitationNewInner() {
           <div className="grid-3">
             <F label="Court Type">
               <select className="form-select" value={courtType} onChange={(e) => setCourtType(e.target.value)}>
-                <option>Magistrate</option><option>Municipal</option>
+                <option value="Magistrate">Morgan County Magistrate Court</option><option value="State">Morgan County State Court</option>
               </select>
             </F>
             <div style={{ fontSize: 11, color: "var(--text-secondary)", alignSelf: "flex-end", paddingBottom: 10 }}>
-              {courtType === "Magistrate" ? "149 E Jefferson St, Covington, GA" : "118 N Main St, Covington, GA"}
+              {courtType === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650"}
             </div>
             <F label="Court Date"><input className="form-input" type="date" value={courtDate} onChange={(e) => setCourtDate(e.target.value)} /></F>
             <F label="Court Time"><input className="form-input" value={courtTime} onChange={(e) => setCourtTime(e.target.value)} placeholder="e.g. 9:00" /></F>
