@@ -172,6 +172,7 @@ function CallDetailPageInner() {
   const [newNarrText, setNewNarrText] = useState("");
   const [evidenceFiles, setEvidenceFiles] = useState<Array<{ id: string; file: File; notes: string }>>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [callForms, setCallForms] = useState<ShelterForm[]>([]);
   const [showCallForms, setShowCallForms] = useState(false);
@@ -268,12 +269,18 @@ function CallDetailPageInner() {
   const handleSaveProgress = async () => {
     if (!call) return;
     setSaveState("saving");
+    setSaveError(null);
     try {
       const updated = await updateCall(call.id, buildPayload());
       setCall(updated);
       setSaveState("saved");
       setTimeout(() => setSaveState("idle"), 2500);
-    } catch { setSaveState("idle"); alert("Save failed"); }
+    } catch (e: unknown) {
+      setSaveState("idle");
+      const err = e as { message?: string; details?: string; hint?: string; code?: string };
+      const msg = [err.message, err.details, err.hint].filter(Boolean).join(" — ");
+      setSaveError(msg || "Save failed — unknown error");
+    }
   };
 
   // ── Add narrative entry ───────────────────────────────────────────────────
@@ -1025,6 +1032,16 @@ function CallDetailPageInner() {
           </button>
         </div>
       </div>
+
+      {saveError && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 16px", margin: "0 0 12px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+          <div>
+            <span style={{ fontWeight: 700, color: "#b91c1c", fontSize: 13 }}>Save failed: </span>
+            <span style={{ color: "#b91c1c", fontSize: 13 }}>{saveError}</span>
+          </div>
+          <button onClick={() => setSaveError(null)} style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>✕</button>
+        </div>
+      )}
 
       {/* Two-column layout */}
       <div className="dispatch-detail-layout">

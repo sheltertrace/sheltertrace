@@ -287,23 +287,35 @@ async function genCallId(): Promise<string> {
 
 export async function createCall(call: Partial<DispatchCall>): Promise<DispatchCall> {
   const id = await genCallId();
+  const insertData = { ...call, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  console.log("[dispatch save data]", JSON.stringify(insertData, null, 2));
   const { data, error } = await supabase
     .from("dispatch_calls")
-    .insert({ ...call, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .insert(insertData)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.log("[dispatch save error]", JSON.stringify(error, null, 2));
+    throw error;
+  }
+  console.log("[dispatch save success]", data);
   return data as DispatchCall;
 }
 
 export async function updateCall(id: string, updates: Partial<DispatchCall>): Promise<DispatchCall> {
+  const updateData = { ...updates, updated_at: new Date().toISOString() };
+  console.log("[dispatch save data]", JSON.stringify(updateData, null, 2));
   const { data, error } = await supabase
     .from("dispatch_calls")
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update(updateData)
     .eq("id", id)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.log("[dispatch save error]", JSON.stringify(error, null, 2));
+    throw error;
+  }
+  console.log("[dispatch save success]", data);
   return data as DispatchCall;
 }
 
