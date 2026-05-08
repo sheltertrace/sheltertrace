@@ -185,6 +185,7 @@ function CallDetailPageInner() {
     fetchOfficerFieldStatuses().then(setOfficerStatuses);
     Promise.all([fetchCall(id), fetchPeople(), fetchOfficers(), fetchCitations(), fetchFormsByLinked({ callId: id })]).then(([c, p, o, cits, forms]) => {
       if (c) {
+        console.log("[evidence load] from database:", c.evidence);
         setCall(c);
         setData(callToReportData(c));
         setLiveNarrative((c.narrative || []) as NarrativeEntry[]);
@@ -290,8 +291,13 @@ function CallDetailPageInner() {
     setSaveState("saving");
     setSaveError(null);
     try {
-      const updated = await updateCall(call.id, buildPayload());
+      const evidence = await uploadNewEvidence();
+      const payload = { ...buildPayload(), evidence };
+      console.log("[evidence save] saving to database:", evidence);
+      const updated = await updateCall(call.id, payload);
+      console.log("[evidence save] database result:", updated.evidence);
       applyFreshCall(updated);
+      setEvidenceFiles([]);
       setSaveState("saved");
       showToast("Call saved successfully");
       setTimeout(() => setSaveState("idle"), 2500);
@@ -333,10 +339,13 @@ function CallDetailPageInner() {
     const existing = (call.evidence || []) as EvidenceItem[];
     const uploaded: EvidenceItem[] = [...existing];
     await Promise.all(evidenceFiles.map(async (item) => {
+      console.log("[evidence upload] file:", item.file.name, item.file.size);
       const path = `${call.id}/${Date.now()}-${item.file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      const { error } = await supabase.storage.from("evidence").upload(path, item.file, { upsert: false });
-      if (!error) {
+      const { data: storageData, error: storageError } = await supabase.storage.from("evidence").upload(path, item.file, { upsert: false });
+      console.log("[evidence upload] storage result:", storageData, storageError);
+      if (!storageError) {
         const { data: urlData } = supabase.storage.from("evidence").getPublicUrl(path);
+        console.log("[evidence upload] public URL:", urlData.publicUrl);
         uploaded.push({ id: genId(), file_name: item.file.name, file_url: urlData.publicUrl, file_type: item.file.type, notes: item.notes, type: item.file.type.startsWith("image") ? "Photo" : "Document", description: item.notes || item.file.name, date: today(), url: urlData.publicUrl });
       }
     }));
