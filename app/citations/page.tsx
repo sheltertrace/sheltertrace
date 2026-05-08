@@ -106,12 +106,26 @@ function printCitation(cit: Citation) {
 
 const NOTIFY_ROLES = ["Administrator", "Officer", "Field Officer", "Shelter Manager"];
 
+function copyToClipboard(text: string) {
+  navigator.clipboard.writeText(text).catch(() => {
+    const el = document.createElement("textarea");
+    el.value = text;
+    document.body.appendChild(el);
+    el.select();
+    document.execCommand("copy");
+    document.body.removeChild(el);
+  });
+}
+
 export default function CitationsPage() {
   const { user } = useAuth();
   const [citations, setCitations]     = useState<Citation[]>([]);
   const [loading, setLoading]         = useState(true);
   const [search, setSearch]           = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [toast, setToast]             = useState<string | null>(null);
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [emailResult, setEmailResult]   = useState<{ id: string; ok: boolean; msg: string } | null>(null);
   const [sortByDate, setSortByDate]   = useState(false);
   const [page, setPage]               = useState(1);
   const [showForm, setShowForm]       = useState(false);
@@ -184,18 +198,48 @@ export default function CitationsPage() {
 
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
 
+  const showToast = (msg: string) => { setToast(msg); setTimeout(() => setToast(null), 3500); };
+
   const handleCitationSaved = (cit: Citation) => {
     setCitations((prev) => [cit, ...prev]);
     setShowForm(false);
+    showToast(`Citation ${cit.citation_number} issued successfully`);
   };
 
   const handleDispositionSaved = (updated: Citation) => {
     setCitations((prev) => prev.map((c) => c.id === updated.id ? updated : c));
+    if (viewCitation?.id === updated.id) setViewCitation(updated);
     setDispCitation(null);
+    showToast("Disposition updated");
+  };
+
+  const handleSendViolatorEmail = async (cit: Citation) => {
+    if (!cit.violator_email) return;
+    setSendingEmail(true);
+    setEmailResult(null);
+    try {
+      const { supabase: sb } = await import("@/lib/supabase");
+      const { data, error } = await sb.functions.invoke("send-citation-email", {
+        body: { citation_id: cit.id },
+      });
+      if (error || !data?.success) {
+        setEmailResult({ id: cit.id, ok: false, msg: error?.message || data?.error || "Email service not configured. Use Print instead." });
+      } else {
+        setEmailResult({ id: cit.id, ok: true, msg: "Email sent successfully to " + cit.violator_email });
+        showToast("Email sent to " + cit.violator_email);
+      }
+    } catch {
+      setEmailResult({ id: cit.id, ok: false, msg: "Email service not configured. Use Print instead." });
+    } finally { setSendingEmail(false); }
   };
 
   return (
     <>
+      {toast && (
+        <div style={{ position: "fixed", bottom: 24, right: 24, background: "#16a34a", color: "#fff", borderRadius: 8, padding: "12px 20px", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 16px rgba(0,0,0,.18)", zIndex: 9999 }}>
+          ✓ {toast}
+        </div>
+      )}
       <AppShell title="Citations" action={<button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Issue Citation</button>}>
         {/* Filters */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12, alignItems: "center", flexWrap: "wrap" }}>
@@ -399,9 +443,22 @@ export default function CitationsPage() {
                 </div>
               )}
             </div>
+            {/* Email result feedback */}
+            {emailResult?.id === viewCitation.id && (
+              <div style={{ padding: "10px 20px", background: emailResult.ok ? "#f0fdf4" : "#fef2f2", borderTop: "1px solid var(--border-light)", fontSize: 13, color: emailResult.ok ? "#15803d" : "#b91c1c", display: "flex", alignItems: "center", gap: 8 }}>
+                {emailResult.ok ? "✓" : "⚠"} {emailResult.msg}
+                {!emailResult.ok && <button className="btn btn-secondary btn-sm" style={{ marginLeft: 8 }} onClick={() => printCitation(viewCitation)}>🖨 Print Instead</button>}
+              </div>
+            )}
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setViewCitation(null)}>Close</button>
-              <button className="btn btn-secondary" onClick={() => printCitation(viewCitation)}>🖨 Print</button>
+              <button className="btn btn-secondary" onClick={() => { copyToClipboard(`${window.location.origin}/citations?id=${viewCitation.id}`); showToast("Link copied to clipboard"); }}>🔗 Copy Link</button>
+              <button className="btn btn-secondary" onClick={() => printCitation(viewCitation)}>🖨 Print / Download</button>
+              {viewCitation.violator_email && (
+                <button className="btn btn-secondary" onClick={() => handleSendViolatorEmail(viewCitation)} disabled={sendingEmail}>
+                  {sendingEmail ? "Sending…" : "✉ Email Violator"}
+                </button>
+              )}
               <button className="btn btn-primary" onClick={() => { setDispCitation(viewCitation); setViewCitation(null); }}>⚖️ Update Disposition</button>
             </div>
           </div>

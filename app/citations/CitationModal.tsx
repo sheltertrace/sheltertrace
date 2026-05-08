@@ -87,6 +87,9 @@ export default function CitationModal({ onSave, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [issuedCitation, setIssuedCitation] = useState<Citation | null>(null);
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailResult, setEmailResult] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [courtSettings, setCourtSettings] = useState<CourtSettings>({ magistrate_email: "", municipal_email: "", portal_url: "https://sheltertrace.com/court" });
 
   useEffect(() => { fetchCourtSettings().then(setCourtSettings); }, []);
@@ -328,31 +331,102 @@ export default function CitationModal({ onSave, onClose }: Props) {
             </>
           )}
 
-          {sentTo && (
-            <div style={{ marginTop: 12, padding: "10px 14px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, fontSize: 13, color: "#15803d" }}>
-              ✓ Citation #{citNumber} sent to <strong>{sentTo}</strong>
-            </div>
-          )}
           {issuedCitation && (
-            <div style={{ marginTop: 12, padding: "12px 14px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 6 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: "#1d4ed8", marginBottom: 8 }}>
+            <div style={{ marginTop: 12, padding: "14px 16px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8 }}>
+              <div style={{ fontWeight: 800, fontSize: 14, color: "#15803d", marginBottom: 10 }}>
                 ✓ Citation #{issuedCitation.citation_number} issued successfully
               </div>
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={async () => {
-                  const opened = openCourtEmail(issuedCitation, courtSettings);
-                  if (opened && issuedCitation.id) {
-                    await markCitationNotified(issuedCitation.id);
-                  } else if (!opened) {
-                    alert(`No ${issuedCitation.court_type || "Magistrate"} Court email configured. Go to Admin → Court Settings.`);
-                  }
-                }}
-              >
-                📧 Send Court Notification
-              </button>
-              <div style={{ fontSize: 11, color: "#3b82f6", marginTop: 6 }}>
-                Opens your email client with a pre-filled notification to {issuedCitation.court_type || "Magistrate"} Court
+              {sentTo && (
+                <div style={{ fontSize: 12, color: "#15803d", marginBottom: 10 }}>
+                  Digital citation recorded for <strong>{sentTo}</strong>
+                </div>
+              )}
+
+              {/* Action buttons */}
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+                {/* Print / Download */}
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    const w = window.open("", "_blank", "width=700,height=900");
+                    if (!w) return;
+                    const courtAddr = issuedCitation.court_type === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650";
+                    w.document.write(`<html><head><title>Citation ${issuedCitation.citation_number}</title><style>body{font-family:serif;font-size:11px;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #000;padding:4px 6px}.s{margin:8px 0;font-weight:bold;font-size:11px;border-bottom:2px solid #000;padding-bottom:2px;text-transform:uppercase}@media print{body{padding:12px}}</style></head><body>
+                      <div style="text-align:center;margin-bottom:10px"><strong style="font-size:14px">MORGAN COUNTY ANIMAL SERVICES</strong><br>2392 Athens Hwy, Madison, GA 30650<br><em>Uniform Citation, Summons, Accusation</em></div>
+                      <div class="s">Citation #${issuedCitation.citation_number} — ${issuedCitation.date || ""}</div>
+                      <div class="s">VIOLATOR</div><table><tr><td><b>Name:</b> ${issuedCitation.violator_name || "—"}</td><td><b>DL:</b> ${issuedCitation.violator_dl || "—"}</td></tr><tr><td colspan="2"><b>Address:</b> ${[issuedCitation.violator_address, issuedCitation.violator_city, issuedCitation.violator_state].filter(Boolean).join(", ") || "—"}</td></tr><tr><td><b>Phone:</b> ${issuedCitation.violator_phone || "—"}</td><td><b>DOB:</b> ${issuedCitation.violator_dob || "—"}</td></tr></table>
+                      <div class="s">VIOLATIONS</div><table><tr><th>Count</th><th>Code</th><th>Description</th></tr>${(issuedCitation.violations || []).map((v: {code:string;description:string;count:number}) => `<tr><td style="text-align:center">×${v.count}</td><td>§ ${v.code}</td><td>${v.description}</td></tr>`).join("")}</table>
+                      <div class="s">COURT INFORMATION</div><div><b>Court:</b> ${issuedCitation.court_type} Court — ${courtAddr}</div><div><b>Date:</b> ${issuedCitation.court_date || "—"} at ${issuedCitation.court_time || "—"} ${issuedCitation.court_am_pm || ""}</div><div><b>Fine:</b> $${issuedCitation.fine_amount || "0.00"} &nbsp; <b>Due:</b> ${issuedCitation.due_date || "—"}</div>
+                      <div class="s">OFFICER</div><div><b>Issuing Officer:</b> ${issuedCitation.issuing_officer || "—"} &nbsp; <b>Badge:</b> ${issuedCitation.badge_number || "—"}</div>
+                    </body></html>`);
+                    w.document.close();
+                    setTimeout(() => w.print(), 400);
+                  }}
+                >
+                  🖨 Print / Download
+                </button>
+
+                {/* Copy citation link */}
+                <button
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => {
+                    const url = `${window.location.origin}/citations?id=${issuedCitation.id}`;
+                    navigator.clipboard.writeText(url).catch(() => {});
+                    setLinkCopied(true);
+                    setTimeout(() => setLinkCopied(false), 2000);
+                  }}
+                >
+                  {linkCopied ? "✓ Copied!" : "🔗 Copy Citation Link"}
+                </button>
+
+                {/* Send email to violator */}
+                {issuedCitation.violator_email && (
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    disabled={emailSending}
+                    onClick={async () => {
+                      setEmailSending(true);
+                      setEmailResult(null);
+                      try {
+                        const { supabase: sb } = await import("@/lib/supabase");
+                        const { data, error } = await sb.functions.invoke("send-citation-email", { body: { citation_id: issuedCitation.id } });
+                        if (error || !data?.success) {
+                          setEmailResult({ ok: false, msg: "Email service not configured. Use Print instead." });
+                        } else {
+                          setEmailResult({ ok: true, msg: `Email sent to ${issuedCitation.violator_email}` });
+                        }
+                      } catch {
+                        setEmailResult({ ok: false, msg: "Email service not configured. Use Print instead." });
+                      } finally { setEmailSending(false); }
+                    }}
+                  >
+                    {emailSending ? "Sending…" : `✉ Email Violator (${issuedCitation.violator_email})`}
+                  </button>
+                )}
+
+                {/* Court notification */}
+                <button
+                  className="btn btn-primary btn-sm"
+                  onClick={async () => {
+                    const opened = openCourtEmail(issuedCitation, courtSettings);
+                    if (opened && issuedCitation.id) {
+                      await markCitationNotified(issuedCitation.id);
+                    } else if (!opened) {
+                      alert(`No ${issuedCitation.court_type || "Magistrate"} Court email configured. Go to Admin → Court Settings.`);
+                    }
+                  }}
+                >
+                  📧 Send Court Notification
+                </button>
+              </div>
+
+              {emailResult && (
+                <div style={{ fontSize: 12, color: emailResult.ok ? "#15803d" : "#b91c1c", padding: "6px 10px", background: emailResult.ok ? "#dcfce7" : "#fef2f2", borderRadius: 5, marginBottom: 6 }}>
+                  {emailResult.ok ? "✓" : "⚠"} {emailResult.msg}
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: "#6b7280" }}>
+                Court notification opens your email client with a pre-filled message to {issuedCitation.court_type || "Magistrate"} Court
               </div>
             </div>
           )}
