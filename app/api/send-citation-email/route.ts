@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+export const dynamic = "force-dynamic";
 
 const MCAS_ADDRESS = "1535 Buckhead Rd, Madison, GA 30650";
 const MCAS_PHONE = "(706) 474-7170";
@@ -9,8 +9,9 @@ const FROM = "Morgan County Animal Services <noreply@resend.dev>";
 
 export async function POST(req: NextRequest) {
   if (!process.env.RESEND_API_KEY) {
-    return NextResponse.json({ success: false, error: "Email service not configured." }, { status: 200 });
+    return NextResponse.json({ success: false, error: "Email not configured. RESEND_API_KEY is missing." }, { status: 500 });
   }
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
   let body: {
     violatorEmail: string;
