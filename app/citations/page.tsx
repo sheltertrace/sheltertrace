@@ -4,7 +4,7 @@ import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
 import CitationModal from "./CitationModal";
 import DispositionModal, { CitationStatusBadge, CITATION_STATUSES } from "./DispositionModal";
-import { fetchCitations, fetchCalls, fetchCourtSettings, markCitationNotified } from "@/lib/data";
+import { fetchCitations, fetchCalls, fetchCourtSettings, markCitationNotified, markCitationEmailSent } from "@/lib/data";
 import type { Citation, CourtSettings } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
@@ -218,18 +218,49 @@ export default function CitationsPage() {
     setSendingEmail(true);
     setEmailResult(null);
     try {
-      const { supabase: sb } = await import("@/lib/supabase");
-      const { data, error } = await sb.functions.invoke("send-citation-email", {
-        body: { citation_id: cit.id },
+      const courtAddr = cit.court_type === "Magistrate"
+        ? "149 E Jefferson St, Madison, GA 30650"
+        : "118 N Main St, Madison, GA 30650";
+      const courtName = cit.court_type === "Magistrate"
+        ? "Morgan County Magistrate Court"
+        : "Morgan County State Court";
+      const res = await fetch("/api/send-citation-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          violatorEmail: cit.violator_email,
+          violatorName: [cit.violator_last, cit.violator_first].filter(Boolean).join(", ") || cit.violator_name || "",
+          citationNumber: cit.citation_number,
+          citationDate: cit.date || "",
+          violations: cit.violations || [],
+          fineAmount: cit.fine_amount,
+          dueDate: cit.due_date,
+          courtName,
+          courtAddress: courtAddr,
+          courtDate: cit.court_date,
+          courtTime: cit.court_time,
+          courtAmPm: cit.court_am_pm,
+          officerName: cit.issuing_officer,
+          officerBadge: cit.badge_number,
+          animalInfo: cit.animal_desc,
+          remarks: cit.remarks,
+        }),
       });
-      if (error || !data?.success) {
-        setEmailResult({ id: cit.id, ok: false, msg: error?.message || data?.error || "Email service not configured. Use Print instead." });
+      const json = await res.json();
+      if (!json.success) {
+        setEmailResult({ id: cit.id, ok: false, msg: json.error || "Email service not configured. Use Print instead." });
       } else {
-        setEmailResult({ id: cit.id, ok: true, msg: "Email sent successfully to " + cit.violator_email });
+        await markCitationEmailSent(cit.id);
+        setCitations((prev) => prev.map((c) => c.id === cit.id
+          ? { ...c, email_sent: true, email_sent_at: new Date().toISOString() } : c));
+        if (viewCitation?.id === cit.id) {
+          setViewCitation((prev) => prev ? { ...prev, email_sent: true, email_sent_at: new Date().toISOString() } : prev);
+        }
+        setEmailResult({ id: cit.id, ok: true, msg: "Email sent to " + cit.violator_email });
         showToast("Email sent to " + cit.violator_email);
       }
-    } catch {
-      setEmailResult({ id: cit.id, ok: false, msg: "Email service not configured. Use Print instead." });
+    } catch (e) {
+      setEmailResult({ id: cit.id, ok: false, msg: (e as Error).message || "Failed to send email." });
     } finally { setSendingEmail(false); }
   };
 
@@ -292,6 +323,11 @@ export default function CitationsPage() {
                         {c.court_notified && (
                           <span className="badge" style={{ background: "#eff6ff", color: "#1d4ed8", fontSize: 10 }} title={c.court_notified_at ? `Notified ${new Date(c.court_notified_at).toLocaleString()}` : undefined}>
                             ✉ Court Notified
+                          </span>
+                        )}
+                        {c.email_sent && (
+                          <span className="badge" style={{ background: "#f0fdf4", color: "#15803d", fontSize: 10 }} title={c.email_sent_at ? `Emailed ${new Date(c.email_sent_at).toLocaleString()}` : undefined}>
+                            ✉ Violator Emailed
                           </span>
                         )}
                       </div>

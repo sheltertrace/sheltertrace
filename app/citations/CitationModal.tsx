@@ -388,15 +388,43 @@ export default function CitationModal({ onSave, onClose }: Props) {
                       setEmailSending(true);
                       setEmailResult(null);
                       try {
-                        const { supabase: sb } = await import("@/lib/supabase");
-                        const { data, error } = await sb.functions.invoke("send-citation-email", { body: { citation_id: issuedCitation.id } });
-                        if (error || !data?.success) {
-                          setEmailResult({ ok: false, msg: "Email service not configured. Use Print instead." });
+                        const { markCitationEmailSent } = await import("@/lib/data");
+                        const courtAddr = issuedCitation.court_type === "Magistrate"
+                          ? "149 E Jefferson St, Madison, GA 30650"
+                          : "118 N Main St, Madison, GA 30650";
+                        const courtName = issuedCitation.court_type === "Magistrate"
+                          ? "Morgan County Magistrate Court"
+                          : "Morgan County State Court";
+                        const res = await fetch("/api/send-citation-email", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            violatorEmail: issuedCitation.violator_email,
+                            violatorName: [issuedCitation.violator_last, issuedCitation.violator_first].filter(Boolean).join(", ") || issuedCitation.violator_name || "",
+                            citationNumber: issuedCitation.citation_number,
+                            citationDate: issuedCitation.date || "",
+                            violations: issuedCitation.violations || [],
+                            fineAmount: issuedCitation.fine_amount,
+                            dueDate: issuedCitation.due_date,
+                            courtName, courtAddress: courtAddr,
+                            courtDate: issuedCitation.court_date,
+                            courtTime: issuedCitation.court_time,
+                            courtAmPm: issuedCitation.court_am_pm,
+                            officerName: issuedCitation.issuing_officer,
+                            officerBadge: issuedCitation.badge_number,
+                            animalInfo: issuedCitation.animal_desc,
+                            remarks: issuedCitation.remarks,
+                          }),
+                        });
+                        const json = await res.json();
+                        if (!json.success) {
+                          setEmailResult({ ok: false, msg: json.error || "Email service not configured. Use Print instead." });
                         } else {
+                          if (issuedCitation.id) await markCitationEmailSent(issuedCitation.id);
                           setEmailResult({ ok: true, msg: `Email sent to ${issuedCitation.violator_email}` });
                         }
-                      } catch {
-                        setEmailResult({ ok: false, msg: "Email service not configured. Use Print instead." });
+                      } catch (e) {
+                        setEmailResult({ ok: false, msg: (e as Error).message || "Failed to send email." });
                       } finally { setEmailSending(false); }
                     }}
                   >

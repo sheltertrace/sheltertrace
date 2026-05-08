@@ -658,6 +658,10 @@ export async function markCitationNotified(id: string): Promise<void> {
   await supabase.from("citations").update({ court_notified: true, court_notified_at: new Date().toISOString() }).eq("id", id);
 }
 
+export async function markCitationEmailSent(id: string): Promise<void> {
+  await supabase.from("citations").update({ email_sent: true, email_sent_at: new Date().toISOString() }).eq("id", id);
+}
+
 // ── Forms ─────────────────────────────────────────────────────────────────────
 export async function fetchForms(formType?: import("./types").FormType): Promise<import("./types").ShelterForm[]> {
   let q = supabase.from("forms").select("*").order("created_at", { ascending: false });

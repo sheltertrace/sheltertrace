@@ -281,6 +281,9 @@ export interface Citation {
   // Court notification
   court_notified?: boolean;
   court_notified_at?: string;
+  // Violator email notification
+  email_sent?: boolean;
+  email_sent_at?: string;
 }
 
 export interface RescueGroup {
