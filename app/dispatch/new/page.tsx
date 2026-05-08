@@ -137,7 +137,7 @@ export default function NewCallPage() {
         await addPersonNote(p.id, `Caller on ${data.type} call ${call.id} at ${data.address}, ${data.city}`, "Dispatch");
       }
 
-      router.push("/dispatch");
+      router.push(`/dispatch/${call.id}`);
     } catch (e: unknown) {
       const err = e as { message?: string };
       alert(`Failed to dispatch call: ${err?.message || "Unknown error"}`);

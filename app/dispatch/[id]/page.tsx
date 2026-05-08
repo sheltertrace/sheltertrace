@@ -173,6 +173,7 @@ function CallDetailPageInner() {
   const [evidenceFiles, setEvidenceFiles] = useState<Array<{ id: string; file: File; notes: string }>>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveToast, setSaveToast] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [callForms, setCallForms] = useState<ShelterForm[]>([]);
   const [showCallForms, setShowCallForms] = useState(false);
@@ -204,6 +205,24 @@ function CallDetailPageInner() {
   }, [id]);
 
   const upd = (patch: Partial<ReportData>) => setData((d) => ({ ...d, ...patch }));
+
+  // Apply fresh call data from Supabase to all local state at once
+  const applyFreshCall = (fresh: DispatchCall) => {
+    setCall(fresh);
+    setData((prev) => ({
+      ...callToReportData(fresh),
+      // Preserve transient UI fields that aren't round-tripped through the DB
+      arrival_time: prev.arrival_time,
+      departure_time: prev.departure_time,
+      disposition_notes: prev.disposition_notes,
+    }));
+    setLiveNarrative((fresh.narrative || []) as NarrativeEntry[]);
+  };
+
+  const showToast = (msg: string) => {
+    setSaveToast(msg);
+    setTimeout(() => setSaveToast(null), 3000);
+  };
 
   // ── Build involved parties ────────────────────────────────────────────────
   const buildInvolved = useCallback((): InvolvedParty[] => {
@@ -272,8 +291,9 @@ function CallDetailPageInner() {
     setSaveError(null);
     try {
       const updated = await updateCall(call.id, buildPayload());
-      setCall(updated);
+      applyFreshCall(updated);
       setSaveState("saved");
+      showToast("Call saved successfully");
       setTimeout(() => setSaveState("idle"), 2500);
     } catch (e: unknown) {
       setSaveState("idle");
@@ -289,9 +309,10 @@ function CallDetailPageInner() {
     if (!text || !call) return;
     const entry: NarrativeEntry = { id: genId(), time: nowTime(), officer: "Officer", text };
     const updated = [...liveNarrative, entry];
-    setLiveNarrative(updated);
+    setLiveNarrative(updated);  // Optimistic — shows immediately
     setNewNarrText("");
-    await updateCall(call.id, { narrative: updated });
+    const saved = await updateCall(call.id, { narrative: updated });
+    setCall(saved);  // Sync call object so buildPayload stays accurate
   };
 
   // ── Status change (auto-logs narrative) ──────────────────────────────────
@@ -300,9 +321,10 @@ function CallDetailPageInner() {
     const logEntry: NarrativeEntry = { id: genId(), time: nowTime(), officer: "System", text: `Status changed to ${newStatus}` };
     const updated = [...liveNarrative, logEntry];
     setLiveNarrative(updated);
-    upd({ status: newStatus });
+    upd({ status: newStatus });  // Optimistic — updates selector immediately
     const saved = await updateCall(call.id, { status: newStatus, narrative: updated });
-    setCall(saved);
+    applyFreshCall(saved);
+    showToast(`Status updated to ${newStatus}`);
   };
 
   // ── Upload evidence files ─────────────────────────────────────────────────
@@ -355,10 +377,12 @@ function CallDetailPageInner() {
       const narrative = [...liveNarrative, closeEntry];
       const evidence = await uploadNewEvidence();
       const payload = { ...buildPayload("Resolved"), narrative, evidence };
-      await updateCall(call.id, payload);
+      const finalized = await updateCall(call.id, payload);
+      applyFreshCall(finalized);
       await autoCreatePeople();
       setEvidenceFiles([]);
-      router.push("/dispatch");
+      showToast("Call finalized and closed");
+      setTimeout(() => router.push("/dispatch"), 1200);
     } catch (e: unknown) {
       const err = e as { message?: string };
       alert(`Finalize failed: ${err?.message || "Unknown error"}`);
@@ -1040,6 +1064,12 @@ function CallDetailPageInner() {
             <span style={{ color: "#b91c1c", fontSize: 13 }}>{saveError}</span>
           </div>
           <button onClick={() => setSaveError(null)} style={{ background: "none", border: "none", color: "#b91c1c", cursor: "pointer", fontWeight: 700, fontSize: 14, flexShrink: 0 }}>✕</button>
+        </div>
+      )}
+
+      {saveToast && (
+        <div style={{ position: "fixed", bottom: 24, right: 24, background: "#16a34a", color: "#fff", borderRadius: 8, padding: "12px 20px", fontSize: 14, fontWeight: 700, boxShadow: "0 4px 16px rgba(0,0,0,.18)", zIndex: 9999, display: "flex", alignItems: "center", gap: 8 }}>
+          ✓ {saveToast}
         </div>
       )}
 
