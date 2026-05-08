@@ -3,8 +3,8 @@ import { Resend } from "resend";
 
 export const dynamic = "force-dynamic";
 
-const MCAS_ADDRESS = "1535 Buckhead Rd, Madison, GA 30650";
-const MCAS_PHONE = "(706) 474-7170";
+const MCAS_ADDRESS = "2392 Athens Hwy, Madison, GA 30650";
+const MCAS_PHONE = "(706) 752-1195";
 const FROM = "Morgan County Animal Services <noreply@resend.dev>";
 
 export async function POST(req: NextRequest) {

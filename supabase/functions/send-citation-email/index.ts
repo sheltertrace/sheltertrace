@@ -6,7 +6,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const FROM_EMAIL = "citations@morgancountyanimalservices.gov";
 const MCAS_ADDRESS = "2392 Athens Hwy, Madison, GA 30650";
-const MCAS_PHONE = "(706) 342-1512";
+const MCAS_PHONE = "(706) 752-1195";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
