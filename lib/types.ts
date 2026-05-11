@@ -451,6 +451,27 @@ export interface ViolationItem {
   count: number;
 }
 
+export interface DepartureReceipt {
+  id: string;
+  receipt_number: string;
+  animal_id: string;
+  animal_name: string;
+  animal_info_snapshot: Record<string, unknown>;
+  departure_type: string;
+  departure_date: string;
+  person_id?: string;
+  person_name?: string;
+  person_info_snapshot?: Record<string, unknown>;
+  fees?: Array<{ item: string; amount: number }>;
+  total_fees: number;
+  payment_method?: string;
+  conditions?: string;
+  notes?: string;
+  officer_name?: string;
+  officer_id?: string;
+  created_at?: string;
+}
+
 export interface Receipt {
   id: string;
   date: string;

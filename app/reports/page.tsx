@@ -1,20 +1,30 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers, safeArray, safeAnimalNames, safeJsonArray, safeJsonObject } from "@/lib/data";
-import type { Animal, AdoptionRecord, MedicalRecord, Transfer, RescueGroup } from "@/lib/types";
+import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers, safeArray, safeAnimalNames, safeJsonArray, safeJsonObject, fetchDepartureReceipts } from "@/lib/data";
+import type { Animal, AdoptionRecord, MedicalRecord, Transfer, RescueGroup, DepartureReceipt } from "@/lib/types";
 import { formatDate, today } from "@/lib/utils";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
+import { printDepartureReceipt } from "@/lib/departureReceipt";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+const DEPARTURE_TYPES = ["All", "Adoption", "Owner Redemption", "Foster Placement", "Transfer Out", "Euthanasia", "Field Release", "Return to Owner"];
 
 export default function ReportsPage() {
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [adoptions, setAdoptions] = useState<AdoptionRecord[]>([]);
   const [medical, setMedical] = useState<MedicalRecord[]>([]);
   const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [departureRecs, setDepartureRecs] = useState<DepartureReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeReport, setActiveReport] = useState<string | null>(null);
+
+  // Departure receipt filters
+  const [drDateFrom, setDrDateFrom] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split("T")[0]; });
+  const [drDateTo, setDrDateTo] = useState(today());
+  const [drType, setDrType] = useState("All");
+  const [drSearch, setDrSearch] = useState("");
 
   // Transfer report filters
   const [trDateFrom, setTrDateFrom] = useState("");
@@ -25,11 +35,12 @@ export default function ReportsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [a, ad, m, tr] = await Promise.all([fetchAnimals(), fetchAdoptions(), fetchMedical(), fetchTransfers()]);
+      const [a, ad, m, tr, dr] = await Promise.all([fetchAnimals(), fetchAdoptions(), fetchMedical(), fetchTransfers(), fetchDepartureReceipts()]);
       setAnimals(a);
       setAdoptions(ad);
       setMedical(m);
       setTransfers(tr);
+      setDepartureRecs(dr);
     } catch { } finally { setLoading(false); }
   }, []);
 
@@ -254,6 +265,7 @@ export default function ReportsPage() {
     { id: "monthly", title: "Monthly Trend", desc: "Intakes vs adoptions over the last 6 months", icon: "📈" },
     { id: "status", title: "Status Summary", desc: "Current population by status", icon: "📊" },
     { id: "transfers", title: "Transfer Reports", desc: "Transfers to rescue groups and agencies with receipts", icon: "🚌" },
+    { id: "departure_receipts", title: "Departure Receipts", desc: "All departure receipts by type, date, person, and fees", icon: "🧾" },
   ];
 
   return (
@@ -542,6 +554,129 @@ export default function ReportsPage() {
           </div>
         )}
       </div>
+
+      {/* Departure Receipts */}
+      {(activeReport === "departure_receipts" || activeReport === null) && (() => {
+        const filtered = departureRecs.filter((r) => {
+          if (drType !== "All" && r.departure_type !== drType) return false;
+          if (drDateFrom && r.departure_date < drDateFrom) return false;
+          if (drDateTo && r.departure_date > drDateTo + "T23:59:59") return false;
+          if (drSearch.trim()) {
+            const q = drSearch.toLowerCase();
+            if (!(r.animal_name || "").toLowerCase().includes(q) &&
+                !(r.person_name || "").toLowerCase().includes(q) &&
+                !(r.receipt_number || "").toLowerCase().includes(q)) return false;
+          }
+          return true;
+        });
+        const totalFees = filtered.reduce((s, r) => s + (r.total_fees || 0), 0);
+        const byType = DEPARTURE_TYPES.slice(1).map((t) => ({
+          type: t,
+          count: filtered.filter((r) => r.departure_type === t).length,
+        })).filter((x) => x.count > 0);
+
+        const exportCsv = () => {
+          const rows = [
+            ["Receipt #", "Animal", "Departure Type", "Date", "Person", "Fees", "Officer"],
+            ...filtered.map((r) => [
+              r.receipt_number,
+              r.animal_name,
+              r.departure_type,
+              r.departure_date ? new Date(r.departure_date).toLocaleDateString() : "",
+              r.person_name || "",
+              r.total_fees > 0 ? `$${r.total_fees.toFixed(2)}` : "",
+              r.officer_name || "",
+            ]),
+          ];
+          const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+          const a = document.createElement("a");
+          a.href = "data:text/csv;charset=utf-8," + encodeURIComponent(csv);
+          a.download = `departure-receipts-${drDateFrom}-to-${drDateTo}.csv`;
+          a.click();
+        };
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>Departure Receipts ({filtered.length})</div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                <input className="form-input" placeholder="Search animal, person, receipt #…" value={drSearch} onChange={(e) => setDrSearch(e.target.value)} style={{ width: 220, fontSize: 12 }} />
+                <select className="form-select" value={drType} onChange={(e) => setDrType(e.target.value)} style={{ width: 170, fontSize: 12 }}>
+                  {DEPARTURE_TYPES.map((t) => <option key={t}>{t}</option>)}
+                </select>
+                <input className="form-input" type="date" value={drDateFrom} onChange={(e) => setDrDateFrom(e.target.value)} style={{ width: 135, fontSize: 12 }} />
+                <span style={{ fontSize: 12 }}>to</span>
+                <input className="form-input" type="date" value={drDateTo} onChange={(e) => setDrDateTo(e.target.value)} style={{ width: 135, fontSize: 12 }} />
+                <button className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={filtered.length === 0}>⬇ CSV</button>
+              </div>
+            </div>
+
+            {/* Summary stats */}
+            <div style={{ display: "flex", gap: 12, marginBottom: 16, flexWrap: "wrap" }}>
+              <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "10px 16px", minWidth: 120, textAlign: "center" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#0284c7" }}>{filtered.length}</div>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Total Departures</div>
+              </div>
+              <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "10px 16px", minWidth: 120, textAlign: "center" }}>
+                <div style={{ fontSize: 22, fontWeight: 800, color: "#16a34a" }}>${totalFees.toFixed(2)}</div>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Total Fees Collected</div>
+              </div>
+              {byType.map((b) => (
+                <div key={b.type} style={{ background: "#faf5ff", border: "1px solid #d8b4fe", borderRadius: 8, padding: "10px 16px", minWidth: 100, textAlign: "center" }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color: "#7c3aed" }}>{b.count}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{b.type}</div>
+                </div>
+              ))}
+            </div>
+
+            {filtered.length === 0 ? (
+              <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px 0", fontSize: 13 }}>
+                {departureRecs.length === 0 ? "No departure receipts on file." : "No receipts match your filters."}
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Receipt #</th>
+                      <th>Animal</th>
+                      <th>Type</th>
+                      <th>Date</th>
+                      <th>Person</th>
+                      <th style={{ textAlign: "right" }}>Fees</th>
+                      <th>Officer</th>
+                      <th style={{ width: 80 }}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((r) => (
+                      <tr key={r.id}>
+                        <td style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{r.receipt_number}</td>
+                        <td style={{ fontSize: 12 }}>
+                          <div style={{ fontWeight: 600 }}>{r.animal_name}</div>
+                          <div style={{ color: "var(--text-muted)", fontSize: 11 }}>{r.animal_id}</div>
+                        </td>
+                        <td>
+                          <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>{r.departure_type}</span>
+                        </td>
+                        <td style={{ fontSize: 12 }}>{r.departure_date ? new Date(r.departure_date).toLocaleDateString() : "—"}</td>
+                        <td style={{ fontSize: 12 }}>{r.person_name || "—"}</td>
+                        <td style={{ fontSize: 12, textAlign: "right", fontFamily: "monospace" }}>
+                          {r.total_fees > 0 ? `$${r.total_fees.toFixed(2)}` : "—"}
+                        </td>
+                        <td style={{ fontSize: 12 }}>{r.officer_name || "—"}</td>
+                        <td>
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printDepartureReceipt(r)}>🖨 Print</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Outcomes */}
       {(activeReport === "outcomes" || activeReport === null) && (

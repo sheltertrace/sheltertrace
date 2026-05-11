@@ -5,9 +5,18 @@ import type { Animal, Person } from "@/lib/types";
 import { today } from "@/lib/utils";
 import StaffSelect from "@/components/ui/StaffSelect";
 
+export interface RedemptionReceiptInfo {
+  ownerName: string;
+  ownerPerson: Person;
+  fees: Array<{ item: string; amount: number }>;
+  totalFees: number;
+  paymentMethod?: string;
+  conditions?: string;
+}
+
 interface Props {
   animal: Animal;
-  onComplete: (updatedAnimal: Animal) => void;
+  onComplete: (updatedAnimal: Animal, info: RedemptionReceiptInfo) => void;
   onClose: () => void;
 }
 
@@ -290,7 +299,21 @@ export default function RedemptionWizard({ animal, onComplete, onClose }: Props)
       });
       await linkAnimalToPerson(animal.id, selectedPerson.id);
       const updated = await updateAnimal(animal.id, { status: "Redeemed" });
-      onComplete(updated);
+      const feeItems: Array<{ item: string; amount: number }> = [];
+      if (fees.includeImpound)  feeItems.push({ item: "Impound Fee", amount: fees.impound });
+      if (fees.includeBoarding) feeItems.push({ item: `Boarding (${fees.boardingDays} days)`, amount: fees.boarding * fees.boardingDays });
+      if (fees.includeRabies)   feeItems.push({ item: "Rabies Vaccination", amount: fees.rabies });
+      if (fees.includeMicrochip) feeItems.push({ item: "Microchip Fee", amount: fees.microchip });
+      if (fees.includeLicense)  feeItems.push({ item: "License Fee", amount: fees.license });
+      if (fees.otherFees > 0)   feeItems.push({ item: "Other Fees", amount: fees.otherFees });
+      onComplete(updated, {
+        ownerName: `${selectedPerson.first_name} ${selectedPerson.last_name}`.trim(),
+        ownerPerson: selectedPerson,
+        fees: feeItems,
+        totalFees: total,
+        paymentMethod,
+        conditions: conditionsNotes,
+      });
     } catch (e: unknown) {
       setErrMsg((e as { message?: string }).message || "Failed to complete redemption");
       setSaving(false);

@@ -1060,6 +1060,54 @@ export async function saveVolunteerAnnouncements(text: string): Promise<void> {
   await supabase.from("shelter_config").upsert({ id: 5, config_data: { text }, updated_at: new Date().toISOString() });
 }
 
+// ── Departure Receipts ────────────────────────────────────────────────────────
+export async function createDepartureReceipt(
+  receipt: Omit<import("./types").DepartureReceipt, "id" | "created_at" | "receipt_number">
+): Promise<import("./types").DepartureReceipt> {
+  // Generate sequential receipt number: REC-YYYY-NNNN
+  const year = new Date().getFullYear();
+  const { count } = await supabase
+    .from("departure_receipts")
+    .select("*", { count: "exact", head: true })
+    .gte("created_at", `${year}-01-01`);
+  const seq = String((count ?? 0) + 1).padStart(4, "0");
+  const receipt_number = `REC-${year}-${seq}`;
+  const id = genId();
+  const { data, error } = await supabase
+    .from("departure_receipts")
+    .insert({ ...receipt, id, receipt_number })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as import("./types").DepartureReceipt;
+}
+
+export async function fetchDepartureReceiptsByAnimal(
+  animalId: string
+): Promise<import("./types").DepartureReceipt[]> {
+  const { data } = await supabase
+    .from("departure_receipts")
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("created_at", { ascending: false });
+  return (data as import("./types").DepartureReceipt[]) || [];
+}
+
+export async function fetchDepartureReceipts(filters?: {
+  dateFrom?: string;
+  dateTo?: string;
+  departureType?: string;
+  officerName?: string;
+}): Promise<import("./types").DepartureReceipt[]> {
+  let q = supabase.from("departure_receipts").select("*").order("created_at", { ascending: false });
+  if (filters?.dateFrom) q = q.gte("departure_date", filters.dateFrom);
+  if (filters?.dateTo)   q = q.lte("departure_date", filters.dateTo + "T23:59:59");
+  if (filters?.departureType && filters.departureType !== "All") q = q.eq("departure_type", filters.departureType);
+  if (filters?.officerName && filters.officerName !== "All") q = q.eq("officer_name", filters.officerName);
+  const { data } = await q;
+  return (data as import("./types").DepartureReceipt[]) || [];
+}
+
 export async function fetchFormsByLinked(opts: { callId?: string; animalId?: string; personId?: string }): Promise<import("./types").ShelterForm[]> {
   if (opts.callId) {
     const { data } = await supabase.from("forms").select("*").eq("linked_call_id", opts.callId).order("created_at", { ascending: false });

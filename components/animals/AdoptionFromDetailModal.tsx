@@ -8,10 +8,15 @@ function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="form-group"><label className="form-label">{label}</label>{children}</div>;
 }
 
+export interface AdoptionReceiptInfo {
+  adopterName: string;
+  adopterPerson: Person | null;
+}
+
 interface Props {
   animal: Animal;
   people: Person[];
-  onSuccess: (updated: Animal) => void;
+  onSuccess: (updated: Animal, info: AdoptionReceiptInfo) => void;
   onClose: () => void;
 }
 
@@ -65,7 +70,10 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
         receipt_id: receiptId,
       });
       const updated = await updateAnimal(animal.id, { status: "Adopted", kennel: undefined });
-      onSuccess(updated);
+      onSuccess(updated, {
+        adopterName: `${selectedAdopter.first_name} ${selectedAdopter.last_name}`.trim(),
+        adopterPerson: selectedAdopter,
+      });
     } catch (e: unknown) {
       const err = e as { message?: string };
       alert(`Adoption failed: ${err?.message || "Unknown error"}`);

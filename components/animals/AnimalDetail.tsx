@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill, Transfer, RescueGroup } from "@/lib/types";
+import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill, Transfer, RescueGroup, DepartureReceipt } from "@/lib/types";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import StatusBadge from "@/components/ui/StatusBadge";
 import {
@@ -17,8 +17,10 @@ import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical,
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
   fetchTransfersByAnimal, safeJsonArray, safeJsonObject,
+  createDepartureReceipt, fetchDepartureReceiptsByAnimal,
   type AnimalDocument,
 } from "@/lib/data";
+import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
 import MedicalEditModal from "@/components/medical/MedicalEditModal";
 import dynamic from "next/dynamic";
@@ -28,7 +30,8 @@ import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import { supabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import ReturnAnimalModal from "./ReturnAnimalModal";
-import AdoptionFromDetailModal from "./AdoptionFromDetailModal";
+import AdoptionFromDetailModal, { type AdoptionReceiptInfo } from "./AdoptionFromDetailModal";
+import { type RedemptionReceiptInfo } from "./RedemptionWizard";
 const RedemptionWizard = dynamic(() => import("./RedemptionWizard"), { ssr: false });
 
 interface Props {
@@ -115,6 +118,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   // Transfer history
   const [animalTransfers, setAnimalTransfers] = useState<Transfer[]>([]);
 
+  // Departure receipts
+  const [departureReceipts, setDepartureReceipts] = useState<DepartureReceipt[]>([]);
+  const [pendingReceipt, setPendingReceipt] = useState<DepartureReceipt | null>(null);
+
   // People attachment
   const [showAttachPerson, setShowAttachPerson] = useState(false);
   const [personSearch, setPersonSearch] = useState("");
@@ -128,19 +135,53 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchAnimalDocuments(animal.id).then(setDocs);
     fetchFormsByLinked({ animalId: animal.id }).then(setAnimalForms);
     fetchTransfersByAnimal(animal.id).then(setAnimalTransfers);
+    fetchDepartureReceiptsByAnimal(animal.id).then(setDepartureReceipts);
   }, [animal.id]);
 
-  const save = useCallback(async (updates: Partial<Animal>) => {
+  const save = useCallback(async (
+    updates: Partial<Animal>,
+    receiptOpts?: {
+      person?: Person | null;
+      personName?: string;
+      fees?: Array<{ item: string; amount: number }>;
+      totalFees?: number;
+      paymentMethod?: string;
+      conditions?: string;
+      notes?: string;
+      officerName?: string;
+    }
+  ) => {
     setSaving(true);
     try {
       const updated = await updateAnimal(animal.id, updates);
       setAnimal(updated);
       onUpdate(updated);
+
+      // Auto-generate departure receipt when status changes to a departure status
+      if (updates.status && isDepartureStatus(updates.status) && updates.status !== animal.status) {
+        const currentUser = getCurrentUser();
+        const officerName = receiptOpts?.officerName
+          || (currentUser ? `${currentUser.firstName || currentUser.first_name || ""} ${currentUser.lastName || currentUser.last_name || ""}`.trim() || currentUser.username : "");
+        try {
+          const payload = buildDepartureReceiptPayload(updated, {
+            departureType: departureTypeLabel(updates.status),
+            ...(receiptOpts || {}),
+            officerName,
+            officerId: currentUser?.id,
+          });
+          const receipt = await createDepartureReceipt(payload);
+          setDepartureReceipts((prev) => [receipt, ...prev]);
+          setPendingReceipt(receipt);
+        } catch (receiptErr) {
+          console.error("[DepartureReceipt] failed to create:", receiptErr);
+          // Non-blocking — animal status already saved
+        }
+      }
     } catch (e: unknown) {
       const err = e as { message?: string; details?: string; hint?: string; code?: string };
       console.error("[AnimalDetail save] error:", err?.message, "| code:", err?.code, "| details:", err?.details, "| hint:", err?.hint, "| raw:", JSON.stringify(e), e);
     } finally { setSaving(false); }
-  }, [animal.id, onUpdate]);
+  }, [animal.id, animal.status, onUpdate]);
 
   const handlePhotoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -218,7 +259,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       dosage: `${euthDose} ${euthUnit}`, performed_by: euthVet,
       witness: euthWitness, authorized_by: euthAuthorizedBy, notes: euthNotes,
     };
-    await save({ status: "Euthanized", euthanasia: euthRecord });
+    await save({ status: "Euthanized", euthanasia: euthRecord }, {
+      officerName: euthVet,
+      notes: `Reason: ${euthReason}. Drug: ${euthDrug} ${euthDose} ${euthUnit}. Witness: ${euthWitness}.${euthNotes ? " " + euthNotes : ""}`,
+    });
     setShowEuthForm(false);
   };
 
@@ -896,6 +940,50 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             )}
           </CollapsibleSection>
 
+          {/* Departure Receipts */}
+          <CollapsibleSection title={`Departure Receipts (${departureReceipts.length})`} color="#7c3aed">
+            {departureReceipts.length === 0 ? (
+              <div className="empty-state">No departure receipts yet. Receipts are auto-generated when an animal leaves the shelter.</div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Receipt #</th>
+                    <th>Type</th>
+                    <th>Date</th>
+                    <th>Person</th>
+                    <th style={{ textAlign: "right" }}>Fees</th>
+                    <th>Officer</th>
+                    <th style={{ width: 100 }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {departureReceipts.map((r) => (
+                    <tr key={r.id}>
+                      <td style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{r.receipt_number}</td>
+                      <td>
+                        <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>
+                          {r.departure_type}
+                        </span>
+                      </td>
+                      <td style={{ fontSize: 12 }}>{r.departure_date ? new Date(r.departure_date).toLocaleDateString() : "—"}</td>
+                      <td style={{ fontSize: 12 }}>{r.person_name || "—"}</td>
+                      <td style={{ fontSize: 12, textAlign: "right", fontFamily: "monospace" }}>
+                        {r.total_fees > 0 ? `$${r.total_fees.toFixed(2)}` : "—"}
+                      </td>
+                      <td style={{ fontSize: 12 }}>{r.officer_name || "—"}</td>
+                      <td>
+                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printDepartureReceipt(r)}>
+                          🖨 Print
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </CollapsibleSection>
+
           <CollapsibleSection title={`Transfer History (${animalTransfers.length})`} color="#0f2942">
             {animalTransfers.length === 0 ? (
               <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "8px 0" }}>No transfer history for this animal.</div>
@@ -1023,7 +1111,24 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         <AdoptionFromDetailModal
           animal={animal}
           people={people}
-          onSuccess={(updated) => { setAnimal(updated); onUpdate(updated); setShowAdoptionModal(false); }}
+          onSuccess={(updated: Animal, info: AdoptionReceiptInfo) => {
+            setAnimal(updated);
+            onUpdate(updated);
+            setShowAdoptionModal(false);
+            const cu = getCurrentUser();
+            const officerName = cu ? `${cu.firstName || cu.first_name || ""} ${cu.lastName || cu.last_name || ""}`.trim() || cu.username : "";
+            const payload = buildDepartureReceiptPayload(updated, {
+              departureType: "Adoption",
+              person: info.adopterPerson,
+              personName: info.adopterName,
+              officerName,
+              officerId: cu?.id,
+            });
+            createDepartureReceipt(payload).then((r) => {
+              setDepartureReceipts((prev) => [r, ...prev]);
+              setPendingReceipt(r);
+            }).catch(console.error);
+          }}
           onClose={() => setShowAdoptionModal(false)}
         />
       )}
@@ -1031,9 +1136,59 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       {showRedemptionWizard && (
         <RedemptionWizard
           animal={animal}
-          onComplete={(updated) => { setAnimal(updated); onUpdate(updated); setShowRedemptionWizard(false); }}
+          onComplete={(updated: Animal, info: RedemptionReceiptInfo) => {
+            setAnimal(updated);
+            onUpdate(updated);
+            setShowRedemptionWizard(false);
+            const cu = getCurrentUser();
+            const officerName = cu ? `${cu.firstName || cu.first_name || ""} ${cu.lastName || cu.last_name || ""}`.trim() || cu.username : "";
+            const payload = buildDepartureReceiptPayload(updated, {
+              departureType: "Owner Redemption",
+              person: info.ownerPerson,
+              personName: info.ownerName,
+              fees: info.fees,
+              totalFees: info.totalFees,
+              paymentMethod: info.paymentMethod,
+              conditions: info.conditions,
+              officerName,
+              officerId: cu?.id,
+            });
+            createDepartureReceipt(payload).then((r) => {
+              setDepartureReceipts((prev) => [r, ...prev]);
+              setPendingReceipt(r);
+            }).catch(console.error);
+          }}
           onClose={() => setShowRedemptionWizard(false)}
         />
+      )}
+
+      {/* Departure Receipt — "Print now?" popup */}
+      {pendingReceipt && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 9100, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setPendingReceipt(null)}>
+          <div style={{ background: "var(--surface)", borderRadius: 12, padding: 0, width: 420, boxShadow: "0 12px 40px rgba(0,0,0,.25)", overflow: "hidden" }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ background: "#7c3aed", color: "#fff", padding: "14px 20px", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 20 }}>🧾</span>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>Departure Receipt Generated</div>
+                <div style={{ fontSize: 12, opacity: 0.85 }}>{pendingReceipt.receipt_number} · {pendingReceipt.departure_type}</div>
+              </div>
+            </div>
+            <div style={{ padding: "18px 20px" }}>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 16px" }}>
+                A departure receipt has been automatically created for <strong>{animal.name}</strong>. Would you like to print it now?
+              </p>
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => setPendingReceipt(null)}>Close</button>
+                <button className="btn btn-primary btn-sm" style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
+                  onClick={() => { printDepartureReceipt(pendingReceipt); setPendingReceipt(null); }}>
+                  🖨 Print Now
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Euthanasia Form Modal */}
