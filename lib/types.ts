@@ -483,6 +483,7 @@ export interface Receipt {
   anonymous: boolean;
   person_id?: string;
   person_name?: string;
+  animal_id?: string;
   notes?: string;
   created_at?: string;
 }

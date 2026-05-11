@@ -412,11 +412,29 @@ export async function createReceipt(receipt: Partial<Receipt>): Promise<Receipt>
   return data as Receipt;
 }
 
+export async function fetchReceiptsByAnimal(animalId: string): Promise<Receipt[]> {
+  const { data } = await supabase
+    .from("receipts")
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("created_at", { ascending: false });
+  return (data as Receipt[]) || [];
+}
+
 // ── Adoptions ─────────────────────────────────────────────────────────────────
 export async function fetchAdoptions(): Promise<AdoptionRecord[]> {
   const { data } = await supabase
     .from("adoption_records")
     .select("*")
+    .order("created_at", { ascending: false });
+  return (data as AdoptionRecord[]) || [];
+}
+
+export async function fetchAdoptionsByAnimal(animalId: string): Promise<AdoptionRecord[]> {
+  const { data } = await supabase
+    .from("adoption_records")
+    .select("*")
+    .eq("animal_id", animalId)
     .order("created_at", { ascending: false });
   return (data as AdoptionRecord[]) || [];
 }

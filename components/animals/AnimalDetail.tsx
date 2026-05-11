@@ -1,7 +1,7 @@
 "use client";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill, Transfer, RescueGroup, DepartureReceipt } from "@/lib/types";
+import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill, Transfer, RescueGroup, DepartureReceipt, AdoptionRecord } from "@/lib/types";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import StatusBadge from "@/components/ui/StatusBadge";
 import {
@@ -17,7 +17,7 @@ import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical,
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
   fetchTransfersByAnimal, safeJsonArray, safeJsonObject,
-  createDepartureReceipt, fetchDepartureReceiptsByAnimal,
+  createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
   type AnimalDocument,
 } from "@/lib/data";
 import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
@@ -121,6 +121,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   // Departure receipts
   const [departureReceipts, setDepartureReceipts] = useState<DepartureReceipt[]>([]);
   const [pendingReceipt, setPendingReceipt] = useState<DepartureReceipt | null>(null);
+  const [adoptionRecords, setAdoptionRecords] = useState<AdoptionRecord[]>([]);
 
   // People attachment
   const [showAttachPerson, setShowAttachPerson] = useState(false);
@@ -136,6 +137,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchFormsByLinked({ animalId: animal.id }).then(setAnimalForms);
     fetchTransfersByAnimal(animal.id).then(setAnimalTransfers);
     fetchDepartureReceiptsByAnimal(animal.id).then(setDepartureReceipts);
+    fetchAdoptionsByAnimal(animal.id).then(setAdoptionRecords);
   }, [animal.id]);
 
   const save = useCallback(async (
@@ -941,46 +943,94 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           </CollapsibleSection>
 
           {/* Departure Receipts */}
-          <CollapsibleSection title={`Departure Receipts (${departureReceipts.length})`} color="#7c3aed">
-            {departureReceipts.length === 0 ? (
-              <div className="empty-state">No departure receipts yet. Receipts are auto-generated when an animal leaves the shelter.</div>
+          <CollapsibleSection title={`Receipts & Departure Records (${departureReceipts.length + adoptionRecords.length})`} color="#7c3aed">
+            {departureReceipts.length === 0 && adoptionRecords.length === 0 ? (
+              <div className="empty-state">No receipts yet. Receipts are auto-generated when an animal leaves the shelter.</div>
             ) : (
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th>Receipt #</th>
-                    <th>Type</th>
-                    <th>Date</th>
-                    <th>Person</th>
-                    <th style={{ textAlign: "right" }}>Fees</th>
-                    <th>Officer</th>
-                    <th style={{ width: 100 }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {departureReceipts.map((r) => (
-                    <tr key={r.id}>
-                      <td style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{r.receipt_number}</td>
-                      <td>
-                        <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>
-                          {r.departure_type}
-                        </span>
-                      </td>
-                      <td style={{ fontSize: 12 }}>{r.departure_date ? new Date(r.departure_date).toLocaleDateString() : "—"}</td>
-                      <td style={{ fontSize: 12 }}>{r.person_name || "—"}</td>
-                      <td style={{ fontSize: 12, textAlign: "right", fontFamily: "monospace" }}>
-                        {r.total_fees > 0 ? `$${r.total_fees.toFixed(2)}` : "—"}
-                      </td>
-                      <td style={{ fontSize: 12 }}>{r.officer_name || "—"}</td>
-                      <td>
-                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printDepartureReceipt(r)}>
-                          🖨 Print
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                {departureReceipts.length > 0 && (
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Receipt #</th>
+                        <th>Type</th>
+                        <th>Date</th>
+                        <th>Person</th>
+                        <th style={{ textAlign: "right" }}>Fees</th>
+                        <th>Officer</th>
+                        <th style={{ width: 100 }}>Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {departureReceipts.map((r) => (
+                        <tr key={r.id}>
+                          <td style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{r.receipt_number}</td>
+                          <td>
+                            <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>
+                              {r.departure_type}
+                            </span>
+                          </td>
+                          <td style={{ fontSize: 12 }}>{r.departure_date ? new Date(r.departure_date).toLocaleDateString() : "—"}</td>
+                          <td style={{ fontSize: 12 }}>{r.person_name || "—"}</td>
+                          <td style={{ fontSize: 12, textAlign: "right", fontFamily: "monospace" }}>
+                            {r.total_fees > 0 ? `$${r.total_fees.toFixed(2)}` : "—"}
+                          </td>
+                          <td style={{ fontSize: 12 }}>{r.officer_name || "—"}</td>
+                          <td>
+                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printDepartureReceipt(r)}>
+                              🖨 Print
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {adoptionRecords.length > 0 && (
+                  <div style={{ marginTop: departureReceipts.length > 0 ? 16 : 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "#7c3aed", marginBottom: 6 }}>
+                      Adoption Records
+                    </div>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>ID</th>
+                          <th>Adopter</th>
+                          <th>Date</th>
+                          <th>Notes</th>
+                          <th>Receipt</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {adoptionRecords.map((a) => {
+                          const linked = departureReceipts.find(
+                            (r) => r.departure_type === "Adoption" &&
+                              r.departure_date &&
+                              new Date(r.departure_date).toDateString() === new Date(a.adoption_date).toDateString()
+                          );
+                          return (
+                            <tr key={a.id}>
+                              <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a.id}</td>
+                              <td style={{ fontSize: 12 }}>{a.adopter_name}</td>
+                              <td style={{ fontSize: 12 }}>{a.adoption_date ? new Date(a.adoption_date).toLocaleDateString() : "—"}</td>
+                              <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{a.notes || "—"}</td>
+                              <td>
+                                {linked ? (
+                                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printDepartureReceipt(linked)}>
+                                    🖨 {linked.receipt_number}
+                                  </button>
+                                ) : (
+                                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>No receipt</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </>
             )}
           </CollapsibleSection>
 
