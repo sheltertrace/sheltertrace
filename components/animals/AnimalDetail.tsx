@@ -1173,27 +1173,13 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         <AdoptionFromDetailModal
           animal={animal}
           people={people}
-          onSuccess={(updated: Animal, info: AdoptionReceiptInfo) => {
+          onSuccess={(updated: Animal, _info: AdoptionReceiptInfo, receipt: DepartureReceipt) => {
             setAnimal(updated);
             onUpdate(updated);
             setShowAdoptionModal(false);
-            const cu = getCurrentUser();
-            const officerName = cu ? `${cu.firstName || cu.first_name || ""} ${cu.lastName || cu.last_name || ""}`.trim() || cu.username : "";
-            const payload = buildDepartureReceiptPayload(updated, {
-              departureType: "Adoption",
-              person: info.adopterPerson,
-              personName: info.adopterName,
-              fees: info.fees,
-              totalFees: info.totalFees,
-              paymentMethod: info.paymentMethod,
-              conditions: info.conditions,
-              officerName,
-              officerId: cu?.id,
-            });
-            createDepartureReceipt(payload).then((r) => {
-              setDepartureReceipts((prev) => [r, ...prev]);
-              setPendingReceipt(r);
-            }).catch(console.error);
+            setDepartureReceipts((prev) => [receipt, ...prev]);
+            // Receipt window already opened by modal — show View popup as fallback
+            setPendingReceipt(receipt);
           }}
           onClose={() => setShowAdoptionModal(false)}
         />

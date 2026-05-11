@@ -68,10 +68,7 @@ export function buildDepartureReceiptPayload(
   };
 }
 
-export function printAdoptionReceipt(receipt: DepartureReceipt): void {
-  const w = window.open("", "_blank", "width=760,height=1060");
-  if (!w) return;
-
+export function buildAdoptionReceiptHTML(receipt: DepartureReceipt): string {
   const a  = (receipt.animal_info_snapshot || {}) as Record<string, unknown>;
   const p  = (receipt.person_info_snapshot || {}) as Record<string, unknown>;
 
@@ -107,7 +104,7 @@ export function printAdoptionReceipt(receipt: DepartureReceipt): void {
   const sh = (title: string) =>
     `<div style="background:${MCAS_BLUE};color:#fff;padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px">${title}</div>`;
 
-  w.document.write(`<!DOCTYPE html><html>
+  return `<!DOCTYPE html><html>
   <head><title>Adoption Receipt ${receipt.receipt_number}</title>
   <style>
     body{font-family:Arial,sans-serif;font-size:10.5px;padding:24px;margin:0;line-height:1.55;color:#111}
@@ -213,7 +210,19 @@ export function printAdoptionReceipt(receipt: DepartureReceipt): void {
     </div>
   </div>
 
-  </body></html>`);
+  </body></html>`;
+}
+
+export function printAdoptionReceipt(receipt: DepartureReceipt): void {
+  const w = window.open("", "_blank", "width=760,height=1060");
+  if (!w) return;
+  w.document.write(buildAdoptionReceiptHTML(receipt));
+  w.document.close();
+  setTimeout(() => w.print(), 400);
+}
+
+export function writeReceiptToWindow(w: Window, receipt: DepartureReceipt): void {
+  w.document.write(buildAdoptionReceiptHTML(receipt));
   w.document.close();
   setTimeout(() => w.print(), 400);
 }

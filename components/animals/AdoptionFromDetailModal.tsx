@@ -1,7 +1,9 @@
 "use client";
 import { useState, useMemo } from "react";
-import type { Animal, Person } from "@/lib/types";
-import { createAdoption, createPerson, updateAnimal } from "@/lib/data";
+import type { Animal, Person, DepartureReceipt } from "@/lib/types";
+import { createAdoption, createPerson, updateAnimal, createDepartureReceipt } from "@/lib/data";
+import { buildDepartureReceiptPayload, writeReceiptToWindow } from "@/lib/departureReceipt";
+import { getCurrentUser } from "@/lib/auth";
 import { today, genReceiptId } from "@/lib/utils";
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
@@ -26,7 +28,7 @@ export interface AdoptionReceiptInfo {
 interface Props {
   animal: Animal;
   people: Person[];
-  onSuccess: (updated: Animal, info: AdoptionReceiptInfo) => void;
+  onSuccess: (updated: Animal, info: AdoptionReceiptInfo, receipt: DepartureReceipt) => void;
   onClose: () => void;
 }
 
@@ -117,28 +119,69 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
   const handleProcess = async () => {
     if (!selectedAdopter) return;
     setSaving(true);
+
+    // Open print window NOW — must be synchronous inside the click handler
+    // so popup blockers allow it. We write content after async work finishes.
+    const printWin = window.open("", "_blank", "width=760,height=1060");
+
     try {
+      const adopterName = `${selectedAdopter.first_name} ${selectedAdopter.last_name}`.trim();
       const receiptId = genReceiptId();
+
+      console.log("[adoption] saving adoption record...");
       await createAdoption({
         animal_id: animal.id,
         animal_name: animal.name,
         adopter_id: selectedAdopter.id,
-        adopter_name: `${selectedAdopter.first_name} ${selectedAdopter.last_name}`,
+        adopter_name: adopterName,
         adoption_date: adoptionDate,
         notes: [adoptionNotes, conditions].filter(Boolean).join(" | ") || undefined,
         receipt_id: receiptId,
       });
+
       const updated = await updateAnimal(animal.id, { status: "Adopted", kennel: undefined });
-      onSuccess(updated, {
-        adopterName: `${selectedAdopter.first_name} ${selectedAdopter.last_name}`.trim(),
+
+      console.log("[adoption] adoption saved, generating receipt...");
+      const cu = getCurrentUser();
+      const officerName = cu
+        ? `${cu.firstName || cu.first_name || ""} ${cu.lastName || cu.last_name || ""}`.trim() || cu.username
+        : "";
+
+      const payload = buildDepartureReceiptPayload(updated, {
+        departureType: "Adoption",
+        person: selectedAdopter,
+        personName: adopterName,
+        fees: feeItems,
+        totalFees,
+        paymentMethod,
+        conditions,
+        officerName,
+        officerId: cu?.id,
+      });
+
+      const receipt = await createDepartureReceipt(payload);
+      console.log("[adoption] receipt saved to database:", receipt);
+
+      console.log("[adoption] opening print window...");
+      if (printWin) {
+        writeReceiptToWindow(printWin, receipt);
+      } else {
+        // Popup was blocked — fallback handled by parent via setPendingReceipt
+        console.warn("[adoption] print window was blocked by browser");
+      }
+
+      const info: AdoptionReceiptInfo = {
+        adopterName,
         adopterPerson: selectedAdopter,
         fees: feeItems,
         totalFees,
         paymentMethod,
         conditions,
         spayNeuterAgreement,
-      });
+      };
+      onSuccess(updated, info, receipt);
     } catch (e: unknown) {
+      printWin?.close();
       const err = e as { message?: string };
       alert(`Adoption failed: ${err?.message || "Unknown error"}`);
       setSaving(false);
