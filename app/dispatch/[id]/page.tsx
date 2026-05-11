@@ -10,6 +10,7 @@ const QuickIntakeModal = dynamic(() => import("@/components/dispatch/QuickIntake
 import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS } from "@/lib/constants";
 import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/app/providers";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
@@ -147,6 +148,7 @@ function CallDetailPageInner() {
   const router = useRouter();
   const { id } = useParams<{ id: string }>();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const initialStep = parseInt(searchParams.get("step") || "1", 10);
 
   const [call, setCall] = useState<DispatchCall | null>(null);
@@ -170,6 +172,9 @@ function CallDetailPageInner() {
   });
   const [liveNarrative, setLiveNarrative] = useState<NarrativeEntry[]>([]);
   const [newNarrText, setNewNarrText] = useState("");
+  const [editingNarrId, setEditingNarrId] = useState<string | null>(null);
+  const [editNarrText, setEditNarrText] = useState("");
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [evidenceFiles, setEvidenceFiles] = useState<Array<{ id: string; file: File; notes: string }>>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -319,6 +324,42 @@ function CallDetailPageInner() {
     setNewNarrText("");
     const saved = await updateCall(call.id, { narrative: updated });
     setCall(saved);  // Sync call object so buildPayload stays accurate
+  };
+
+  // ── Edit narrative entry ──────────────────────────────────────────────────
+  const handleSaveNarrEdit = async (entryId: string) => {
+    const text = editNarrText.trim();
+    if (!text || !call) return;
+    const editorName = user ? `${user.firstName || user.first_name || ""} ${user.lastName || user.last_name || ""}`.trim() || user.username : "Staff";
+    const updated = liveNarrative.map((n) =>
+      n.id === entryId
+        ? { ...n, text, edited: true, edited_by: editorName, edited_at: new Date().toISOString() }
+        : n
+    );
+    setLiveNarrative(updated);
+    setEditingNarrId(null);
+    const saved = await updateCall(call.id, { narrative: updated });
+    setCall(saved);
+    showToast("Narrative entry updated");
+  };
+
+  // ── Delete narrative entry ────────────────────────────────────────────────
+  const handleDeleteNarrative = async (entryId: string) => {
+    if (!call) return;
+    const updated = liveNarrative.filter((n) => n.id !== entryId);
+    setLiveNarrative(updated);
+    setDeleteConfirmId(null);
+    const saved = await updateCall(call.id, { narrative: updated });
+    setCall(saved);
+    showToast("Narrative entry deleted");
+  };
+
+  // ── Permission check for narrative edit/delete ────────────────────────────
+  const canEditNarrative = (entry: NarrativeEntry): boolean => {
+    if (!user) return false;
+    if (user.role === "Admin" || user.role === "Administrator") return true;
+    const myName = `${user.firstName || user.first_name || ""} ${user.lastName || user.last_name || ""}`.trim() || user.username;
+    return entry.officer === myName;
   };
 
   // ── Status change (auto-logs narrative) ──────────────────────────────────
@@ -657,11 +698,54 @@ function CallDetailPageInner() {
                         {i < liveNarrative.length - 1 && <div style={{ width: 2, flex: 1, background: "#e2e8f0", marginTop: 4 }} />}
                       </div>
                       <div style={{ flex: 1, paddingBottom: 6 }}>
-                        <div style={{ display: "flex", gap: 10, marginBottom: 3 }}>
+                        <div style={{ display: "flex", gap: 10, marginBottom: 3, alignItems: "center" }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: n.officer === "System" ? "var(--text-muted)" : "#0f2942" }}>{n.officer}</span>
                           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{n.time}</span>
+                          {n.edited && (
+                            <span style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }} title={`Edited by ${n.edited_by} at ${n.edited_at ? new Date(n.edited_at).toLocaleString() : ""}`}>(edited)</span>
+                          )}
+                          {n.officer !== "System" && canEditNarrative(n) && editingNarrId !== n.id && (
+                            <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                title="Edit entry"
+                                style={{ fontSize: 11, padding: "1px 7px", color: "var(--text-secondary)" }}
+                                onClick={() => { setEditingNarrId(n.id); setEditNarrText(n.text); }}
+                              >✏️</button>
+                              <button
+                                className="btn btn-ghost btn-sm"
+                                title="Delete entry"
+                                style={{ fontSize: 11, padding: "1px 7px", color: "#dc2626" }}
+                                onClick={() => setDeleteConfirmId(n.id)}
+                              >🗑</button>
+                            </div>
+                          )}
                         </div>
-                        <div style={{ fontSize: 13, color: n.officer === "System" ? "var(--text-muted)" : "inherit", fontStyle: n.officer === "System" ? "italic" : "normal" }}>{n.text}</div>
+                        {editingNarrId === n.id ? (
+                          <div style={{ marginTop: 4 }}>
+                            <textarea
+                              className="form-textarea"
+                              rows={3}
+                              style={{ width: "100%", fontSize: 13 }}
+                              value={editNarrText}
+                              onChange={(e) => setEditNarrText(e.target.value)}
+                              autoFocus
+                            />
+                            <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                              <button
+                                className="btn btn-primary btn-sm"
+                                disabled={!editNarrText.trim()}
+                                onClick={() => handleSaveNarrEdit(n.id)}
+                              >Save</button>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => { setEditingNarrId(null); setEditNarrText(""); }}
+                              >Cancel</button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: 13, color: n.officer === "System" ? "var(--text-muted)" : "inherit", fontStyle: n.officer === "System" ? "italic" : "normal" }}>{n.text}</div>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -669,6 +753,25 @@ function CallDetailPageInner() {
               </div>
             )
           }
+
+          {/* Delete confirmation dialog */}
+          {deleteConfirmId && (
+            <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center" }}
+              onClick={() => setDeleteConfirmId(null)}>
+              <div style={{ background: "var(--surface)", borderRadius: 10, padding: "24px 28px", maxWidth: 380, boxShadow: "0 8px 32px rgba(0,0,0,.2)" }}
+                onClick={(e) => e.stopPropagation()}>
+                <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Delete Narrative Entry?</div>
+                <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
+                  Are you sure you want to delete this narrative entry? This cannot be undone.
+                </div>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+                  <button className="btn btn-secondary btn-sm" onClick={() => setDeleteConfirmId(null)}>Cancel</button>
+                  <button className="btn btn-sm" style={{ background: "#dc2626", color: "#fff", border: "none" }}
+                    onClick={() => handleDeleteNarrative(deleteConfirmId)}>Delete</button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       );
 

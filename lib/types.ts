@@ -188,6 +188,9 @@ export interface NarrativeEntry {
   time: string;
   officer: string;
   text: string;
+  edited?: boolean;
+  edited_by?: string;
+  edited_at?: string;
 }
 
 export interface EvidenceItem {
