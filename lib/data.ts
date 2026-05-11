@@ -1091,11 +1091,14 @@ export async function createDepartureReceipt(
   const seq = String((count ?? 0) + 1).padStart(4, "0");
   const receipt_number = `REC-${year}-${seq}`;
   const id = genId();
+  const insertData = { ...receipt, id, receipt_number };
+  console.log("[departure receipt insert data]", JSON.stringify(insertData, null, 2));
   const { data, error } = await supabase
     .from("departure_receipts")
-    .insert({ ...receipt, id, receipt_number })
+    .insert(insertData)
     .select()
     .single();
+  console.log("[departure receipt error]", JSON.stringify(error, null, 2));
   if (error) throw error;
   return data as import("./types").DepartureReceipt;
 }
