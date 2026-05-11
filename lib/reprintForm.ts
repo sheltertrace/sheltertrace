@@ -7,6 +7,9 @@ import { printAgreement } from "@/app/forms/GdaFosterAgreementForm";
 import { printInspection, INSPECTION_ITEMS } from "@/app/forms/GdaFosterInspectionForm";
 import { printInventory, type InventoryRow } from "@/app/forms/GdaAnimalInventoryForm";
 import { printApplication } from "@/app/forms/AdoptionApplicationForm";
+import { printVolunteerApplication } from "@/app/forms/VolunteerApplicationForm";
+import { printVolunteerAgreement } from "@/app/forms/VolunteerAgreementForm";
+import { printVolunteerConfidentiality } from "@/app/forms/VolunteerConfidentialityForm";
 
 export function reprintShelterForm(form: ShelterForm): void {
   const d = form.form_data;
@@ -32,6 +35,15 @@ export function reprintShelterForm(form: ShelterForm): void {
     case "adoption_application":
       printApplication(d);
       break;
+    case "volunteer_application":
+      printVolunteerApplication(d);
+      break;
+    case "volunteer_agreement":
+      printVolunteerAgreement(d);
+      break;
+    case "volunteer_confidentiality":
+      printVolunteerConfidentiality(d);
+      break;
   }
 }
 
@@ -43,6 +55,9 @@ const FORM_TYPE_LABELS: Record<string, string> = {
   gda_foster_inspection: "GDA Foster Home Inspection Report",
   gda_animal_inventory: "GDA Foster Home Animal Inventory",
   adoption_application: "Pet Adoption Application",
+  volunteer_application: "Volunteer Application",
+  volunteer_agreement: "Volunteer Agreement & Release",
+  volunteer_confidentiality: "Volunteer Confidentiality Agreement",
 };
 
 export function emailShelterForm(form: ShelterForm, toEmail?: string): void {

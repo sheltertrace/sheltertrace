@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements, updatePerson } from "@/lib/data";
-import type { Person, VolunteerLog } from "@/lib/types";
+import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements, updatePerson, fetchForms } from "@/lib/data";
+import type { Person, VolunteerLog, ShelterForm } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,6 +22,7 @@ export default function VolunteersPage() {
   const router = useRouter();
   const [volunteers, setVolunteers] = useState<Person[]>([]);
   const [logs, setLogs]             = useState<VolunteerLog[]>([]);
+  const [volForms, setVolForms]     = useState<ShelterForm[]>([]);
   const [loading, setLoading]       = useState(true);
   const [tab, setTab]               = useState<"roster" | "today" | "hours" | "report" | "tools">("today");
 
@@ -52,11 +53,15 @@ export default function VolunteersPage() {
 
   const load = useCallback(async () => {
     try {
-      const [p, l, ann] = await Promise.all([fetchPeople(), fetchVolunteerLogs(), fetchVolunteerAnnouncements()]);
+      const [p, l, ann, apps, agrs, confs] = await Promise.all([
+        fetchPeople(), fetchVolunteerLogs(), fetchVolunteerAnnouncements(),
+        fetchForms("volunteer_application"), fetchForms("volunteer_agreement"), fetchForms("volunteer_confidentiality"),
+      ]);
       setVolunteers(p.filter((x) => (x.role || "").toLowerCase().startsWith("volunteer")));
       setLogs(l);
       setAnnouncements(ann);
       setAnnouncementsOrig(ann);
+      setVolForms([...apps, ...agrs, ...confs]);
     } catch { } finally { setLoading(false); }
   }, []);
 
@@ -138,6 +143,7 @@ export default function VolunteersPage() {
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0, flexWrap: "wrap" }}>
           <button className="btn btn-primary btn-sm" onClick={() => setShowAddVolunteer(true)}>+ Add Volunteer</button>
+          <Link href="/volunteers/forms" className="btn btn-secondary btn-sm">📋 Volunteer Forms</Link>
           <Link href="/volunteer-clock" target="_blank" className="btn btn-secondary btn-sm">Open Kiosk →</Link>
           <Link href="/volunteer" target="_blank" className="btn btn-secondary btn-sm">Volunteer Portal →</Link>
           <button className="btn btn-secondary btn-sm" onClick={() => setShowQR(true)}>📲 QR Codes</button>
@@ -232,21 +238,27 @@ export default function VolunteersPage() {
                   <th>Email</th>
                   <th style={{ textAlign: "right" }}>Total Hrs</th>
                   <th>Last Session</th>
+                  <th>Forms</th>
                   <th>Status</th>
                   <th style={{ textAlign: "center" }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="empty-state">Loading…</td></tr>
+                  <tr><td colSpan={9} className="empty-state">Loading…</td></tr>
                 ) : volunteers.length === 0 ? (
-                  <tr><td colSpan={8} className="empty-state">No volunteers yet — click "Add Volunteer" to register one</td></tr>
+                  <tr><td colSpan={9} className="empty-state">No volunteers yet — click "Add Volunteer" to register one</td></tr>
                 ) : (
                   volunteers.map((v) => {
                     const volLogs = logs.filter((l) => l.person_id === v.id);
                     const hrs = volLogs.reduce((s, l) => s + (l.hours || 0), 0);
                     const lastSession = volLogs.filter((l) => l.clock_out).sort((a, b) => b.date.localeCompare(a.date))[0];
                     const isActive = v.role === "Volunteer";
+                    const personForms = volForms.filter((f) => f.linked_person_id === v.id);
+                    const hasApp  = personForms.some((f) => f.form_type === "volunteer_application");
+                    const hasAgr  = personForms.some((f) => f.form_type === "volunteer_agreement");
+                    const hasConf = personForms.some((f) => f.form_type === "volunteer_confidentiality");
+                    const allDone = hasApp && hasAgr && hasConf;
                     return (
                       <tr key={v.id} style={{ opacity: isActive ? 1 : 0.5 }}>
                         <td>
@@ -262,6 +274,13 @@ export default function VolunteersPage() {
                         <td style={{ fontSize: 12 }}>{v.email || "—"}</td>
                         <td style={{ fontSize: 12, fontWeight: 600, color: hrs > 0 ? "var(--teal)" : "var(--text-muted)", textAlign: "right" }}>{hrs.toFixed(1)}h</td>
                         <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{lastSession ? formatDate(lastSession.date) : "—"}</td>
+                        <td>
+                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                            <span title="Volunteer Application" style={{ fontSize: 10, padding: "1px 6px", borderRadius: 9, fontWeight: 700, background: hasApp ? "#dcfce7" : "#f1f5f9", color: hasApp ? "#15803d" : "#94a3b8", border: `1px solid ${hasApp ? "#86efac" : "#e2e8f0"}` }}>App{hasApp ? " ✓" : " ✗"}</span>
+                            <span title="Volunteer Agreement & Release" style={{ fontSize: 10, padding: "1px 6px", borderRadius: 9, fontWeight: 700, background: hasAgr ? "#dcfce7" : "#f1f5f9", color: hasAgr ? "#15803d" : "#94a3b8", border: `1px solid ${hasAgr ? "#86efac" : "#e2e8f0"}` }}>Agr{hasAgr ? " ✓" : " ✗"}</span>
+                            <span title="Volunteer Confidentiality Agreement" style={{ fontSize: 10, padding: "1px 6px", borderRadius: 9, fontWeight: 700, background: hasConf ? "#dcfce7" : "#f1f5f9", color: hasConf ? "#15803d" : "#94a3b8", border: `1px solid ${hasConf ? "#86efac" : "#e2e8f0"}` }}>Conf{hasConf ? " ✓" : " ✗"}</span>
+                          </div>
+                        </td>
                         <td>
                           {isActive
                             ? <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>Active</span>

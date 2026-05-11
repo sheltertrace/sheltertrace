@@ -8,6 +8,9 @@ import GdaFosterAgreementForm from "@/app/forms/GdaFosterAgreementForm";
 import GdaFosterInspectionForm from "@/app/forms/GdaFosterInspectionForm";
 import GdaAnimalInventoryForm from "@/app/forms/GdaAnimalInventoryForm";
 import AdoptionApplicationForm from "@/app/forms/AdoptionApplicationForm";
+import VolunteerApplicationForm from "@/app/forms/VolunteerApplicationForm";
+import VolunteerAgreementForm from "@/app/forms/VolunteerAgreementForm";
+import VolunteerConfidentialityForm from "@/app/forms/VolunteerConfidentialityForm";
 
 const FORM_OPTIONS: Array<{ type: FormType; label: string; icon: string }> = [
   { type: "door_knocker", label: "Door Knocker Notice", icon: "🚪" },
@@ -17,6 +20,9 @@ const FORM_OPTIONS: Array<{ type: FormType; label: string; icon: string }> = [
   { type: "gda_foster_inspection", label: "GDA Foster Inspection", icon: "🔍" },
   { type: "gda_animal_inventory", label: "GDA Animal Inventory", icon: "📦" },
   { type: "adoption_application", label: "Adoption Application", icon: "🐾" },
+  { type: "volunteer_application", label: "Volunteer Application", icon: "📋" },
+  { type: "volunteer_agreement", label: "Volunteer Agreement & Release", icon: "🤝" },
+  { type: "volunteer_confidentiality", label: "Volunteer Confidentiality Agreement", icon: "🔒" },
 ];
 
 interface Props {
@@ -97,6 +103,15 @@ export default function GenerateFormButton({ prefill = {}, onSaved, label = "Gen
       )}
       {activeType === "adoption_application" && (
         <AdoptionApplicationForm prefill={prefill} onSave={handleSaved} onClose={() => setActiveType(null)} />
+      )}
+      {activeType === "volunteer_application" && (
+        <VolunteerApplicationForm prefill={prefill} onSave={handleSaved} onClose={() => setActiveType(null)} />
+      )}
+      {activeType === "volunteer_agreement" && (
+        <VolunteerAgreementForm prefill={prefill} onSave={handleSaved} onClose={() => setActiveType(null)} />
+      )}
+      {activeType === "volunteer_confidentiality" && (
+        <VolunteerConfidentialityForm prefill={prefill} onSave={handleSaved} onClose={() => setActiveType(null)} />
       )}
     </>
   );

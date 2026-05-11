@@ -407,7 +407,10 @@ export type FormType =
   | "gda_foster_agreement"
   | "gda_foster_inspection"
   | "gda_animal_inventory"
-  | "adoption_application";
+  | "adoption_application"
+  | "volunteer_application"
+  | "volunteer_agreement"
+  | "volunteer_confidentiality";
 
 export interface ShelterForm {
   id: string;

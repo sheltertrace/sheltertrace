@@ -87,6 +87,9 @@ const TYPE_LABELS: Record<FormType, string> = {
   gda_foster_inspection: "GDA Foster Inspection",
   gda_animal_inventory: "GDA Animal Inventory",
   adoption_application: "Adoption Application",
+  volunteer_application: "Volunteer Application",
+  volunteer_agreement: "Volunteer Agreement & Release",
+  volunteer_confidentiality: "Volunteer Confidentiality Agreement",
 };
 
 const BADGE_COLORS: Record<FormType, { bg: string; color: string }> = {
@@ -97,6 +100,9 @@ const BADGE_COLORS: Record<FormType, { bg: string; color: string }> = {
   gda_foster_inspection: { bg: "#f0fdfa", color: "#0f766e" },
   gda_animal_inventory: { bg: "#faf5ff", color: "#7c3aed" },
   adoption_application: { bg: "#fdf2f8", color: "#be185d" },
+  volunteer_application: { bg: "#eef2ff", color: "#6366f1" },
+  volunteer_agreement: { bg: "#e0f2fe", color: "#0284c7" },
+  volunteer_confidentiality: { bg: "#f0f9ff", color: "#0f2942" },
 };
 
 export default function FormsPage() {
