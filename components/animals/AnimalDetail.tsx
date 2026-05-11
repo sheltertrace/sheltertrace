@@ -30,6 +30,7 @@ import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import { supabase } from "@/lib/supabase";
 import { getCurrentUser } from "@/lib/auth";
 import ReturnAnimalModal from "./ReturnAnimalModal";
+import ReceiptPreviewModal from "./ReceiptPreviewModal";
 import AdoptionFromDetailModal, { type AdoptionReceiptInfo } from "./AdoptionFromDetailModal";
 import { type RedemptionReceiptInfo } from "./RedemptionWizard";
 const RedemptionWizard = dynamic(() => import("./RedemptionWizard"), { ssr: false });
@@ -121,6 +122,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   // Departure receipts
   const [departureReceipts, setDepartureReceipts] = useState<DepartureReceipt[]>([]);
   const [pendingReceipt, setPendingReceipt] = useState<DepartureReceipt | null>(null);
+  const [viewingReceipt, setViewingReceipt] = useState<DepartureReceipt | null>(null);
   const [adoptionRecords, setAdoptionRecords] = useState<AdoptionRecord[]>([]);
 
   // People attachment
@@ -963,7 +965,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     </thead>
                     <tbody>
                       {departureReceipts.map((r) => (
-                        <tr key={r.id}>
+                        <tr key={r.id} style={{ cursor: "pointer" }} onClick={() => setViewingReceipt(r)}>
                           <td style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{r.receipt_number}</td>
                           <td>
                             <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>
@@ -976,10 +978,15 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                             {r.total_fees > 0 ? `$${r.total_fees.toFixed(2)}` : "—"}
                           </td>
                           <td style={{ fontSize: 12 }}>{r.officer_name || "—"}</td>
-                          <td>
-                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printDepartureReceipt(r)}>
-                              🖨 Print
-                            </button>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            <div style={{ display: "flex", gap: 6 }}>
+                              <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setViewingReceipt(r)}>
+                                👁 View
+                              </button>
+                              <button className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 10px", background: "#7c3aed", borderColor: "#7c3aed" }} onClick={() => printDepartureReceipt(r)}>
+                                🖨 Print
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1014,11 +1021,16 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                               <td style={{ fontSize: 12 }}>{a.adopter_name}</td>
                               <td style={{ fontSize: 12 }}>{a.adoption_date ? new Date(a.adoption_date).toLocaleDateString() : "—"}</td>
                               <td style={{ fontSize: 12, color: "var(--text-muted)" }}>{a.notes || "—"}</td>
-                              <td>
+                              <td onClick={(e) => e.stopPropagation()}>
                                 {linked ? (
-                                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => printDepartureReceipt(linked)}>
-                                    🖨 {linked.receipt_number}
-                                  </button>
+                                  <div style={{ display: "flex", gap: 6 }}>
+                                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setViewingReceipt(linked)}>
+                                      👁 View
+                                    </button>
+                                    <button className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 10px", background: "#7c3aed", borderColor: "#7c3aed" }} onClick={() => printDepartureReceipt(linked)}>
+                                      🖨 Print
+                                    </button>
+                                  </div>
                                 ) : (
                                   <span style={{ fontSize: 11, color: "var(--text-muted)" }}>No receipt</span>
                                 )}
@@ -1171,6 +1183,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
               departureType: "Adoption",
               person: info.adopterPerson,
               personName: info.adopterName,
+              fees: info.fees,
+              totalFees: info.totalFees,
+              paymentMethod: info.paymentMethod,
+              conditions: info.conditions,
               officerName,
               officerId: cu?.id,
             });
@@ -1212,6 +1228,15 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         />
       )}
 
+      {/* Receipt Preview Modal */}
+      {viewingReceipt && (
+        <ReceiptPreviewModal
+          receipt={viewingReceipt}
+          onClose={() => setViewingReceipt(null)}
+          onPrint={() => printDepartureReceipt(viewingReceipt)}
+        />
+      )}
+
       {/* Departure Receipt — "Print now?" popup */}
       {pendingReceipt && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 9100, display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -1231,6 +1256,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
               </p>
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn btn-secondary btn-sm" onClick={() => setPendingReceipt(null)}>Close</button>
+                <button className="btn btn-secondary btn-sm"
+                  onClick={() => { setViewingReceipt(pendingReceipt); setPendingReceipt(null); }}>
+                  👁 View Receipt
+                </button>
                 <button className="btn btn-primary btn-sm" style={{ background: "#7c3aed", borderColor: "#7c3aed" }}
                   onClick={() => { printDepartureReceipt(pendingReceipt); setPendingReceipt(null); }}>
                   🖨 Print Now

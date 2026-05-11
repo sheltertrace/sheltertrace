@@ -197,8 +197,15 @@ export function printAdoptionReceipt(receipt: DepartureReceipt): void {
     </div>
   </div>
 
+  <!-- Proof of Ownership -->
+  <div style="margin-top:18px;padding:12px 16px;background:#eff6ff;border:2.5px solid #2563eb;border-radius:6px;text-align:center">
+    <div style="font-size:12px;font-weight:900;color:#1e40af;line-height:1.5">
+      THIS RECEIPT SERVES AS PROOF OF OWNERSHIP AND ADOPTION FROM MORGAN COUNTY ANIMAL SERVICES
+    </div>
+  </div>
+
   <!-- Footer -->
-  <div style="margin-top:22px;padding:12px 16px;background:${MCAS_BLUE}08;border:1px solid ${MCAS_BLUE}20;border-radius:6px;text-align:center">
+  <div style="margin-top:14px;padding:12px 16px;background:${MCAS_BLUE}08;border:1px solid ${MCAS_BLUE}20;border-radius:6px;text-align:center">
     <div style="font-size:13px;font-weight:700;color:${MCAS_BLUE};margin-bottom:4px">🎉 Congratulations on your new family member!</div>
     <div style="font-size:9.5px;color:#555;line-height:1.6">
       Thank you for adopting from ${MCAS_NAME}.<br>
