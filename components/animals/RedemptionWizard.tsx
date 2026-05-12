@@ -4,6 +4,7 @@ import { fetchPeople, createPerson, createRedemption, linkAnimalToPerson, update
 import type { Animal, Person } from "@/lib/types";
 import { today } from "@/lib/utils";
 import StaffSelect from "@/components/ui/StaffSelect";
+import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 
 export interface RedemptionReceiptInfo {
   ownerName: string;
@@ -408,7 +409,22 @@ export default function RedemptionWizard({ animal, onComplete, onClose }: Props)
 
               {showNewPerson && (
                 <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginTop: 10 }}>
-                  <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 10 }}>New Person</div>
+                  <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 10, display: "flex", alignItems: "center", gap: 10 }}>
+                    New Person
+                    <ScanLicenseButton
+                      label="📷 Scan License"
+                      onScan={(d) => {
+                        if (d.firstName)     setNewFirst(d.firstName);
+                        if (d.lastName)      setNewLast(d.lastName);
+                        if (d.address)       setNewAddress(d.address);
+                        if (d.city)          setNewCity(d.city);
+                        if (d.state)         setNewState(d.state);
+                        if (d.zip)           setNewZip(d.zip);
+                        if (d.licenseNumber) setNewIdNumber(d.licenseNumber);
+                        setNewIdType("Driver's License");
+                      }}
+                    />
+                  </div>
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <div><label className="form-label">First Name *</label><input className="form-input" value={newFirst} onChange={(e) => setNewFirst(e.target.value)} /></div>
                     <div><label className="form-label">Last Name *</label><input className="form-input" value={newLast} onChange={(e) => setNewLast(e.target.value)} /></div>

@@ -16,6 +16,7 @@ export default function ScanLicenseModal({ onScan, onClose }: Props) {
 
   const [phase, setPhase] = useState<"starting" | "scanning" | "success" | "error">("starting");
   const [errMsg, setErrMsg] = useState("");
+  const [secondsLeft, setSecondsLeft] = useState(30);
 
   const stop = useCallback(() => {
     cancelledRef.current = true;
@@ -75,6 +76,25 @@ export default function ScanLicenseModal({ onScan, onClose }: Props) {
 
     return () => { stop(); };
   }, [onScan, stop]);
+
+  // 30-second countdown timeout
+  useEffect(() => {
+    if (phase !== "scanning") return;
+    setSecondsLeft(30);
+    const tick = setInterval(() => {
+      setSecondsLeft((s) => {
+        if (s <= 1) {
+          clearInterval(tick);
+          stop();
+          setErrMsg("Scan timed out. Could not read the barcode. Please try again or enter the information manually.");
+          setPhase("error");
+          return 0;
+        }
+        return s - 1;
+      });
+    }, 1000);
+    return () => clearInterval(tick);
+  }, [phase, stop]);
 
   const handleClose = useCallback(() => {
     stop();
@@ -160,7 +180,7 @@ export default function ScanLicenseModal({ onScan, onClose }: Props) {
                 )}
                 {phase === "scanning" && (
                   <span style={{ background: "rgba(0,0,0,0.65)", color: "#22d3ee", padding: "4px 14px", borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
-                    🔍 Align barcode inside the box
+                    🔍 Align barcode inside the box · {secondsLeft}s
                   </span>
                 )}
                 {phase === "success" && (

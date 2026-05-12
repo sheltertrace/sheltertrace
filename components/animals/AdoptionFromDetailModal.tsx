@@ -5,6 +5,7 @@ import { createAdoption, createPerson, updateAnimal, createDepartureReceipt } fr
 import { buildDepartureReceiptPayload, writeReceiptToWindow } from "@/lib/departureReceipt";
 import { getCurrentUser } from "@/lib/auth";
 import { today, genReceiptId } from "@/lib/utils";
+import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="form-group"><label className="form-label">{label}</label>{children}</div>;
@@ -284,7 +285,20 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
 
               {showNewAdopter && (
                 <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>New Adopter</div>
+                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
+                    New Adopter
+                    <ScanLicenseButton
+                      label="📷 Scan License"
+                      onScan={(d) => {
+                        if (d.firstName) setNaFirst(d.firstName);
+                        if (d.lastName)  setNaLast(d.lastName);
+                        if (d.address)   setNaAddress(d.address);
+                        if (d.city)      setNaCity(d.city);
+                        if (d.state)     setNaState(d.state);
+                        if (d.zip)       setNaZip(d.zip);
+                      }}
+                    />
+                  </div>
                   <div className="grid-2">
                     <F label="First Name *"><input className="form-input" value={naFirst} onChange={(e) => setNaFirst(e.target.value)} /></F>
                     <F label="Last Name *"><input className="form-input" value={naLast} onChange={(e) => setNaLast(e.target.value)} /></F>

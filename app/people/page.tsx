@@ -7,6 +7,8 @@ import { fetchPeople, fetchCalls, fetchAnimals, fetchCitations, createPerson } f
 import type { Person, DispatchCall, Animal, Citation } from "@/lib/types";
 import { PERSON_ROLES } from "@/lib/constants";
 import { formatDate, today } from "@/lib/utils";
+import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
+import type { AamvaData } from "@/lib/parseAamva";
 
 type Tab = "people" | "address" | "animals" | "calls";
 
@@ -46,6 +48,7 @@ export default function SearchPage() {
   const [npState, setNpState] = useState("GA");
   const [npZip, setNpZip] = useState("");
   const [saving, setSaving] = useState(false);
+  const [npScanSuccess, setNpScanSuccess] = useState(false);
 
   const loadPeople = useCallback(async () => {
     if (peopleLoaded) return;
@@ -492,6 +495,29 @@ export default function SearchPage() {
               <button className="btn btn-ghost btn-sm" onClick={() => setShowAdd(false)}>✕</button>
             </div>
             <div className="modal-body">
+              <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 12 }}>
+                <ScanLicenseButton
+                  label="📷 Scan Driver's License"
+                  style={{ fontSize: 14, padding: "8px 16px" }}
+                  onScan={(d: AamvaData) => {
+                    if (d.firstName)  setNpFirst(d.firstName);
+                    if (d.middleName) setNpMid(d.middleName);
+                    if (d.lastName)   setNpLast(d.lastName);
+                    if (d.address)    setNpAddress(d.address);
+                    if (d.city)       setNpCity(d.city);
+                    if (d.state)      setNpState(d.state);
+                    if (d.zip)        setNpZip(d.zip);
+                    setNpScanSuccess(true);
+                    setTimeout(() => setNpScanSuccess(false), 6000);
+                  }}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>or fill in manually below</span>
+              </div>
+              {npScanSuccess && (
+                <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, padding: "8px 12px", marginBottom: 12, fontSize: 13, color: "#15803d", display: "flex", alignItems: "center", gap: 8 }}>
+                  ✓ License scanned successfully — please verify the information below
+                </div>
+              )}
               <div className="grid-2">
                 <div className="form-group"><label className="form-label">First Name *</label><input className="form-input" value={npFirst} onChange={(e) => setNpFirst(e.target.value)} /></div>
                 <div className="form-group"><label className="form-label">Middle Name</label><input className="form-input" value={npMid} onChange={(e) => setNpMid(e.target.value)} /></div>

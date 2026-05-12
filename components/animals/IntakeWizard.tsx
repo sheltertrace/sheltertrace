@@ -427,7 +427,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
                   <span style={{ fontWeight: 700, fontSize: 13 }}>New Contact</span>
                   <ScanLicenseButton
-                    label="Scan License"
+                    label="📷 Scan License"
                     onScan={(data: AamvaData) => {
                       if (data.firstName) setNpFirst(data.firstName);
                       if (data.lastName)  setNpLast(data.lastName);

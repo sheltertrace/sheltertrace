@@ -4,10 +4,13 @@ export interface AamvaData {
   lastName?: string;
   address?: string;
   city?: string;
-  state?: string;
+  state?: string;   // address state
+  idState?: string; // license-issuing state (same field, DAJ)
   zip?: string;
   dob?: string;        // YYYY-MM-DD
   sex?: string;        // "Male" | "Female"
+  eyeColor?: string;
+  height?: string;     // e.g. "510" → "5'10\""
   licenseNumber?: string;
   expiration?: string; // YYYY-MM-DD
 }
@@ -51,9 +54,10 @@ export function parseAamva(raw: string): AamvaData {
   result.middleName = fields["DAD"] || "";
 
   // Address
-  result.address = fields["DAG"] || "";
-  result.city    = fields["DAI"] || "";
-  result.state   = fields["DAJ"] || "";
+  result.address  = fields["DAG"] || "";
+  result.city     = fields["DAI"] || "";
+  result.state    = fields["DAJ"] || "";
+  result.idState  = fields["DAJ"] || "";  // same field — issuing state
   // DAK is 9-digit zip — take first 5
   result.zip = (fields["DAK"] || "").replace(/\D/g, "").substring(0, 5);
 
@@ -68,6 +72,27 @@ export function parseAamva(raw: string): AamvaData {
   const sex = (fields["DBC"] || "").trim();
   if (sex === "1") result.sex = "Male";
   else if (sex === "2") result.sex = "Female";
+
+  // Eye color (DAY) — raw values like "BRN", "BLU", "GRN", "HAZ", "GRY"
+  const eyeRaw = (fields["DAY"] || "").trim().toUpperCase();
+  const EYE_MAP: Record<string, string> = {
+    BRN: "Brown", BLK: "Black", BLU: "Blue", GRN: "Green",
+    HAZ: "Hazel", GRY: "Gray", MAR: "Maroon", PNK: "Pink",
+    DIC: "Dichromatic", UNK: "Unknown",
+  };
+  if (eyeRaw) result.eyeColor = EYE_MAP[eyeRaw] || eyeRaw;
+
+  // Height (DAU) — stored as "509 in" or "509" (feet*12+inches in US)
+  // Convert e.g. "509" → "5'9\"", "510" → "5'10\""
+  const htRaw = (fields["DAU"] || "").replace(/\D/g, "").trim();
+  if (htRaw.length >= 3) {
+    const totalInches = parseInt(htRaw, 10);
+    if (!isNaN(totalInches)) {
+      const ft = Math.floor(totalInches / 12);
+      const inches = totalInches % 12;
+      result.height = `${ft}'${inches}"`;
+    }
+  }
 
   // Clean up empty strings to undefined
   for (const key of Object.keys(result) as (keyof AamvaData)[]) {

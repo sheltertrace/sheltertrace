@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers";
 import type { Citation, CourtSettings } from "@/lib/types";
 import { CITABLE_ORDINANCES, MORGAN_COUNTY_ORDINANCES } from "@/lib/constants";
 import SignaturePad from "@/components/ui/SignaturePad";
+import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import { openCourtEmail } from "@/lib/courtEmail";
 
 const ORDINANCE_ARTICLES = Array.from(new Set(CITABLE_ORDINANCES.map((o) => o.article)));
@@ -198,6 +199,24 @@ export default function CitationModal({ onSave, onClose }: Props) {
           </div>
 
           <SH title="Violator Information" />
+          <div style={{ marginBottom: 12 }}>
+            <ScanLicenseButton
+              label="📷 Scan Driver's License — Auto-Fill Violator Info"
+              style={{ fontSize: 13, padding: "8px 16px" }}
+              onScan={(d) => {
+                if (d.firstName)     setViolatorFirst(d.firstName);
+                if (d.middleName)    setViolatorMiddle(d.middleName);
+                if (d.lastName)      setViolatorLast(d.lastName);
+                if (d.address)       setViolatorAddress(d.address);
+                if (d.city)          setViolatorCity(d.city);
+                if (d.state)         setViolatorState(d.state);
+                if (d.zip)           setViolatorZip(d.zip);
+                if (d.dob)           setViolatorDob(d.dob);
+                if (d.licenseNumber) setViolatorDl(d.licenseNumber);
+                if (d.sex)           setViolatorSex(d.sex === "Male" ? "M" : d.sex === "Female" ? "F" : "");
+              }}
+            />
+          </div>
           <div className="grid-3">
             <F label="First Name" req>
               <input className="form-input" value={violatorFirst} onChange={(e) => setViolatorFirst(e.target.value)} />
