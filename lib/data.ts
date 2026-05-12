@@ -1078,6 +1078,41 @@ export async function saveVolunteerAnnouncements(text: string): Promise<void> {
   await supabase.from("shelter_config").upsert({ id: 5, config_data: { text }, updated_at: new Date().toISOString() });
 }
 
+// ── Volunteer Applications ────────────────────────────────────────────────────
+export async function fetchVolunteerApplications(): Promise<import("./types").VolunteerApplication[]> {
+  const { data } = await supabase
+    .from("volunteer_applications")
+    .select("*")
+    .order("submitted_at", { ascending: false });
+  return (data as import("./types").VolunteerApplication[]) || [];
+}
+
+export async function createVolunteerApplication(
+  app: Omit<import("./types").VolunteerApplication, "id" | "submitted_at">
+): Promise<import("./types").VolunteerApplication> {
+  const { data, error } = await supabase
+    .from("volunteer_applications")
+    .insert(app)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as import("./types").VolunteerApplication;
+}
+
+export async function updateVolunteerApplication(
+  id: string,
+  updates: Partial<import("./types").VolunteerApplication>
+): Promise<import("./types").VolunteerApplication> {
+  const { data, error } = await supabase
+    .from("volunteer_applications")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as import("./types").VolunteerApplication;
+}
+
 // ── Departure Receipts ────────────────────────────────────────────────────────
 export async function createDepartureReceipt(
   receipt: Omit<import("./types").DepartureReceipt, "id" | "created_at" | "receipt_number">

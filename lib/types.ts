@@ -607,6 +607,38 @@ export interface EffectiveShift {
   isOverride: boolean;
 }
 
+export interface VolunteerApplication {
+  id: string;
+  submitted_at: string;
+  status: "pending" | "approved" | "rejected" | "more_info";
+  first_name: string;
+  middle_name?: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  dob?: string;
+  sex?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  interests?: string[];
+  availability?: string;
+  has_animals?: boolean;
+  prior_experience?: string;
+  why_volunteer?: string;
+  agree_to_terms: boolean;
+  agree_to_conduct: boolean;
+  signature_name?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  reviewer_notes?: string;
+  person_id?: string;
+  pid?: string;
+}
+
 export type Database = {
   public: {
     Tables: {

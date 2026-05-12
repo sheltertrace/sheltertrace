@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements, updatePerson, fetchForms } from "@/lib/data";
-import type { Person, VolunteerLog, ShelterForm } from "@/lib/types";
+import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements, updatePerson, fetchForms, fetchVolunteerApplications, updateVolunteerApplication, createPerson, genNextPid } from "@/lib/data";
+import type { Person, VolunteerLog, ShelterForm, VolunteerApplication } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,7 +24,12 @@ export default function VolunteersPage() {
   const [logs, setLogs]             = useState<VolunteerLog[]>([]);
   const [volForms, setVolForms]     = useState<ShelterForm[]>([]);
   const [loading, setLoading]       = useState(true);
-  const [tab, setTab]               = useState<"roster" | "today" | "hours" | "report" | "tools">("today");
+  const [tab, setTab]               = useState<"roster" | "today" | "hours" | "report" | "tools" | "applications">("today");
+  const [applications, setApplications] = useState<VolunteerApplication[]>([]);
+  const [reviewingApp, setReviewingApp] = useState<VolunteerApplication | null>(null);
+  const [reviewNotes, setReviewNotes]   = useState("");
+  const [reviewSaving, setReviewSaving] = useState(false);
+  const [appFilter, setAppFilter]       = useState<"all" | "pending" | "approved" | "rejected" | "more_info">("pending");
 
   // Filters for report
   const [filterFrom, setFilterFrom] = useState(() => {
@@ -53,15 +58,17 @@ export default function VolunteersPage() {
 
   const load = useCallback(async () => {
     try {
-      const [p, l, ann, apps, agrs, confs] = await Promise.all([
+      const [p, l, ann, apps, agrs, confs, volApps] = await Promise.all([
         fetchPeople(), fetchVolunteerLogs(), fetchVolunteerAnnouncements(),
         fetchForms("volunteer_application"), fetchForms("volunteer_agreement"), fetchForms("volunteer_confidentiality"),
+        fetchVolunteerApplications(),
       ]);
       setVolunteers(p.filter((x) => (x.role || "").toLowerCase().startsWith("volunteer")));
       setLogs(l);
       setAnnouncements(ann);
       setAnnouncementsOrig(ann);
       setVolForms([...apps, ...agrs, ...confs]);
+      setApplications(volApps);
     } catch { } finally { setLoading(false); }
   }, []);
 
@@ -146,6 +153,7 @@ export default function VolunteersPage() {
           <Link href="/volunteers/forms" className="btn btn-secondary btn-sm">📋 Volunteer Forms</Link>
           <Link href="/volunteer-clock" target="_blank" className="btn btn-secondary btn-sm">Open Kiosk →</Link>
           <Link href="/volunteer" target="_blank" className="btn btn-secondary btn-sm">Volunteer Portal →</Link>
+          <Link href="/volunteer-apply" target="_blank" className="btn btn-secondary btn-sm">📝 Apply Page →</Link>
           <button className="btn btn-secondary btn-sm" onClick={() => setShowQR(true)}>📲 QR Codes</button>
         </div>
       </div>
@@ -153,13 +161,31 @@ export default function VolunteersPage() {
       {/* Tabs */}
       <div className="tabs" style={{ marginBottom: 16 }}>
         {[
-          { key: "today",   label: `Today's Activity (${todayLogs.length})` },
-          { key: "roster",  label: `Volunteer Roster (${volunteers.length})` },
-          { key: "hours",   label: "Hours Log" },
-          { key: "report",  label: "Hours Report" },
-          { key: "tools",   label: "⚙ Tools" },
-        ].map(({ key, label }) => (
-          <div key={key} className={`tab ${tab === key ? "active" : ""}`} onClick={() => setTab(key as typeof tab)}>{label}</div>
+          { key: "today",        label: `Today's Activity (${todayLogs.length})` },
+          { key: "roster",       label: `Volunteer Roster (${volunteers.length})` },
+          { key: "hours",        label: "Hours Log" },
+          { key: "report",       label: "Hours Report" },
+          { key: "tools",        label: "⚙ Tools" },
+          { key: "applications", label: "Applications", badge: applications.filter((a) => a.status === "pending").length },
+        ].map(({ key, label, badge }) => (
+          <div
+            key={key}
+            className={`tab ${tab === key ? "active" : ""}`}
+            onClick={() => setTab(key as typeof tab)}
+            style={{ position: "relative" }}
+          >
+            {label}
+            {badge != null && badge > 0 && (
+              <span style={{
+                display: "inline-flex", alignItems: "center", justifyContent: "center",
+                background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 800,
+                borderRadius: 999, minWidth: 18, height: 18, padding: "0 5px",
+                marginLeft: 6, lineHeight: 1,
+              }}>
+                {badge}
+              </span>
+            )}
+          </div>
         ))}
       </div>
 
@@ -516,6 +542,325 @@ export default function VolunteersPage() {
         );
       })()}
 
+      {/* ── APPLICATIONS TAB ── */}
+      {tab === "applications" && (() => {
+        const filtered = applications.filter((a) => appFilter === "all" || a.status === appFilter);
+        const pendingCount = applications.filter((a) => a.status === "pending").length;
+        const statusColor: Record<string, string> = {
+          pending:   "#f59e0b",
+          approved:  "#16a34a",
+          rejected:  "#dc2626",
+          more_info: "#2563eb",
+        };
+        const statusLabel: Record<string, string> = {
+          pending:   "Pending",
+          approved:  "Approved",
+          rejected:  "Rejected",
+          more_info: "More Info",
+        };
+
+        return (
+          <div>
+            {/* Apply link banner */}
+            <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "12px 18px", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontSize: 13, color: "#374151" }}>
+                <strong>Public application link:</strong>{" "}
+                <span style={{ fontFamily: "monospace", color: "#0f2942" }}>
+                  {typeof window !== "undefined" ? window.location.origin : ""}/volunteer-apply
+                </span>
+                {" — share this with prospective volunteers or post on the county website."}
+              </div>
+              <a
+                href="/volunteer-apply"
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-secondary btn-sm"
+              >
+                View Form →
+              </a>
+            </div>
+
+            {/* Filters */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              {(["pending", "approved", "rejected", "more_info", "all"] as const).map((f) => {
+                const count = f === "all" ? applications.length : applications.filter((a) => a.status === f).length;
+                return (
+                  <button
+                    key={f}
+                    onClick={() => setAppFilter(f)}
+                    className={`btn btn-sm ${appFilter === f ? "btn-primary" : "btn-secondary"}`}
+                    style={f === "pending" && count > 0 && appFilter !== f ? { borderColor: "#f59e0b", color: "#b45309" } : {}}
+                  >
+                    {f === "all" ? "All" : statusLabel[f]} ({count})
+                  </button>
+                );
+              })}
+              <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={load}>↻ Refresh</button>
+            </div>
+
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Applicant</th>
+                    <th>Email</th>
+                    <th>Phone</th>
+                    <th>Submitted</th>
+                    <th>Interests</th>
+                    <th>Status</th>
+                    <th style={{ textAlign: "center" }}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={7} className="empty-state">
+                      {appFilter === "pending" ? "No pending applications" : "No applications in this category"}
+                    </td></tr>
+                  ) : (
+                    filtered.map((app) => (
+                      <tr
+                        key={app.id}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => { setReviewingApp(app); setReviewNotes(app.reviewer_notes || ""); }}
+                      >
+                        <td style={{ fontWeight: 700 }}>
+                          {app.first_name} {app.last_name}
+                          {app.pid && <span style={{ marginLeft: 8, fontSize: 11, color: "var(--text-muted)", fontFamily: "monospace" }}>{app.pid}</span>}
+                        </td>
+                        <td style={{ fontSize: 12 }}>{app.email || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{app.phone || "—"}</td>
+                        <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                          {new Date(app.submitted_at).toLocaleDateString()}
+                        </td>
+                        <td style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                          {(app.interests || []).slice(0, 3).join(", ")}{(app.interests || []).length > 3 ? ` +${(app.interests || []).length - 3}` : ""}
+                        </td>
+                        <td>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10,
+                            background: `${statusColor[app.status]}20`,
+                            color: statusColor[app.status],
+                            border: `1px solid ${statusColor[app.status]}50`,
+                          }}>
+                            {statusLabel[app.status] || app.status}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: "center" }}>
+                          <button
+                            className="btn btn-ghost btn-sm"
+                            onClick={(e) => { e.stopPropagation(); setReviewingApp(app); setReviewNotes(app.reviewer_notes || ""); }}
+                          >
+                            Review →
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── APPLICATION REVIEW MODAL ── */}
+      {reviewingApp && (() => {
+        const app = reviewingApp;
+        const statusColor: Record<string, string> = {
+          pending: "#f59e0b", approved: "#16a34a", rejected: "#dc2626", more_info: "#2563eb",
+        };
+
+        async function handleReview(action: "approved" | "rejected" | "more_info") {
+          setReviewSaving(true);
+          try {
+            let pid = app.pid;
+            let personId = app.person_id;
+
+            if (action === "approved" && !app.person_id) {
+              pid = await genNextPid();
+              const newPerson = await createPerson({
+                first_name: app.first_name,
+                middle_name: app.middle_name,
+                last_name: app.last_name,
+                email: app.email,
+                phone: app.phone,
+                address: app.address,
+                city: app.city,
+                state: app.state,
+                zip: app.zip,
+                dob: app.dob,
+                sex: app.sex,
+                role: "Volunteer",
+                pid,
+              });
+              personId = newPerson.id;
+              setVolunteers((prev) => [...prev, newPerson]);
+            }
+
+            const updated = await updateVolunteerApplication(app.id, {
+              status: action,
+              reviewer_notes: reviewNotes.trim() || undefined,
+              reviewed_at: new Date().toISOString(),
+              ...(action === "approved" ? { pid, person_id: personId } : {}),
+            });
+            setApplications((prev) => prev.map((a) => a.id === updated.id ? updated : a));
+
+            if (app.email) {
+              await fetch("/api/send-volunteer-email", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  type: action,
+                  applicantEmail: app.email,
+                  applicantName: `${app.first_name} ${app.last_name}`,
+                  pid: action === "approved" ? pid : undefined,
+                  reviewerNotes: reviewNotes.trim() || undefined,
+                }),
+              });
+            }
+
+            setReviewingApp(null);
+            setReviewNotes("");
+          } catch (err) {
+            alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+          } finally {
+            setReviewSaving(false);
+          }
+        }
+
+        return (
+          <div className="modal-overlay" onClick={() => setReviewingApp(null)}>
+            <div className="modal" style={{ maxWidth: 700 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">
+                  Volunteer Application — {app.first_name} {app.last_name}
+                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10,
+                    background: `${(statusColor[app.status] || "#6b7280")}20`,
+                    color: statusColor[app.status] || "#6b7280",
+                    border: `1px solid ${(statusColor[app.status] || "#6b7280")}50`,
+                  }}>
+                    {app.status.replace("_", " ").toUpperCase()}
+                  </span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setReviewingApp(null)}>✕</button>
+                </div>
+              </div>
+              <div className="modal-body" style={{ maxHeight: "65vh", overflowY: "auto" }}>
+
+                {/* Personal info */}
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", marginBottom: 18, background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "14px 16px" }}>
+                  <InfoRow label="Name"     value={[app.first_name, app.middle_name, app.last_name].filter(Boolean).join(" ")} />
+                  <InfoRow label="Email"    value={app.email} />
+                  <InfoRow label="Phone"    value={app.phone} />
+                  <InfoRow label="DOB"      value={app.dob} />
+                  <InfoRow label="Address"  value={[app.address, app.city, app.state, app.zip].filter(Boolean).join(", ")} />
+                  <InfoRow label="Sex"      value={app.sex} />
+                  <InfoRow label="EC Name"  value={app.emergency_contact_name} />
+                  <InfoRow label="EC Phone" value={app.emergency_contact_phone} />
+                </div>
+
+                {/* Application details */}
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#0f2942", marginBottom: 8 }}>Volunteer Interests</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {(app.interests || []).length === 0 ? (
+                      <span style={{ fontSize: 13, color: "var(--text-muted)" }}>None specified</span>
+                    ) : (app.interests || []).map((i) => (
+                      <span key={i} style={{ fontSize: 12, padding: "2px 10px", borderRadius: 12, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", fontWeight: 600 }}>{i}</span>
+                    ))}
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 24px", marginBottom: 14 }}>
+                  <InfoRow label="Availability" value={app.availability} />
+                  <InfoRow label="Has pets"     value={app.has_animals == null ? undefined : app.has_animals ? "Yes" : "No"} />
+                </div>
+
+                {app.prior_experience && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Prior Experience</div>
+                    <div style={{ fontSize: 13, color: "#374151", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "10px 12px", lineHeight: 1.7 }}>{app.prior_experience}</div>
+                  </div>
+                )}
+
+                {app.why_volunteer && (
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.5px", marginBottom: 4 }}>Why They Want to Volunteer</div>
+                    <div style={{ fontSize: 13, color: "#374151", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 6, padding: "10px 12px", lineHeight: 1.7 }}>{app.why_volunteer}</div>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: 14, display: "flex", gap: 16, fontSize: 13 }}>
+                  <span style={{ color: app.agree_to_terms ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
+                    {app.agree_to_terms ? "✓" : "✗"} Terms agreed
+                  </span>
+                  <span style={{ color: app.agree_to_conduct ? "#16a34a" : "#dc2626", fontWeight: 600 }}>
+                    {app.agree_to_conduct ? "✓" : "✗"} Code of conduct agreed
+                  </span>
+                  {app.signature_name && (
+                    <span style={{ color: "#374151" }}>Signed: <em style={{ fontStyle: "italic" }}>{app.signature_name}</em></span>
+                  )}
+                </div>
+
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 20 }}>
+                  Submitted {new Date(app.submitted_at).toLocaleString()}
+                  {app.reviewed_at && ` · Reviewed ${new Date(app.reviewed_at).toLocaleString()}`}
+                  {app.reviewed_by && ` by ${app.reviewed_by}`}
+                </div>
+
+                {/* Review notes */}
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label className="form-label">Reviewer Notes (optional — included in email to applicant)</label>
+                  <textarea
+                    className="form-textarea"
+                    rows={3}
+                    value={reviewNotes}
+                    onChange={(e) => setReviewNotes(e.target.value)}
+                    placeholder="Add notes for the applicant or for internal records…"
+                  />
+                </div>
+
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setReviewingApp(null)} disabled={reviewSaving}>Close</button>
+                <div style={{ flex: 1 }} />
+                {app.status !== "more_info" && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" }}
+                    disabled={reviewSaving}
+                    onClick={() => handleReview("more_info")}
+                  >
+                    {reviewSaving ? "Saving…" : "📋 Request More Info"}
+                  </button>
+                )}
+                {app.status !== "rejected" && (
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5" }}
+                    disabled={reviewSaving}
+                    onClick={() => handleReview("rejected")}
+                  >
+                    {reviewSaving ? "Saving…" : "✗ Reject"}
+                  </button>
+                )}
+                {app.status !== "approved" && (
+                  <button
+                    className="btn btn-primary btn-sm"
+                    disabled={reviewSaving}
+                    onClick={() => handleReview("approved")}
+                  >
+                    {reviewSaving ? "Saving…" : "✓ Approve & Create Volunteer"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* ── ADD VOLUNTEER MODAL ── */}
       {showAddVolunteer && (
         <AddVolunteerModal
@@ -673,5 +1018,14 @@ export default function VolunteersPage() {
         </div>
       )}
     </AppShell>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div style={{ padding: "4px 0" }}>
+      <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.4px", marginRight: 6 }}>{label}:</span>
+      <span style={{ fontSize: 13, color: "#111827" }}>{value || <span style={{ color: "#9ca3af" }}>—</span>}</span>
+    </div>
   );
 }
