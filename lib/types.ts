@@ -632,6 +632,10 @@ export interface VolunteerApplication {
   agree_to_terms: boolean;
   agree_to_conduct: boolean;
   signature_name?: string;
+  agreement_signature?: string;
+  confidentiality_signature?: string;
+  parent_guardian_name?: string;
+  parent_guardian_signature?: string;
   reviewed_by?: string;
   reviewed_at?: string;
   reviewer_notes?: string;
