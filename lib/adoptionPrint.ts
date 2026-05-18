@@ -2,7 +2,7 @@ import type { AdoptionApplication } from "./types";
 
 const AGENCY  = "Morgan County Animal Services";
 const ADDRESS = "Morgan County, Georgia";
-const PHONE   = "(706) 474-7170";
+const PHONE   = "(706) 752-1195";
 const FOOTER  = `${AGENCY} • ${ADDRESS} • Thank you for choosing to adopt!`;
 
 type FormData = Partial<AdoptionApplication>;

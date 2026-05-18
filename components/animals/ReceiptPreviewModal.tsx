@@ -81,7 +81,7 @@ export default function ReceiptPreviewModal({ receipt, onClose, onPrint }: Props
           {/* Agency header */}
           <div style={{ borderBottom: `3px solid ${MCAS_BLUE}`, paddingBottom: 12, marginBottom: 4 }}>
             <div style={{ fontWeight: 900, fontSize: 16, color: MCAS_BLUE, textTransform: "uppercase" }}>Morgan County Animal Services</div>
-            <div style={{ fontSize: 11, color: "#374151", marginTop: 2 }}>2392 Athens Hwy, Madison, GA 30650 · (706) 474-7170</div>
+            <div style={{ fontSize: 11, color: "#374151", marginTop: 2 }}>2392 Athens Hwy, Madison, GA 30650 · (706) 752-1195</div>
           </div>
 
           {/* Two-column: animal + person */}

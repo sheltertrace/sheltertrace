@@ -2,7 +2,7 @@ import type { Animal, DepartureReceipt, Person } from "./types";
 
 const MCAS_NAME    = "Morgan County Animal Services";
 const MCAS_ADDR    = "2392 Athens Hwy, Madison, GA 30650";
-const MCAS_PHONE   = "(706) 474-7170";
+const MCAS_PHONE   = "(706) 752-1195";
 const MCAS_BLUE    = "#0f2942";
 
 export const DEPARTURE_STATUSES = new Set([

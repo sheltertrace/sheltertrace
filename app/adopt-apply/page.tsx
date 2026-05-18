@@ -206,7 +206,7 @@ export default function AdoptApplyPage() {
       });
       setStep("submitted");
     } catch (err) {
-      setError("Failed to submit application. Please try again or contact us at (706) 474-7170.");
+      setError("Failed to submit application. Please try again or contact us at (706) 752-1195.");
       console.error("[adopt-apply]", err);
     } finally {
       setSaving(false);
@@ -223,7 +223,7 @@ export default function AdoptApplyPage() {
             <h2 style={{ fontSize: 24, fontWeight: 900, color: "#0f2942", margin: "0 0 12px" }}>Application Submitted!</h2>
             <p style={{ fontSize: 15, color: "#374151", lineHeight: 1.7, margin: "0 0 24px" }}>
               Thank you for submitting your adoption application! Our team will review it and contact you.
-              If you have questions, call us at <strong>(706) 474-7170</strong>.
+              If you have questions, call us at <strong>(706) 752-1195</strong>.
             </p>
             <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 10, padding: "14px 18px", textAlign: "left" }}>
               <div style={{ fontWeight: 700, fontSize: 13, color: "#15803d", marginBottom: 6 }}>What happens next?</div>
@@ -540,7 +540,7 @@ function Footer() {
     <div style={{ background: "#1f2937", padding: "16px", textAlign: "center" }}>
       <div style={{ fontSize: 12, color: "rgba(255,255,255,.5)", lineHeight: 1.8 }}>
         Morgan County Animal Services &nbsp;·&nbsp; Morgan County, Georgia<br />
-        Phone: (706) 474-7170 &nbsp;·&nbsp; ShelterTrace v1.0 · Shelter Data Systems
+        Phone: (706) 752-1195 &nbsp;·&nbsp; ShelterTrace v1.0 · Shelter Data Systems
       </div>
     </div>
   );
