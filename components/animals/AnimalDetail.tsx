@@ -16,7 +16,7 @@ import { calcAge, formatDate, today, nowTime, genId } from "@/lib/utils";
 import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical,
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
-  fetchTransfersByAnimal, safeJsonArray, safeJsonObject,
+  fetchTransfersByAnimal, safeJsonArray, safeJsonObject, safeArray,
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
   type AnimalDocument,
 } from "@/lib/data";
@@ -43,6 +43,8 @@ interface Props {
   onUpdate: (updated: Animal) => void;
 }
 
+const DEPARTURE_STATUSES_AUTO_REMOVE = ["Adopted", "Euthanized", "Transferred", "Redeemed"];
+
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="form-group">
@@ -63,6 +65,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [showCropModal, setShowCropModal] = useState(false);
+  const [pubPhotoUploading, setPubPhotoUploading] = useState(false);
 
   // Edit state
   const [editMode, setEditMode] = useState<string | null>(null); // section being edited
@@ -156,6 +159,9 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     }
   ) => {
     setSaving(true);
+    if (updates.status && DEPARTURE_STATUSES_AUTO_REMOVE.includes(updates.status) && updates.status !== animal.status) {
+      updates = { ...updates, show_on_website: false };
+    }
     try {
       const updated = await updateAnimal(animal.id, updates);
       setAnimal(updated);
@@ -204,6 +210,27 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       reader.readAsDataURL(file);
     } finally { setPhotoUploading(false); e.target.value = ""; }
   }, [animal.id, save]);
+
+  const handlePublicPhotoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setPubPhotoUploading(true);
+    try {
+      const path = `public/${animal.id}/${Date.now()}-${file.name}`;
+      const { error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
+      const newUrl = urlData.publicUrl;
+      const existing = safeArray(animal.photo_urls);
+      const newPhotos = [...existing, newUrl];
+      await save({
+        photo_urls: newPhotos,
+        featured_photo_url: animal.featured_photo_url || newUrl,
+      });
+    } catch (err) {
+      console.error("[PublicPhoto] upload failed:", err);
+    } finally { setPubPhotoUploading(false); e.target.value = ""; }
+  }, [animal.id, animal.photo_urls, animal.featured_photo_url, save]);
 
   const toggleFlag = useCallback((flagId: string) => {
     const flags = { ...(animal.behavior_flags || {}) };
@@ -1095,6 +1122,161 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
               </div>
             )}
           </CollapsibleSection>
+
+          {/* ── Public Website Profile ── */}
+          <CollapsibleSection title="🌐 Public Website Profile" color="#1a8a8a" defaultOpen={false}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+
+              {/* Toggle */}
+              <div style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "14px 16px", borderRadius: 10,
+                background: animal.show_on_website ? "#dcfce7" : "#f1f5f9",
+                border: `1px solid ${animal.show_on_website ? "#86efac" : "#e2e8f0"}`,
+              }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 14, color: animal.show_on_website ? "#166534" : "#374151" }}>
+                    {animal.show_on_website ? "✅ Showing on Public Website" : "⬜ Hidden from Public Website"}
+                  </div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 2 }}>
+                    {animal.show_on_website
+                      ? "Visible at /available-animals — toggle off to hide"
+                      : "Toggle on to list this animal for adoption on the public page"}
+                  </div>
+                </div>
+                <button
+                  onClick={() => save({ show_on_website: !animal.show_on_website })}
+                  style={{
+                    width: 52, height: 28, borderRadius: 14, border: "none", cursor: "pointer", flexShrink: 0,
+                    background: animal.show_on_website ? "#16a34a" : "#cbd5e1",
+                    position: "relative", transition: "background 0.2s",
+                  }}
+                  aria-label="Toggle public website visibility"
+                >
+                  <span style={{
+                    position: "absolute", top: 3, left: animal.show_on_website ? 27 : 3,
+                    width: 22, height: 22, borderRadius: 11, background: "#fff",
+                    boxShadow: "0 1px 3px rgba(0,0,0,0.2)", transition: "left 0.2s",
+                    display: "block",
+                  }} />
+                </button>
+              </div>
+
+              {animal.show_on_website && (
+                <div style={{ padding: "8px 12px", background: "#fef3c7", borderRadius: 8, border: "1px solid #fcd34d", fontSize: 12, color: "#92400e" }}>
+                  ⚡ Automatically hidden when status changes to Adopted, Transferred, Euthanized, or Redeemed
+                </div>
+              )}
+
+              {/* Preview link */}
+              <div>
+                <a
+                  href={`/available-animals/${animal.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "8px 16px", background: "#0f2942", color: "#fff", borderRadius: 8, fontSize: 13, fontWeight: 700, textDecoration: "none" }}
+                >
+                  👁 Preview Public Page
+                </a>
+                <span style={{ marginLeft: 10, fontSize: 12, color: "var(--text-secondary)" }}>Opens in new tab</span>
+              </div>
+
+              {/* Public Bio */}
+              <div className="form-group">
+                <label className="form-label">Public Bio / Description</label>
+                <textarea
+                  className="form-input"
+                  rows={4}
+                  defaultValue={animal.public_bio || ""}
+                  placeholder={`Write a friendly description for potential adopters of ${animal.name}…`}
+                  onBlur={(e) => { if (e.target.value !== (animal.public_bio || "")) save({ public_bio: e.target.value || undefined }); }}
+                  style={{ resize: "vertical", fontFamily: "inherit" }}
+                />
+                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
+                  Shown on the public adoption page as &ldquo;About {animal.name}&rdquo;
+                </div>
+              </div>
+
+              {/* Public Photos */}
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "var(--text)", marginBottom: 10 }}>
+                  Public Photos
+                  {safeArray(animal.photo_urls).length > 0 && (
+                    <span style={{ marginLeft: 8, fontSize: 12, fontWeight: 400, color: "var(--text-secondary)" }}>
+                      {safeArray(animal.photo_urls).length} photo{safeArray(animal.photo_urls).length !== 1 ? "s" : ""}
+                      {animal.featured_photo_url && " · ⭐ featured set"}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 10 }}>
+                  {safeArray(animal.photo_urls).map((url, i) => {
+                    const isFeatured = animal.featured_photo_url === url;
+                    return (
+                      <div key={i} style={{ position: "relative", width: 90, height: 90, flexShrink: 0 }}>
+                        <img
+                          src={url}
+                          alt=""
+                          style={{
+                            width: "100%", height: "100%", objectFit: "cover", borderRadius: 8,
+                            border: isFeatured ? "3px solid #1a8a8a" : "2px solid var(--border)",
+                            display: "block",
+                          }}
+                        />
+                        {isFeatured && (
+                          <span style={{ position: "absolute", bottom: 4, left: 4, background: "#1a8a8a", color: "#fff", fontSize: 9, fontWeight: 800, padding: "2px 5px", borderRadius: 4, letterSpacing: "0.04em" }}>
+                            FEATURED
+                          </span>
+                        )}
+                        <button
+                          title="Set as featured card photo"
+                          onClick={() => save({ featured_photo_url: url })}
+                          style={{ position: "absolute", top: 3, left: 3, background: "rgba(0,0,0,0.55)", border: "none", borderRadius: 4, color: "#fff", fontSize: 11, width: 22, height: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        >
+                          ⭐
+                        </button>
+                        <button
+                          title="Remove photo"
+                          onClick={() => {
+                            const existing = safeArray(animal.photo_urls);
+                            const next = existing.filter((u) => u !== url);
+                            const updates: Partial<Animal> = { photo_urls: next };
+                            if (animal.featured_photo_url === url) updates.featured_photo_url = next[0] ?? undefined;
+                            save(updates);
+                          }}
+                          style={{ position: "absolute", top: 3, right: 3, background: "rgba(220,38,38,0.8)", border: "none", borderRadius: 4, color: "#fff", fontSize: 11, width: 22, height: 22, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    );
+                  })}
+
+                  {/* Upload button */}
+                  <label style={{
+                    width: 90, height: 90, border: "2px dashed var(--border)",
+                    borderRadius: 8, display: "flex", flexDirection: "column",
+                    alignItems: "center", justifyContent: "center",
+                    cursor: pubPhotoUploading ? "wait" : "pointer",
+                    background: "var(--bg-alt)", color: "var(--text-secondary)",
+                    fontSize: 11, gap: 4, flexShrink: 0,
+                    opacity: pubPhotoUploading ? 0.6 : 1,
+                    transition: "opacity 0.15s",
+                  }}>
+                    <span style={{ fontSize: 22 }}>{pubPhotoUploading ? "⏳" : "📷"}</span>
+                    <span style={{ fontWeight: 600 }}>{pubPhotoUploading ? "Uploading…" : "Add Photo"}</span>
+                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={handlePublicPhotoUpload} disabled={pubPhotoUploading} />
+                  </label>
+                </div>
+
+                <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>
+                  Click ⭐ to set as the featured card thumbnail. Multiple photos appear as a gallery on the public detail page.
+                </div>
+              </div>
+
+            </div>
+          </CollapsibleSection>
+
         </div>
       </div>
 

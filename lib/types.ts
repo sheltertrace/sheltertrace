@@ -47,6 +47,11 @@ export interface Animal {
   transfer_date?: string;
   euthanasia?: EuthanasiaRecord | null;
   notes?: AnimalNote[];
+  // Public website profile
+  show_on_website?: boolean;
+  public_bio?: string;
+  featured_photo_url?: string;
+  photo_urls?: string[];
   created_at?: string;
   updated_at?: string;
 }

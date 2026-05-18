@@ -130,6 +130,34 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
   return created;
 }
 
+// ── Public website animals ────────────────────────────────────────────────────
+export async function fetchPublicAnimals(): Promise<Animal[]> {
+  const { data, error } = await supabase
+    .from("animals")
+    .select("id, name, species, breed, color, secondary_color, sex, age, dob, weight, fixed, status, sub_status, microchip, intake_date, photo_url, featured_photo_url, photo_urls, public_bio, show_on_website, markings")
+    .eq("show_on_website", true)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return (data as Animal[]) || [];
+}
+
+// No show_on_website filter — lets staff preview unpublished animals
+export async function fetchPublicAnimal(id: string): Promise<Animal | null> {
+  const { data } = await supabase.from("animals").select("*").eq("id", id).single();
+  return (data as Animal) || null;
+}
+
+export async function uploadPublicAnimalPhoto(animalId: string, file: File): Promise<string> {
+  const ext = file.name.split(".").pop() || "jpg";
+  const path = `${animalId}/gallery/${Date.now()}.${ext}`;
+  const { error } = await supabase.storage
+    .from("animal-photos")
+    .upload(path, file, { upsert: false, contentType: file.type });
+  if (error) throw error;
+  const { data } = supabase.storage.from("animal-photos").getPublicUrl(path);
+  return data.publicUrl;
+}
+
 export async function deleteAnimal(id: string): Promise<void> {
   await supabase.from("animal_notes").delete().eq("animal_id", id);
   await supabase.from("medical_records").delete().eq("animal_id", id);
