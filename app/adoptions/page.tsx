@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Pagination from "@/components/ui/Pagination";
-import { fetchAnimals, fetchPeople, fetchAdoptions, createAdoption, createPerson, updateAnimal } from "@/lib/data";
-import type { Animal, Person, AdoptionRecord } from "@/lib/types";
+import { fetchAnimals, fetchPeople, fetchAdoptions, createAdoption, createPerson, updateAnimal, fetchAdoptionApplications, updateAdoptionApplication, genNextPid } from "@/lib/data";
+import type { Animal, Person, AdoptionRecord, AdoptionApplication } from "@/lib/types";
+import { printCompletedAdoptionForm } from "@/lib/adoptionPrint";
 import ReturnAnimalModal from "@/components/animals/ReturnAnimalModal";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import { formatDate, today, genId, genReceiptId } from "@/lib/utils";
@@ -16,7 +17,21 @@ export default function AdoptionsPage() {
   const [people, setPeople] = useState<Person[]>([]);
   const [adoptions, setAdoptions] = useState<AdoptionRecord[]>([]);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"available" | "pending" | "adopted" | "records">("available");
+  const [tab, setTab] = useState<"available" | "pending" | "adopted" | "records" | "applications">("available");
+
+  // Adoption applications
+  const [adoptionApps,  setAdoptionApps]  = useState<AdoptionApplication[]>([]);
+  const [reviewingApp,  setReviewingApp]  = useState<AdoptionApplication | null>(null);
+  const [appFilter,     setAppFilter]     = useState<"pending" | "approved" | "denied" | "more_info" | "all">("pending");
+  const [appSaving,     setAppSaving]     = useState(false);
+  // Editable office-use fields while reviewing
+  const [offProcessedBy, setOffProcessedBy] = useState("");
+  const [offDateEntered, setOffDateEntered] = useState("");
+  const [offRabiesTag,   setOffRabiesTag]   = useState("");
+  const [offLicenseNum,  setOffLicenseNum]  = useState("");
+  const [offSpayDate,    setOffSpayDate]    = useState("");
+  const [offOfficeNotes, setOffOfficeNotes] = useState("");
+  const [offAdminNotes,  setOffAdminNotes]  = useState("");
   const [search, setSearch] = useState("");
   const [showProcess, setShowProcess] = useState(false);
   const [step, setStep] = useState(1);
@@ -38,10 +53,11 @@ export default function AdoptionsPage() {
 
   const load = useCallback(async () => {
     try {
-      const [a, p, ad] = await Promise.all([fetchAnimals(), fetchPeople(), fetchAdoptions()]);
+      const [a, p, ad, apps] = await Promise.all([fetchAnimals(), fetchPeople(), fetchAdoptions(), fetchAdoptionApplications()]);
       setAnimals(a);
       setPeople(p);
       setAdoptions(ad);
+      setAdoptionApps(apps);
     } catch { } finally { setLoading(false); }
   }, []);
 
@@ -127,12 +143,20 @@ export default function AdoptionsPage() {
       {/* Tabs */}
       <div className="tabs">
         {[
-          { key: "available", label: `Available (${available.length})` },
-          { key: "pending", label: `Pending (${pending.length})` },
-          { key: "adopted", label: `Adopted (${adopted.length})` },
-          { key: "records", label: `Records (${adoptions.length})` },
-        ].map(({ key, label }) => (
-          <div key={key} className={`tab ${tab === key ? "active" : ""}`} onClick={() => setTab(key as typeof tab)}>{label}</div>
+          { key: "available",    label: `Available (${available.length})` },
+          { key: "pending",      label: `Pending (${pending.length})` },
+          { key: "adopted",      label: `Adopted (${adopted.length})` },
+          { key: "records",      label: `Records (${adoptions.length})` },
+          { key: "applications", label: "Applications", badge: adoptionApps.filter((a) => a.status === "pending").length },
+        ].map(({ key, label, badge }) => (
+          <div key={key} className={`tab ${tab === key ? "active" : ""}`} onClick={() => setTab(key as typeof tab)} style={{ position: "relative" }}>
+            {label}
+            {badge != null && badge > 0 && (
+              <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 999, minWidth: 18, height: 18, padding: "0 5px", marginLeft: 6 }}>
+                {badge}
+              </span>
+            )}
+          </div>
         ))}
       </div>
 
@@ -215,6 +239,297 @@ export default function AdoptionsPage() {
           </table>
         </div>
       )}
+
+      {/* ── Applications Tab ── */}
+      {tab === "applications" && (() => {
+        const statusColor: Record<string, string> = { pending: "#f59e0b", approved: "#16a34a", denied: "#dc2626", more_info: "#2563eb" };
+        const statusLabel: Record<string, string> = { pending: "Pending", approved: "Approved", denied: "Denied", more_info: "More Info" };
+        const filteredApps = adoptionApps.filter((a) => appFilter === "all" || a.status === appFilter);
+
+        function openReview(app: AdoptionApplication) {
+          setReviewingApp(app);
+          setOffProcessedBy(app.processed_by || "");
+          setOffDateEntered(app.date_entered || "");
+          setOffRabiesTag(app.rabies_tag || "");
+          setOffLicenseNum(app.license_number || "");
+          setOffSpayDate(app.spay_neuter_date || "");
+          setOffOfficeNotes(app.office_notes || "");
+          setOffAdminNotes(app.admin_notes || "");
+        }
+
+        return (
+          <div>
+            <div style={{ background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 10, padding: "12px 18px", marginBottom: 14, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <span style={{ fontSize: 13, color: "#374151" }}>
+                Public application form: <strong style={{ fontFamily: "monospace" }}>/adopt-apply</strong>
+              </span>
+              <a href="/adopt-apply" target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm">View Form →</a>
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+              {(["pending", "approved", "denied", "more_info", "all"] as const).map((f) => {
+                const count = f === "all" ? adoptionApps.length : adoptionApps.filter((a) => a.status === f).length;
+                return (
+                  <button key={f} onClick={() => setAppFilter(f)} className={`btn btn-sm ${appFilter === f ? "btn-primary" : "btn-secondary"}`}>
+                    {f === "all" ? "All" : statusLabel[f]} ({count})
+                  </button>
+                );
+              })}
+              <button className="btn btn-ghost btn-sm" style={{ marginLeft: "auto" }} onClick={load}>↻ Refresh</button>
+            </div>
+            <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+              <table className="data-table">
+                <thead>
+                  <tr><th>Applicant</th><th>Contact</th><th>Animal Requested</th><th>Submitted</th><th>Status</th><th style={{ textAlign: "center" }}>Action</th></tr>
+                </thead>
+                <tbody>
+                  {filteredApps.length === 0 ? (
+                    <tr><td colSpan={6} className="empty-state">{appFilter === "pending" ? "No pending applications" : "No applications"}</td></tr>
+                  ) : filteredApps.map((app) => (
+                    <tr key={app.id} style={{ cursor: "pointer" }} onClick={() => openReview(app)}>
+                      <td style={{ fontWeight: 700 }}>{app.adopter_name}</td>
+                      <td style={{ fontSize: 12 }}>
+                        <div>{app.adopter_phone || "—"}</div>
+                        <div style={{ color: "var(--text-secondary)" }}>{app.adopter_email || ""}</div>
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {app.animal_name || <span style={{ color: "var(--text-muted)" }}>Not specified</span>}
+                        {app.species && <span style={{ color: "var(--text-secondary)", marginLeft: 6 }}>({app.species})</span>}
+                      </td>
+                      <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{new Date(app.created_at).toLocaleDateString()}</td>
+                      <td>
+                        <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: `${statusColor[app.status] || "#9ca3af"}20`, color: statusColor[app.status] || "#9ca3af", border: `1px solid ${statusColor[app.status] || "#9ca3af"}50` }}>
+                          {statusLabel[app.status] || app.status}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: "center" }}>
+                        <button className="btn btn-ghost btn-sm" onClick={(e) => { e.stopPropagation(); openReview(app); }}>Review →</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Application Review Modal ── */}
+      {reviewingApp && (() => {
+        const app = reviewingApp;
+        const statusColor: Record<string, string> = { pending: "#f59e0b", approved: "#16a34a", denied: "#dc2626", more_info: "#2563eb" };
+        const statusLabel: Record<string, string> = { pending: "Pending", approved: "Approved", denied: "Denied", more_info: "More Info" };
+
+        async function saveOffice() {
+          const updated = await updateAdoptionApplication(app.id, {
+            processed_by: offProcessedBy || undefined,
+            date_entered: offDateEntered || undefined,
+            rabies_tag:   offRabiesTag || undefined,
+            license_number: offLicenseNum || undefined,
+            spay_neuter_date: offSpayDate || undefined,
+            office_notes: offOfficeNotes || undefined,
+            admin_notes:  offAdminNotes || undefined,
+          });
+          setAdoptionApps((prev) => prev.map((a) => a.id === updated.id ? updated : a));
+          setReviewingApp(updated);
+        }
+
+        async function handleAction(action: "approved" | "denied" | "more_info") {
+          setAppSaving(true);
+          try {
+            await saveOffice();
+
+            let personId: string | undefined;
+            if (action === "approved") {
+              const pid = await genNextPid();
+              const [first, ...rest] = (app.adopter_name || "").trim().split(" ");
+              const last = rest.pop() || "";
+              const middle = rest.join(" ") || undefined;
+              const np = await createPerson({
+                first_name: first, middle_name: middle, last_name: last,
+                role: "Adopter",
+                phone: app.adopter_phone, email: app.adopter_email,
+                address: app.adopter_address, city: app.adopter_city,
+                state: app.adopter_state, zip: app.adopter_zip,
+                dob: app.adopter_dob, id_number: app.drivers_license, id_state: app.dl_state,
+                pid,
+              });
+              setPeople((prev) => [...prev, np]);
+              personId = np.id;
+            }
+
+            const updated = await updateAdoptionApplication(app.id, {
+              status: action,
+              reviewed_at: new Date().toISOString(),
+              admin_notes: offAdminNotes || undefined,
+            });
+            setAdoptionApps((prev) => prev.map((a) => a.id === updated.id ? updated : a));
+
+            if (action === "approved") {
+              setReviewingApp(null);
+              // Pre-fill adoption wizard with person just created
+              if (personId) {
+                const newPerson = people.find((p) => p.id === personId) ||
+                  (await (async () => { const p2 = people.find((p) => p.id === personId); return p2 ?? null; })());
+                if (newPerson) {
+                  setSelectedAdopter(newPerson);
+                  setAdopterSearch(`${newPerson.first_name} ${newPerson.last_name}`);
+                  setStep(1);
+                  setShowProcess(true);
+                }
+              }
+            } else {
+              setReviewingApp(updated);
+            }
+          } catch (err) {
+            alert(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+          } finally {
+            setAppSaving(false);
+          }
+        }
+
+        const r = (label: string, value?: string | number | boolean | null) => value != null && value !== "" ? (
+          <div key={label} style={{ marginBottom: 4 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: "0.4px" }}>{label}: </span>
+            <span style={{ fontSize: 13, color: "#111827" }}>{typeof value === "boolean" ? (value ? "Yes" : "No") : String(value)}</span>
+          </div>
+        ) : null;
+
+        return (
+          <div className="modal-overlay" onClick={() => setReviewingApp(null)}>
+            <div className="modal modal-lg" style={{ maxWidth: 800 }} onClick={(e) => e.stopPropagation()}>
+              <div className="modal-header">
+                <span className="modal-title">Adoption Application — {app.adopter_name}</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 10, background: `${statusColor[app.status]}20`, color: statusColor[app.status], border: `1px solid ${statusColor[app.status]}50` }}>
+                    {statusLabel[app.status] || app.status}
+                  </span>
+                  <button className="btn btn-ghost btn-sm" onClick={() => printCompletedAdoptionForm(app)}>🖨 Print</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setReviewingApp(null)}>✕</button>
+                </div>
+              </div>
+
+              <div className="modal-body" style={{ maxHeight: "70vh", overflowY: "auto" }}>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  {/* Animal info */}
+                  <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "12px 14px" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#0f2942", marginBottom: 8 }}>Animal Requested</div>
+                    {r("Name", app.animal_name)}
+                    {r("ID #", app.animal_id_number)}
+                    {r("Species", app.species)}
+                    {r("Breed", app.breed)}
+                    {r("Age / Sex", [app.age, app.sex].filter(Boolean).join(" / "))}
+                    {r("Color", app.color_markings)}
+                    {app.spayed_neutered && r("Altered", "Yes")}
+                    {app.microchipped && r("Microchipped", "Yes")}
+                    {r("Microchip #", app.microchip_number)}
+                    {r("Notes", app.animal_notes)}
+                  </div>
+                  {/* Adopter info */}
+                  <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "12px 14px" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#0f2942", marginBottom: 8 }}>Adopter</div>
+                    {r("Name", app.adopter_name)}
+                    {r("DOB", app.adopter_dob)}
+                    {r("Phone", app.adopter_phone)}
+                    {r("Email", app.adopter_email)}
+                    {r("Address", [app.adopter_address, app.adopter_city, app.adopter_state, app.adopter_zip].filter(Boolean).join(", "))}
+                    {r("DL #", app.drivers_license)}
+                    {r("DL State", app.dl_state)}
+                    {r("Housing", app.housing)}
+                    {r("Dwelling", app.dwelling_type)}
+                    {app.landlord_info && r("Landlord", app.landlord_info)}
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+                  {/* Household */}
+                  <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "12px 14px" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#0f2942", marginBottom: 8 }}>Household</div>
+                    {r("Adults", app.num_adults)}
+                    {r("Children / Ages", app.children_ages)}
+                    {r("Pet Allergies", app.pet_allergies != null ? app.pet_allergies : undefined)}
+                    {r("Current Pets", app.current_pets)}
+                    {r("Ever Surrendered Pet", app.surrendered_pet != null ? app.surrendered_pet : undefined)}
+                    {app.surrendered_pet && r("Explanation", app.surrendered_explain)}
+                  </div>
+                  {/* Pet care */}
+                  <div style={{ background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, padding: "12px 14px" }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#0f2942", marginBottom: 8 }}>Pet Care Plan</div>
+                    {r("During the day", app.pet_kept_day)}
+                    {r("At night", app.pet_sleep)}
+                    {r("Hours alone / day", app.hours_alone)}
+                    {r("Fenced yard", app.fenced_yard != null ? app.fenced_yard : undefined)}
+                    {r("Veterinarian", app.vet_info)}
+                  </div>
+                </div>
+
+                {/* Submitted signature preview */}
+                {app.adopter_signature && (
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13, color: "#0f2942", marginBottom: 6 }}>Adopter Signature on File</div>
+                    <img src={app.adopter_signature} alt="Adopter signature" style={{ border: "1px solid #e5e7eb", borderRadius: 6, maxHeight: 80, background: "#fafafa", padding: 4 }} />
+                  </div>
+                )}
+
+                {/* Admin notes */}
+                <div className="form-group" style={{ marginBottom: 10 }}>
+                  <label className="form-label">Admin Notes (internal)</label>
+                  <textarea className="form-textarea" rows={2} value={offAdminNotes} onChange={(e) => setOffAdminNotes(e.target.value)} placeholder="Internal notes — not shared with applicant" />
+                </div>
+
+                {/* Office use only */}
+                <div style={{ border: "2px dashed #9ca3af", borderRadius: 8, padding: "14px 16px", background: "#f9fafb" }}>
+                  <div style={{ fontWeight: 800, fontSize: 12, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: "0.5px", marginBottom: 12 }}>
+                    For Office Use Only
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 16px" }}>
+                    {[
+                      ["Processed By", offProcessedBy, setOffProcessedBy],
+                      ["Date Entered", offDateEntered, setOffDateEntered],
+                      ["Rabies Tag #", offRabiesTag, setOffRabiesTag],
+                      ["License #", offLicenseNum, setOffLicenseNum],
+                      ["Spay/Neuter Date", offSpayDate, setOffSpayDate],
+                    ].map(([label, val, setter]) => (
+                      <div key={label as string}>
+                        <label className="form-label">{label as string}</label>
+                        <input className="form-input" value={val as string} onChange={(e) => (setter as (v: string) => void)(e.target.value)} />
+                      </div>
+                    ))}
+                    <div>
+                      <label className="form-label">Office Notes</label>
+                      <input className="form-input" value={offOfficeNotes} onChange={(e) => setOffOfficeNotes(e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setReviewingApp(null)} disabled={appSaving}>Close</button>
+                <div style={{ flex: 1 }} />
+                <button className="btn btn-ghost btn-sm" onClick={saveOffice} disabled={appSaving} style={{ fontSize: 12 }}>
+                  💾 Save Office Fields
+                </button>
+                {app.status !== "more_info" && (
+                  <button className="btn btn-sm" style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe" }} disabled={appSaving} onClick={() => handleAction("more_info")}>
+                    {appSaving ? "…" : "📋 Request More Info"}
+                  </button>
+                )}
+                {app.status !== "denied" && (
+                  <button className="btn btn-sm" style={{ background: "#fef2f2", color: "#dc2626", border: "1px solid #fca5a5" }} disabled={appSaving} onClick={() => handleAction("denied")}>
+                    {appSaving ? "…" : "✗ Deny"}
+                  </button>
+                )}
+                {app.status !== "approved" && (
+                  <button className="btn btn-primary btn-sm" disabled={appSaving} onClick={() => handleAction("approved")}>
+                    {appSaving ? "Processing…" : "✓ Approve → Process Adoption"}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Return Animal Modal */}
       {returnTarget && (

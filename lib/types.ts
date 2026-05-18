@@ -643,6 +643,69 @@ export interface VolunteerApplication {
   pid?: string;
 }
 
+export interface AdoptionApplication {
+  id: string;
+  created_at: string;
+  status: "pending" | "approved" | "denied" | "more_info";
+  date?: string;
+  event_location?: string;
+  staff_name?: string;
+  staff_phone?: string;
+  animal_name?: string;
+  animal_id_number?: string;
+  species?: string;
+  breed?: string;
+  color_markings?: string;
+  age?: string;
+  sex?: string;
+  weight?: string;
+  spayed_neutered?: boolean;
+  microchipped?: boolean;
+  vaccinated?: boolean;
+  heartworm_tested?: boolean;
+  microchip_number?: string;
+  animal_notes?: string;
+  adopter_name: string;
+  adopter_dob?: string;
+  adopter_address?: string;
+  adopter_city?: string;
+  adopter_state?: string;
+  adopter_zip?: string;
+  adopter_phone?: string;
+  adopter_email?: string;
+  drivers_license?: string;
+  dl_state?: string;
+  housing?: string;
+  landlord_info?: string;
+  dwelling_type?: string;
+  num_adults?: string;
+  children_ages?: string;
+  pet_allergies?: boolean;
+  current_pets?: string;
+  surrendered_pet?: boolean;
+  surrendered_explain?: string;
+  pet_kept_day?: string;
+  pet_sleep?: string;
+  hours_alone?: string;
+  fenced_yard?: boolean;
+  vet_info?: string;
+  adoption_fee?: number;
+  deposit?: number;
+  payment_method?: string;
+  receipt_number?: string;
+  adopter_signature?: string;
+  staff_signature?: string;
+  processed_by?: string;
+  date_entered?: string;
+  rabies_tag?: string;
+  license_number?: string;
+  spay_neuter_date?: string;
+  office_notes?: string;
+  admin_notes?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+}
+
 export type Database = {
   public: {
     Tables: {

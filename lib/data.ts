@@ -1113,6 +1113,41 @@ export async function updateVolunteerApplication(
   return data as import("./types").VolunteerApplication;
 }
 
+// ── Adoption Applications ─────────────────────────────────────────────────────
+export async function fetchAdoptionApplications(): Promise<import("./types").AdoptionApplication[]> {
+  const { data } = await supabase
+    .from("adoption_applications")
+    .select("*")
+    .order("created_at", { ascending: false });
+  return (data as import("./types").AdoptionApplication[]) || [];
+}
+
+export async function createAdoptionApplication(
+  app: Omit<import("./types").AdoptionApplication, "id" | "created_at">
+): Promise<import("./types").AdoptionApplication> {
+  const { data, error } = await supabase
+    .from("adoption_applications")
+    .insert(app)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as import("./types").AdoptionApplication;
+}
+
+export async function updateAdoptionApplication(
+  id: string,
+  updates: Partial<import("./types").AdoptionApplication>
+): Promise<import("./types").AdoptionApplication> {
+  const { data, error } = await supabase
+    .from("adoption_applications")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as import("./types").AdoptionApplication;
+}
+
 // ── Departure Receipts ────────────────────────────────────────────────────────
 export async function createDepartureReceipt(
   receipt: Omit<import("./types").DepartureReceipt, "id" | "created_at" | "receipt_number">
