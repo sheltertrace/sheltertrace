@@ -1,7 +1,7 @@
 "use client";
 
 import { supabase } from "./supabase";
-import type { FieldActivity, FieldStatus, OfficerFieldProfile } from "./types";
+import type { FieldActivity, FieldStatus, LocationHistory, OfficerFieldProfile } from "./types";
 
 export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]> {
   const { data } = await supabase
@@ -93,4 +93,72 @@ export async function fetchOfficerByUsername(username: string): Promise<OfficerF
     ...rows[0],
     current_field_status: (rows[0].current_field_status as FieldStatus) || "Off Duty",
   };
+}
+
+// ── GPS Location Pings ────────────────────────────────────────────────────────
+
+export async function saveLocationPing(opts: {
+  officerId: string;
+  officerName: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  speed?: number | null;
+  heading?: number | null;
+  status: FieldStatus;
+  callId?: string;
+}): Promise<void> {
+  await Promise.all([
+    supabase
+      .from("staff_accounts")
+      .update({
+        last_location_lat: opts.latitude,
+        last_location_lng: opts.longitude,
+        last_status_update: new Date().toISOString(),
+        tracking_active: true,
+      })
+      .eq("id", opts.officerId),
+    supabase.from("location_history").insert({
+      officer_id: opts.officerId,
+      officer_name: opts.officerName,
+      latitude: opts.latitude,
+      longitude: opts.longitude,
+      accuracy: opts.accuracy ?? null,
+      speed: opts.speed ?? null,
+      heading: opts.heading ?? null,
+      status: opts.status,
+      call_id: opts.callId ?? null,
+    }),
+  ]);
+}
+
+export async function clearOfficerTracking(officerId: string): Promise<void> {
+  await supabase
+    .from("staff_accounts")
+    .update({ tracking_active: false })
+    .eq("id", officerId);
+}
+
+// Returns today's GPS breadcrumb trail in chronological order
+export async function fetchTodayRoute(officerId: string): Promise<LocationHistory[]> {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+  const { data } = await supabase
+    .from("location_history")
+    .select("*")
+    .eq("officer_id", officerId)
+    .gte("timestamp", start.toISOString())
+    .order("timestamp", { ascending: true });
+  return (data as LocationHistory[] | null) ?? [];
+}
+
+// Returns recent location history for all officers (for live map)
+export async function fetchRecentLocations(sinceMinutes = 60): Promise<LocationHistory[]> {
+  const since = new Date(Date.now() - sinceMinutes * 60_000).toISOString();
+  const { data } = await supabase
+    .from("location_history")
+    .select("*")
+    .gte("timestamp", since)
+    .order("timestamp", { ascending: false });
+  return (data as LocationHistory[] | null) ?? [];
 }

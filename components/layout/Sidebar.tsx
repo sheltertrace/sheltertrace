@@ -8,6 +8,7 @@ import { hasPermission } from "@/lib/auth";
 const NAV = [
   { href: "/", label: "Dashboard", perm: "dashboard", icon: "⊞" },
   { href: "/animals", label: "Animals", perm: "animals", icon: "🐾" },
+  { href: "/clinic", label: "Clinic", perm: "animals", icon: "💉" },
   { href: "/adoptions", label: "Adoptions", perm: "adoptions", icon: "🏡" },
   { href: "/foster", label: "Foster Care", perm: "foster", icon: "❤️" },
   { href: "/medical", label: "Medical", perm: "medical", icon: "💊" },

@@ -7,6 +7,7 @@ import { fetchOfficerFieldStatuses } from "@/lib/fieldOps";
 import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType, OfficerFieldProfile, FieldStatus } from "@/lib/types";
 import dynamic from "next/dynamic";
 const QuickIntakeModal = dynamic(() => import("@/components/dispatch/QuickIntakeModal"), { ssr: false });
+const MiniDispatchMap  = dynamic(() => import("@/components/map/MiniDispatchMap"),       { ssr: false });
 import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS } from "@/lib/constants";
 import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -874,6 +875,23 @@ function CallDetailPageInner() {
       // ── 9: Officer Actions ───────────────────────────────────────────────
       case 9: return (
         <div>
+          {/* Field Coverage Map */}
+          {officerStatuses.some((o) => o.last_location_lat != null && o.current_field_status !== "Off Duty") && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: "#0f2942", marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}>
+                🗺 Field Coverage
+                <span style={{ fontSize: 11, color: "#64748b", fontWeight: 400 }}>
+                  — {officerStatuses.filter((o) => o.current_field_status !== "Off Duty").length} officer{officerStatuses.filter((o) => o.current_field_status !== "Off Duty").length !== 1 ? "s" : ""} on duty
+                </span>
+              </div>
+              <MiniDispatchMap
+                callAddress={call?.address}
+                callCity={call?.city}
+                officers={officerStatuses}
+              />
+            </div>
+          )}
+
           {/* Status */}
           <div style={{ marginBottom: 20 }}>
             <label className="form-label">Call Status</label>

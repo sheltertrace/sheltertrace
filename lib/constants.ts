@@ -1,4 +1,4 @@
-export const STATUSES = ["Available", "Adopted", "Foster", "Medical Hold", "Quarantine", "Pending", "Euthanized", "Imported", "Transferred", "Redeemed"] as const;
+export const STATUSES = ["Available", "Adopted", "Foster", "Medical Hold", "Quarantine", "Pending", "Euthanized", "Imported", "Transferred", "Redeemed", "Clinic Visit"] as const;
 export type AnimalStatus = typeof STATUSES[number];
 
 export const SUB_STATUSES: Record<string, string[]> = {
@@ -7,6 +7,7 @@ export const SUB_STATUSES: Record<string, string[]> = {
   Quarantine: ["Bite Quarantine", "Disease Exposure", "Rabies Observation", "New Intake Hold"],
   Pending: ["Pending Adoption", "Pending Transfer", "Pending Surrender", "Pending Owner Claim"],
   Foster: ["Active Foster", "Foster-to-Adopt", "Medical Foster", "Behavioral Foster"],
+  "Clinic Visit": ["Waiting", "In Progress", "Checked Out"],
 };
 
 export const STATUS_COLORS: Record<string, string> = {
@@ -20,9 +21,39 @@ export const STATUS_COLORS: Record<string, string> = {
   Imported: "#0ea5e9",
   Transferred: "#7c3aed",
   Redeemed: "#0891b2",
+  "Clinic Visit": "#0d9488",
 };
 
-export const INTAKE_TYPES = ["Surrender", "Stray", "Transfer", "Return", "Confiscation", "Born in Shelter"] as const;
+export const INTAKE_TYPES = ["Surrender", "Stray", "Transfer", "Return", "Confiscation", "Born in Shelter", "Clinic"] as const;
+
+// ── Clinic services menu ──────────────────────────────────────────────────────
+export interface ClinicService {
+  id: string;
+  category: string;
+  label: string;
+  species?: "Dog" | "Cat"; // undefined = shown for all species
+  medical: { type: string; description: string };
+  defaultFee?: number;
+}
+
+export const CLINIC_SERVICES: ClinicService[] = [
+  // Vaccines
+  { id: "v_rabies",    category: "Vaccine", label: "Rabies",           medical: { type: "Vaccination", description: "Rabies" },           defaultFee: 10 },
+  { id: "v_dhpp",      category: "Vaccine", label: "DHPP / DAPP",      medical: { type: "Vaccination", description: "DHPP" },    species: "Dog", defaultFee: 15 },
+  { id: "v_bordetella",category: "Vaccine", label: "Bordetella",       medical: { type: "Vaccination", description: "Bordetella" }, species: "Dog", defaultFee: 12 },
+  { id: "v_fvrcp",     category: "Vaccine", label: "FVRCP",            medical: { type: "Vaccination", description: "FVRCP" },  species: "Cat", defaultFee: 15 },
+  { id: "v_felv",      category: "Vaccine", label: "FeLV",             medical: { type: "Vaccination", description: "FeLV" },   species: "Cat", defaultFee: 18 },
+  { id: "v_canine_flu",category: "Vaccine", label: "Canine Influenza",  medical: { type: "Vaccination", description: "Canine Influenza" }, species: "Dog", defaultFee: 20 },
+  // Microchip
+  { id: "chip_implant",category: "Microchip", label: "Microchip Implant",     medical: { type: "Microchip", description: "Microchip Implant" }, defaultFee: 25 },
+  { id: "chip_scan",   category: "Microchip", label: "Microchip Scan / Verify", medical: { type: "Microchip", description: "Microchip Scan" },   defaultFee: 0 },
+  // Parasite control
+  { id: "dewormer",    category: "Parasite Control", label: "Deworming (Strongid)",  medical: { type: "Treatment", description: "Strongid / Dewormer" }, defaultFee: 8 },
+  { id: "flea_tick",   category: "Parasite Control", label: "Flea / Tick Treatment", medical: { type: "Treatment", description: "Flea/Tick Treatment" },  defaultFee: 12 },
+  // Tests & checkup
+  { id: "heartworm",   category: "Tests & Checkup", label: "Heartworm Test",  medical: { type: "Treatment", description: "Heartworm Treatment" }, defaultFee: 20, species: "Dog" },
+  { id: "wellness",    category: "Tests & Checkup", label: "Wellness Exam",   medical: { type: "Checkup",   description: "Wellness Exam" },       defaultFee: 25 },
+];
 
 
 export const MEDICAL_TYPES = ["Vaccination","Spay/Neuter","Dental","Checkup","Surgery","Treatment","Microchip"];

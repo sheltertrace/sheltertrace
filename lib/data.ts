@@ -53,6 +53,7 @@ export async function fetchAnimals(): Promise<Animal[]> {
     const { data, error } = await supabase
       .from("animals")
       .select("*")
+      .neq("intake_type", "Clinic") // Clinic visits live in /clinic, not the main list
       .order("created_at", { ascending: false })
       .range(offset, offset + PAGE - 1);
     if (error || !data || data.length === 0) break;
@@ -61,6 +62,63 @@ export async function fetchAnimals(): Promise<Animal[]> {
     offset += PAGE;
   }
   return all;
+}
+
+// ── Clinic visits ─────────────────────────────────────────────────────────────
+export interface ClinicVisitRecord extends Animal {
+  ownerName?: string;
+  ownerPhone?: string;
+  ownerPersonId?: string;
+  services?: MedicalRecord[];
+}
+
+export async function fetchClinicVisits(date?: string): Promise<ClinicVisitRecord[]> {
+  const targetDate = date || new Date().toISOString().split("T")[0];
+
+  const [animalsRes, medRes] = await Promise.all([
+    supabase
+      .from("animals")
+      .select("*")
+      .eq("intake_type", "Clinic")
+      .eq("intake_date", targetDate)
+      .order("created_at", { ascending: true }),
+    supabase
+      .from("medical_records")
+      .select("*")
+      .order("created_at", { ascending: true }),
+  ]);
+
+  const animals = (animalsRes.data as Animal[] | null) ?? [];
+  if (animals.length === 0) return [];
+
+  const allMed = (medRes.data as MedicalRecord[] | null) ?? [];
+
+  // Fetch owner links
+  const animalIds = animals.map((a) => a.id);
+  const { data: links } = await supabase
+    .from("animal_people")
+    .select("animal_id, person_id")
+    .in("animal_id", animalIds);
+
+  const personIds = [...new Set(((links as { animal_id: string; person_id: string }[] | null) ?? []).map((l) => l.person_id))];
+  const { data: people } = personIds.length
+    ? await supabase.from("people").select("id, first_name, last_name, phone").in("id", personIds)
+    : { data: [] };
+
+  const linkRows = (links as { animal_id: string; person_id: string }[] | null) ?? [];
+  const peopleRows = (people as { id: string; first_name: string; last_name: string; phone?: string }[] | null) ?? [];
+
+  return animals.map((animal) => {
+    const link = linkRows.find((l) => l.animal_id === animal.id);
+    const person = link ? peopleRows.find((p) => p.id === link.person_id) : null;
+    return {
+      ...animal,
+      ownerName: person ? `${person.first_name} ${person.last_name}`.trim() : undefined,
+      ownerPhone: person?.phone,
+      ownerPersonId: person?.id,
+      services: allMed.filter((m) => m.animal_id === animal.id),
+    };
+  });
 }
 
 export async function fetchAnimal(id: string): Promise<Animal | null> {

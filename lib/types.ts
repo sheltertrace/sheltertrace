@@ -549,6 +549,20 @@ export interface ShelterRoom {
 
 export type FieldStatus = 'On Duty' | 'En Route' | 'On Scene' | 'Available' | 'Off Duty' | 'Break';
 
+export interface LocationHistory {
+  id: string;
+  officer_id: string;
+  officer_name?: string;
+  latitude: number;
+  longitude: number;
+  accuracy?: number;
+  speed?: number;
+  heading?: number;
+  status?: string;
+  call_id?: string;
+  timestamp: string;
+}
+
 export interface FieldActivity {
   id: string;
   officer_id: string;
@@ -579,6 +593,7 @@ export interface OfficerFieldProfile {
   last_location_lat?: number | null;
   last_location_lng?: number | null;
   last_status_update?: string | null;
+  tracking_active?: boolean | null;
 }
 
 // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat

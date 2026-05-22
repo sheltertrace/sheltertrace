@@ -3,11 +3,14 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import {
   fetchOfficerFieldStatuses,
   fetchTodayActivity,
   fetchFieldActivity,
 } from "@/lib/fieldOps";
+
+const OfficerMap = dynamic(() => import("@/components/map/OfficerMap"), { ssr: false });
 import {
   fetchSchedules,
   fetchOverrides,
@@ -107,6 +110,8 @@ export default function FieldOpsPage() {
   const [activityTab, setActivityTab] = useState<ActivityTab>("today");
   const [filterOfficer, setFilterOfficer] = useState("");
   const [loading, setLoading] = useState(true);
+  const [mapOpen, setMapOpen] = useState(true);
+  const [lastMapRefresh, setLastMapRefresh] = useState<Date>(new Date());
 
   const today = localDateStr();
   const todayDow = new Date().getDay();
@@ -128,6 +133,16 @@ export default function FieldOpsPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const id = setInterval(load, 30_000); return () => clearInterval(id); }, [load]);
+
+  // Fast 15-second refresh for officer GPS positions only (map markers)
+  useEffect(() => {
+    const id = setInterval(async () => {
+      const offs = await fetchOfficerFieldStatuses();
+      setOfficers(offs);
+      setLastMapRefresh(new Date());
+    }, 15_000);
+    return () => clearInterval(id);
+  }, []);
 
   // Compute display status for each officer
   const resolved = officers.map((o) => {
@@ -191,6 +206,39 @@ export default function FieldOpsPage() {
             <div style={{ fontSize: 22, fontWeight: 700, color: "#0f2942" }}>{activeCount}</div>
             <div style={{ fontSize: 11, color: "#0f2942", fontWeight: 600 }}>Active</div>
           </div>
+        </div>
+
+        {/* ── Live GPS Map ── */}
+        <div style={{ marginBottom: 28, border: "1px solid #e0e0e0", borderRadius: 12, overflow: "hidden" }}>
+          <div
+            onClick={() => setMapOpen((v) => !v)}
+            style={{ padding: "12px 18px", background: "#f8fafc", borderBottom: mapOpen ? "1px solid #e0e0e0" : "none", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", userSelect: "none" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#0f2942" }}>🗺 Live Officer Map</span>
+              <span style={{ fontSize: 12, color: "#64748b" }}>
+                {officers.filter((o) => o.last_location_lat != null && o.current_field_status !== "Off Duty").length} officer{officers.filter((o) => o.last_location_lat != null && o.current_field_status !== "Off Duty").length !== 1 ? "s" : ""} on map
+              </span>
+              {officers.some((o) => o.tracking_active) && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 700, color: "#16a34a", background: "#dcfce7", padding: "2px 8px", borderRadius: 20 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#16a34a", animation: "gps-pulse-sm 1.5s infinite", display: "inline-block" }} />
+                  GPS Active
+                  <style>{`@keyframes gps-pulse-sm{0%,100%{opacity:1}50%{opacity:0.4}}`}</style>
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <span style={{ fontSize: 11, color: "#94a3b8" }}>
+                Updated {Math.round((Date.now() - lastMapRefresh.getTime()) / 1000)}s ago · refreshes every 15s
+              </span>
+              <span style={{ fontSize: 12, color: "#64748b" }}>{mapOpen ? "▼" : "▶"}</span>
+            </div>
+          </div>
+          {mapOpen && (
+            <div style={{ padding: 0 }}>
+              <OfficerMap officers={officers} height={460} />
+            </div>
+          )}
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 340px", gap: 24, marginBottom: 28, alignItems: "start" }}>
