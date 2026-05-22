@@ -169,6 +169,7 @@ export default function SchedulesPage() {
   const [overrides, setOverrides] = useState<ScheduleOverride[]>([]);
   const [loading, setLoading] = useState(true);
   const [saveMsg, setSaveMsg] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Local editable schedule state: officerId → day(0-6) → CellState
@@ -215,6 +216,8 @@ export default function SchedulesPage() {
 
   async function handleSaveAll() {
     setSaving(true);
+    setSaveMsg("");
+    setSaveError("");
     const rows: Omit<OfficerSchedule, "id" | "created_at" | "updated_at">[] = [];
     for (const [officerId, days] of Object.entries(cells)) {
       for (const [dayStr, cell] of Object.entries(days)) {
@@ -227,10 +230,17 @@ export default function SchedulesPage() {
         });
       }
     }
-    await upsertScheduleDays(rows);
-    setSaving(false);
-    setSaveMsg("Schedules saved.");
-    setTimeout(() => setSaveMsg(""), 3000);
+    try {
+      await upsertScheduleDays(rows);
+      setSaveMsg("Schedule saved.");
+      setTimeout(() => setSaveMsg(""), 5000);
+    } catch (err: unknown) {
+      const msg = (err as { message?: string })?.message ?? "Save failed — check console for details.";
+      setSaveError(msg);
+      console.error("[handleSaveAll] error:", err);
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleCopy() {
@@ -251,9 +261,29 @@ export default function SchedulesPage() {
     <AppShell
       title="Officer Schedules"
       action={
-        <Link href="/field-ops" style={{ fontSize: 13, color: "#1a8a8a", textDecoration: "none", fontWeight: 600 }}>
-          ← Back to Field Ops
-        </Link>
+        <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+          {tab === "schedules" && !loading && (
+            <>
+              {saveMsg  && <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 13 }}>✓ {saveMsg}</span>}
+              {saveError && <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 13 }} title={saveError}>⚠ Save failed</span>}
+              <button
+                onClick={handleSaveAll}
+                disabled={saving}
+                style={{
+                  background: saving ? "#9ca3af" : "#1a8a8a",
+                  color: "#fff", border: "none", borderRadius: 6,
+                  padding: "8px 20px", fontWeight: 700, fontSize: 14,
+                  cursor: saving ? "not-allowed" : "pointer",
+                }}
+              >
+                {saving ? "Saving…" : "💾 Save Schedule"}
+              </button>
+            </>
+          )}
+          <Link href="/field-ops" style={{ fontSize: 13, color: "#1a8a8a", textDecoration: "none", fontWeight: 600 }}>
+            ← Back to Field Ops
+          </Link>
+        </div>
       }
     >
       <div style={{ padding: "24px", maxWidth: 1200, margin: "0 auto" }}>
@@ -324,9 +354,14 @@ export default function SchedulesPage() {
             <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", marginBottom: 24 }}>
               <button onClick={handleSaveAll} disabled={saving}
                 style={{ background: saving ? "#9ca3af" : "#1a8a8a", color: "#fff", border: "none", borderRadius: 6, padding: "10px 24px", fontWeight: 700, fontSize: 14, cursor: saving ? "not-allowed" : "pointer" }}>
-                {saving ? "Saving…" : "Save All Schedules"}
+                {saving ? "Saving…" : "💾 Save Schedule"}
               </button>
-              {saveMsg && <span style={{ color: "#16a34a", fontWeight: 600, fontSize: 13 }}>✓ {saveMsg}</span>}
+              {saveMsg   && <span style={{ color: "#16a34a", fontWeight: 700, fontSize: 13 }}>✓ {saveMsg}</span>}
+              {saveError && (
+                <span style={{ color: "#dc2626", fontWeight: 600, fontSize: 13 }}>
+                  ⚠ {saveError}
+                </span>
+              )}
             </div>
 
             {/* Copy schedule */}

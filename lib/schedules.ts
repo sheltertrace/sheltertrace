@@ -70,14 +70,25 @@ export async function upsertScheduleDay(row: Omit<OfficerSchedule, "id" | "creat
 export async function upsertScheduleDays(rows: Omit<OfficerSchedule, "id" | "created_at" | "updated_at">[]): Promise<void> {
   if (!rows.length) return;
   const ts = new Date().toISOString();
-  await supabase.from("officer_schedules").upsert(
-    rows.map((r) => ({ ...r, updated_at: ts })),
-    { onConflict: "officer_id,day_of_week" }
-  );
+  const payload = rows.map((r) => ({ ...r, updated_at: ts }));
+
+  console.log("[schedule save] data being saved:", JSON.stringify(payload, null, 2));
+
+  const { data, error } = await supabase
+    .from("officer_schedules")
+    .upsert(payload, { onConflict: "officer_id,day_of_week" });
+
+  console.log("[schedule save] Supabase response:", data, error);
+
+  if (error) throw error;
 }
 
 export async function upsertOverride(row: Omit<ScheduleOverride, "id" | "created_at">): Promise<void> {
-  await supabase.from("schedule_overrides").upsert(row, { onConflict: "officer_id,override_date" });
+  const { data, error } = await supabase
+    .from("schedule_overrides")
+    .upsert(row, { onConflict: "officer_id,override_date" });
+  console.log("[override save] Supabase response:", data, error);
+  if (error) throw error;
 }
 
 export async function deleteOverride(id: string): Promise<void> {
