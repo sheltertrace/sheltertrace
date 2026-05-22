@@ -594,6 +594,7 @@ export interface OfficerFieldProfile {
   last_location_lng?: number | null;
   last_status_update?: string | null;
   tracking_active?: boolean | null;
+  phone?: string | null;
 }
 
 // 0=Sun 1=Mon 2=Tue 3=Wed 4=Thu 5=Fri 6=Sat
@@ -611,11 +612,13 @@ export interface OfficerSchedule {
 export interface ScheduleOverride {
   id?: string;
   officer_id: string;
-  override_date: string; // "YYYY-MM-DD"
+  officer_name?: string;   // denormalized for fast display
+  override_date: string;   // "YYYY-MM-DD"
   is_working: boolean;
   start_time?: string | null;
   end_time?: string | null;
   reason?: string;
+  shift_type?: string;     // "On-Call" | "Weekend Duty" | "Holiday Coverage" | "Emergency"
   created_at?: string;
 }
 

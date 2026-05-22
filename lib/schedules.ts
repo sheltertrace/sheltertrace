@@ -95,6 +95,27 @@ export async function deleteOverride(id: string): Promise<void> {
   await supabase.from("schedule_overrides").delete().eq("id", id);
 }
 
+// ── On-Call fetch ─────────────────────────────────────────────────────────────
+
+/** All on-call / working overrides within a date range, ordered by date. */
+export async function fetchOnCallShifts(opts: { from: string; to: string }): Promise<ScheduleOverride[]> {
+  const { data } = await supabase
+    .from("schedule_overrides")
+    .select("*")
+    .eq("is_working", true)
+    .gte("override_date", opts.from)
+    .lte("override_date", opts.to)
+    .order("override_date")
+    .order("start_time");
+  return (data as ScheduleOverride[] | null) ?? [];
+}
+
+/** Convenience: on-call shifts for today. */
+export async function fetchTodayOnCall(): Promise<ScheduleOverride[]> {
+  const d = localDateStr();
+  return fetchOnCallShifts({ from: d, to: d });
+}
+
 // ── Copy schedule ─────────────────────────────────────────────────────────────
 
 export async function copySchedule(fromOfficerId: string, toOfficerId: string): Promise<void> {

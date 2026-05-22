@@ -14,6 +14,7 @@ const OfficerMap = dynamic(() => import("@/components/map/OfficerMap"), { ssr: f
 import {
   fetchSchedules,
   fetchOverrides,
+  fetchOnCallShifts,
   computeEffectiveShift,
   resolveDisplayStatus,
   localDateStr,
@@ -106,6 +107,7 @@ export default function FieldOpsPage() {
   const [officers, setOfficers] = useState<OfficerFieldProfile[]>([]);
   const [schedules, setSchedules] = useState<OfficerSchedule[]>([]);
   const [overrides, setOverrides] = useState<ScheduleOverride[]>([]);
+  const [onCallShifts, setOnCallShifts] = useState<ScheduleOverride[]>([]);
   const [activity, setActivity] = useState<FieldActivity[]>([]);
   const [activityTab, setActivityTab] = useState<ActivityTab>("today");
   const [filterOfficer, setFilterOfficer] = useState("");
@@ -117,19 +119,33 @@ export default function FieldOpsPage() {
   const todayDow = new Date().getDay();
   const weekDates = currentWeekDates();
 
+  // Weekend dates for the on-call panel (nearest Sat + Sun)
+  const satStr = (() => {
+    const d = new Date(); const dow = d.getDay();
+    const diff = dow <= 6 ? 6 - dow : 0;
+    d.setDate(d.getDate() + diff);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  })();
+  const sunStr = (() => {
+    const d = new Date(`${satStr}T12:00:00`); d.setDate(d.getDate() + 1);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  })();
+
   const load = useCallback(async () => {
-    const [offs, sched, ovr, acts] = await Promise.all([
+    const [offs, sched, ovr, acts, oc] = await Promise.all([
       fetchOfficerFieldStatuses(),
       fetchSchedules(),
       fetchOverrides({ from: today, to: weekDates[6] }),
       activityTab === "today" ? fetchTodayActivity() : fetchFieldActivity({ limit: 200 }),
+      fetchOnCallShifts({ from: today, to: sunStr }),
     ]);
     setOfficers(offs);
     setSchedules(sched);
     setOverrides(ovr);
     setActivity(acts);
+    setOnCallShifts(oc);
     setLoading(false);
-  }, [activityTab, today, weekDates[6]]);
+  }, [activityTab, today, weekDates[6], sunStr]);
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { const id = setInterval(load, 30_000); return () => clearInterval(id); }, [load]);
@@ -265,8 +281,67 @@ export default function FieldOpsPage() {
             )}
           </div>
 
-          {/* ── Today's Schedule sidebar ── */}
+          {/* ── Today's Schedule + On-Call sidebar ── */}
           <div>
+
+            {/* On-Call Today */}
+            <div style={{ marginBottom: 20 }}>
+              <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f2942", marginBottom: 10 }}>
+                📞 On-Call Today
+                <Link href="/field-ops/schedules" style={{ fontSize: 11, color: "#1a8a8a", textDecoration: "none", fontWeight: 600, marginLeft: 10 }}>manage →</Link>
+              </h2>
+              {onCallShifts.filter((s) => s.override_date === today).length === 0 ? (
+                <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 8, padding: "10px 14px", color: "#94a3b8", fontSize: 13 }}>
+                  No on-call officer assigned.
+                </div>
+              ) : onCallShifts.filter((s) => s.override_date === today).map((oc) => {
+                const officer = officers.find((o) => o.id === oc.officer_id);
+                return (
+                  <div key={oc.id} style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 8, padding: "10px 14px", marginBottom: 6 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "#92400e" }}>
+                      {oc.officer_name || (officer ? `${officer.first_name} ${officer.last_name}` : "Officer")}
+                    </div>
+                    <div style={{ fontSize: 12, color: "#78350f", marginTop: 2 }}>
+                      {oc.shift_type ?? "On-Call"}{oc.start_time && oc.end_time && ` · ${fmt12(oc.start_time)}–${fmt12(oc.end_time)}`}
+                    </div>
+                    {officer?.phone && (
+                      <a href={`tel:${officer.phone}`} style={{ fontSize: 12, color: "#0f2942", fontWeight: 700, textDecoration: "none", marginTop: 3, display: "block" }}>
+                        📱 {officer.phone}
+                      </a>
+                    )}
+                    {oc.reason && <div style={{ fontSize: 11, color: "#92400e", marginTop: 3 }}>{oc.reason}</div>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* On-Call This Weekend (only shown when there are assignments) */}
+            {onCallShifts.filter((s) => s.override_date === satStr || s.override_date === sunStr).length > 0 && (
+              <div style={{ marginBottom: 20 }}>
+                <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f2942", marginBottom: 10 }}>📅 On-Call This Weekend</h2>
+                {onCallShifts.filter((s) => s.override_date === satStr || s.override_date === sunStr).map((oc) => {
+                  const officer = officers.find((o) => o.id === oc.officer_id);
+                  const dayLabel = oc.override_date === satStr ? "Sat" : "Sun";
+                  return (
+                    <div key={oc.id} style={{ background: "#f0fdfa", border: "1px solid #5eead4", borderRadius: 8, padding: "10px 14px", marginBottom: 6 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "#0d9488", textTransform: "uppercase", marginBottom: 2 }}>{dayLabel}</div>
+                      <div style={{ fontWeight: 700, fontSize: 13, color: "#134e4a" }}>
+                        {oc.officer_name || (officer ? `${officer.first_name} ${officer.last_name}` : "Officer")}
+                      </div>
+                      <div style={{ fontSize: 12, color: "#0f766e", marginTop: 1 }}>
+                        {oc.shift_type ?? "On-Call"}{oc.start_time && oc.end_time && ` · ${fmt12(oc.start_time)}–${fmt12(oc.end_time)}`}
+                      </div>
+                      {officer?.phone && (
+                        <a href={`tel:${officer.phone}`} style={{ fontSize: 12, color: "#0f2942", fontWeight: 700, textDecoration: "none", marginTop: 3, display: "block" }}>
+                          📱 {officer.phone}
+                        </a>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
             <h2 style={{ fontSize: 16, fontWeight: 700, color: "#0f2942", marginBottom: 14 }}>
               Today&apos;s Schedule
               <span style={{ fontSize: 12, fontWeight: 400, color: "#888", marginLeft: 8 }}>{DAY_FULL[todayDow]}</span>

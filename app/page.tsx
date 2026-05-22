@@ -5,7 +5,8 @@ import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "./providers";
 import { fetchAnimals, fetchCalls, fetchAdoptions, fetchMedical } from "@/lib/data";
 import { fetchOfficerFieldStatuses } from "@/lib/fieldOps";
-import type { Animal, DispatchCall, AdoptionRecord, MedicalRecord, OfficerFieldProfile, FieldStatus } from "@/lib/types";
+import { fetchTodayOnCall } from "@/lib/schedules";
+import type { Animal, DispatchCall, AdoptionRecord, MedicalRecord, OfficerFieldProfile, FieldStatus, ScheduleOverride } from "@/lib/types";
 import { STATUS_COLORS } from "@/lib/constants";
 import { formatDate, currencyFmt } from "@/lib/utils";
 import Link from "next/link";
@@ -45,16 +46,18 @@ export default function DashboardPage() {
   const [adoptions, setAdoptions] = useState<AdoptionRecord[]>([]);
   const [medical, setMedical] = useState<MedicalRecord[]>([]);
   const [officers, setOfficers] = useState<OfficerFieldProfile[]>([]);
+  const [todayOnCall, setTodayOnCall] = useState<ScheduleOverride[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [a, c, ad, m, offs] = await Promise.all([fetchAnimals(), fetchCalls(), fetchAdoptions(), fetchMedical(), fetchOfficerFieldStatuses()]);
+      const [a, c, ad, m, offs, oc] = await Promise.all([fetchAnimals(), fetchCalls(), fetchAdoptions(), fetchMedical(), fetchOfficerFieldStatuses(), fetchTodayOnCall()]);
       setAnimals(a);
       setCalls(c);
       setAdoptions(ad);
       setMedical(m);
       setOfficers(offs);
+      setTodayOnCall(oc);
     } catch {
       // Supabase may not have data yet — start empty
     } finally {
@@ -170,6 +173,20 @@ export default function DashboardPage() {
                 <span className="card-title">🚓 Officer Field Status</span>
                 <Link href="/field-ops" style={{ fontSize: 12, color: "var(--teal)", textDecoration: "none" }}>View board →</Link>
               </div>
+
+              {/* On-Call Today strip */}
+              {todayOnCall.length > 0 && (
+                <div style={{ background: "#fef3c7", border: "1px solid #fbbf24", borderRadius: 7, padding: "8px 12px", marginBottom: 12 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#92400e", textTransform: "uppercase", letterSpacing: "0.05em" }}>📞 On-Call Today</span>
+                  {todayOnCall.map((oc) => (
+                    <div key={oc.id} style={{ fontSize: 13, fontWeight: 700, color: "#78350f", marginTop: 2 }}>
+                      {oc.officer_name ?? "Officer"}
+                      {oc.shift_type && oc.shift_type !== "On-Call" && <span style={{ fontWeight: 400, color: "#92400e" }}> · {oc.shift_type}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {officers.length === 0 ? (
                 <div style={{ color: "var(--text-muted)", fontSize: 13, textAlign: "center", padding: "20px 0" }}>No officers on record</div>
               ) : (

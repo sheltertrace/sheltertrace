@@ -6,7 +6,7 @@ import type { FieldActivity, FieldStatus, LocationHistory, OfficerFieldProfile }
 export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]> {
   const { data } = await supabase
     .from("staff_accounts")
-    .select("id, username, first_name, last_name, role, badge, active, current_field_status, last_location_lat, last_location_lng, last_status_update")
+    .select("id, username, first_name, last_name, role, badge, phone, active, current_field_status, last_location_lat, last_location_lng, last_status_update, tracking_active")
     .eq("active", true)
     .neq("role", "Volunteer")
     .order("last_name")
@@ -81,7 +81,7 @@ export async function fetchTodayActivity(officerId?: string): Promise<FieldActiv
 export async function fetchOfficerByUsername(username: string): Promise<OfficerFieldProfile | null> {
   const { data } = await supabase
     .from("staff_accounts")
-    .select("id, username, first_name, last_name, role, badge, active, current_field_status, last_location_lat, last_location_lng, last_status_update")
+    .select("id, username, first_name, last_name, role, badge, phone, active, current_field_status, last_location_lat, last_location_lng, last_status_update, tracking_active")
     .eq("username", username.toLowerCase())
     .eq("active", true)
     .neq("role", "Volunteer")
