@@ -4,13 +4,20 @@ import { supabase } from "./supabase";
 import type { FieldActivity, FieldStatus, LocationHistory, OfficerFieldProfile } from "./types";
 
 export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]> {
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("staff_accounts")
-    .select("id, username, first_name, last_name, role, badge, phone, active, current_field_status, last_location_lat, last_location_lng, last_status_update, tracking_active")
+    .select("*")
     .eq("active", true)
     .neq("role", "Volunteer")
     .order("last_name")
     .order("first_name");
+
+  console.log("[on-call] staff query result:", data, error);
+
+  if (error) {
+    console.error("[fetchOfficerFieldStatuses] Supabase error:", error.message, error.details, error.hint);
+    return [];
+  }
 
   return ((data as OfficerFieldProfile[] | null) ?? []).map((p) => ({
     ...p,

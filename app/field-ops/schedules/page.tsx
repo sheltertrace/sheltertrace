@@ -272,11 +272,14 @@ export default function SchedulesPage() {
   }, []);
 
   const load = useCallback(async () => {
-    const [{ data: staffData }, sched, ovr] = await Promise.all([
-      supabase.from("staff_accounts").select("id, first_name, last_name, role, badge, phone").eq("active", true).neq("role", "Volunteer").order("last_name"),
+    const [staffResult, sched, ovr] = await Promise.all([
+      supabase.from("staff_accounts").select("*").eq("active", true).neq("role", "Volunteer").order("last_name"),
       fetchSchedules(),
       fetchOverrides({ from: todayStr }),
     ]);
+    const { data: staffData, error: staffErr } = staffResult;
+    console.log("[on-call] staff query result:", staffData, staffErr);
+    if (staffErr) console.error("[schedules load] staff error:", staffErr.message, staffErr.details);
     const staff = (staffData as StaffRow[] | null) ?? [];
     setOfficers(staff);
     setSchedules(sched);
