@@ -4,7 +4,6 @@
 import { useEffect, useRef } from "react";
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from "react-leaflet";
 import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import type { OfficerFieldProfile, LocationHistory } from "@/lib/types";
 
 // Fix broken default icon URLs in Next.js / webpack builds

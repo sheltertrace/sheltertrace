@@ -1,3 +1,6 @@
+/* Leaflet map CSS — must live here (not inside a component) for webpack/Vercel builds */
+@import "leaflet/dist/leaflet.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
