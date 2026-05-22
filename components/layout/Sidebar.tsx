@@ -5,26 +5,58 @@ import Image from "next/image";
 import { useAuth, useTheme } from "@/app/providers";
 import { hasPermission } from "@/lib/auth";
 
-const NAV = [
-  { href: "/", label: "Dashboard", perm: "dashboard", icon: "⊞" },
-  { href: "/animals", label: "Animals", perm: "animals", icon: "🐾" },
-  { href: "/clinic", label: "Clinic", perm: "animals", icon: "💉" },
-  { href: "/adoptions", label: "Adoptions", perm: "adoptions", icon: "🏡" },
-  { href: "/foster", label: "Foster Care", perm: "foster", icon: "❤️" },
-  { href: "/medical", label: "Medical", perm: "medical", icon: "💊" },
-  { href: "/dispatch", label: "Dispatch", perm: "dispatch", icon: "📡" },
-  { href: "/kennels", label: "Kennels", perm: "kennels", icon: "🏠" },
-  { href: "/people", label: "Search", perm: "people", icon: "🔍" },
-  { href: "/receipts", label: "Receipts", perm: "receipts", icon: "🧾" },
-  { href: "/citations", label: "Citations", perm: "dispatch", icon: "📋" },
-  { href: "/ordinances", label: "Ordinances", perm: "dispatch", icon: "📖" },
-  { href: "/forms", label: "Forms", perm: "dispatch", icon: "📝" },
-  { href: "/court", label: "Court Portal", perm: "court", icon: "⚖️" },
-  { href: "/transfers", label: "Transfers", perm: "animals", icon: "🚌" },
-  { href: "/field-ops", label: "Field Ops", perm: "dispatch", icon: "🚓" },
-  { href: "/reports", label: "Reports", perm: "reports", icon: "📊" },
-  { href: "/volunteers", label: "Volunteers", perm: "volunteers", icon: "🙋" },
-  { href: "/admin", label: "Admin", perm: "admin", icon: "⚙️" },
+interface NavItem {
+  href: string;
+  label: string;
+  perm: string;
+  icon: string;
+}
+
+interface NavGroup {
+  section: string;
+  items: NavItem[];
+}
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    section: "Shelter",
+    items: [
+      { href: "/",         label: "Dashboard",   perm: "dashboard", icon: "⊞"  },
+      { href: "/animals",  label: "Animals",     perm: "animals",   icon: "🐾" },
+      { href: "/kennels",  label: "Kennels",     perm: "kennels",   icon: "🏠" },
+      { href: "/medical",  label: "Medical",     perm: "medical",   icon: "💊" },
+      { href: "/clinic",   label: "Clinic",      perm: "animals",   icon: "💉" },
+    ],
+  },
+  {
+    section: "Field",
+    items: [
+      { href: "/dispatch",   label: "Dispatch",     perm: "dispatch", icon: "📡" },
+      { href: "/field-ops",  label: "Field Ops",    perm: "dispatch", icon: "🚓" },
+      { href: "/citations",  label: "Citations",    perm: "dispatch", icon: "📋" },
+      { href: "/court",      label: "Court Portal", perm: "court",    icon: "⚖️" },
+      { href: "/ordinances", label: "Ordinances",   perm: "dispatch", icon: "📖" },
+    ],
+  },
+  {
+    section: "Outcomes",
+    items: [
+      { href: "/adoptions", label: "Adoptions",   perm: "adoptions", icon: "🏡" },
+      { href: "/foster",    label: "Foster Care", perm: "foster",    icon: "❤️" },
+      { href: "/transfers", label: "Transfers",   perm: "animals",   icon: "🚌" },
+    ],
+  },
+  {
+    section: "Operations",
+    items: [
+      { href: "/receipts",   label: "Receipts",   perm: "receipts",   icon: "🧾" },
+      { href: "/people",     label: "Search",     perm: "people",     icon: "🔍" },
+      { href: "/forms",      label: "Forms",      perm: "dispatch",   icon: "📝" },
+      { href: "/volunteers", label: "Volunteers", perm: "volunteers", icon: "🙋" },
+      { href: "/reports",    label: "Reports",    perm: "reports",    icon: "📊" },
+      { href: "/admin",      label: "Admin",      perm: "admin",      icon: "⚙️" },
+    ],
+  },
 ];
 
 interface SidebarProps {
@@ -39,8 +71,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   if (!user) return null;
 
-  console.log("[Sidebar] user.role:", user.role, "| user.permissions:", user.permissions);
   const isAdmin = user.permissions.includes("all");
+
+  function canSee(item: NavItem): boolean {
+    if (item.perm === "admin") return isAdmin;
+    if (item.perm === "dashboard") return true;
+    return hasPermission(user, item.perm);
+  }
 
   return (
     <nav className={`sidebar${open ? " open" : ""}`}>
@@ -53,25 +90,37 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       </div>
 
       <div className="sidebar-nav">
-        {NAV.filter((item) => {
-          if (item.perm === "admin") return isAdmin;
-          if (item.perm === "dashboard") return true;
-          return hasPermission(user, item.perm);
-        }).map((item) => {
-          const isActive =
-            item.href === "/"
-              ? pathname === "/"
-              : pathname.startsWith(item.href);
+        {NAV_GROUPS.map((group) => {
+          const visible = group.items.filter(canSee);
+          if (visible.length === 0) return null;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-item${isActive ? " active" : ""}`}
-              onClick={() => onClose?.()}
-            >
-              <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{item.icon}</span>
-              {item.label}
-            </Link>
+            <div key={group.section}>
+              <div style={{
+                fontSize: 11,
+                fontWeight: 700,
+                letterSpacing: "0.09em",
+                textTransform: "uppercase",
+                color: "rgba(255,255,255,0.32)",
+                padding: "14px 12px 4px",
+                userSelect: "none",
+              }}>
+                {group.section}
+              </div>
+              {visible.map((item) => {
+                const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={`nav-item${isActive ? " active" : ""}`}
+                    onClick={() => onClose?.()}
+                  >
+                    <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{item.icon}</span>
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
           );
         })}
       </div>
