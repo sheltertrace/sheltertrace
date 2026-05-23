@@ -1166,14 +1166,15 @@ export async function saveVolunteerAnnouncements(text: string): Promise<void> {
 
 // ── Volunteer Applications ────────────────────────────────────────────────────
 export async function fetchVolunteerApplications(): Promise<import("./types").VolunteerApplication[]> {
+  console.log("[applications] fetching volunteer_applications...");
   const { data, error } = await supabase
     .from("volunteer_applications")
     .select("*")
     .order("submitted_at", { ascending: false });
 
-  console.log("[pending apps] query result:", data, error);
+  console.log("[applications] result:", JSON.stringify(data), "error:", JSON.stringify(error));
   if (error) {
-    console.error("[fetchVolunteerApplications] Supabase error:", error.message, error.details, error.hint);
+    console.error("[applications] Supabase error:", error.message, error.details, error.hint);
     return [];
   }
   return (data as import("./types").VolunteerApplication[]) || [];

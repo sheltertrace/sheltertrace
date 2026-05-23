@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements, updatePerson, fetchForms, fetchVolunteerApplications, updateVolunteerApplication, createPerson, genNextPid } from "@/lib/data";
+import { supabase } from "@/lib/supabase";
 import type { Person, VolunteerLog, ShelterForm, VolunteerApplication } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
 import Link from "next/link";
@@ -56,6 +57,18 @@ export default function VolunteersPage() {
   const [annSaving,        setAnnSaving]        = useState(false);
   const [annSaved,         setAnnSaved]         = useState(false);
 
+  // Direct diagnostic: bypasses fetchVolunteerApplications entirely to confirm
+  // what the DB actually returns for this table with this client.
+  useEffect(() => {
+    console.log("[applications] direct diagnostic query starting...");
+    supabase
+      .from("volunteer_applications")
+      .select("id, first_name, last_name, status, submitted_at")
+      .then((res: { data: unknown; error: unknown }) => {
+        console.log("[applications] DIRECT result:", JSON.stringify(res.data), "error:", JSON.stringify(res.error));
+      });
+  }, []);
+
   const load = useCallback(async () => {
     try {
       const [p, l, ann, apps, agrs, confs, volApps] = await Promise.all([
@@ -69,7 +82,9 @@ export default function VolunteersPage() {
       setAnnouncementsOrig(ann);
       setVolForms([...apps, ...agrs, ...confs]);
       setApplications(volApps);
-    } catch { } finally { setLoading(false); }
+    } catch (err) {
+      console.error("[volunteers] load() failed:", err);
+    } finally { setLoading(false); }
   }, []);
 
   useEffect(() => { load(); }, [load]);
