@@ -1176,12 +1176,16 @@ export async function fetchVolunteerApplications(): Promise<import("./types").Vo
 export async function createVolunteerApplication(
   app: Omit<import("./types").VolunteerApplication, "id" | "submitted_at">
 ): Promise<import("./types").VolunteerApplication> {
+  console.log("[volunteer-apply] insert data:", JSON.stringify(app, null, 2));
   const { data, error } = await supabase
     .from("volunteer_applications")
     .insert(app)
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.error("[volunteer-apply] Supabase error:", error.message, error.details, error.hint);
+    throw error;
+  }
   return data as import("./types").VolunteerApplication;
 }
 
