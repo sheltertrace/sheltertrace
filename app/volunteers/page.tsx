@@ -11,6 +11,21 @@ import AddVolunteerModal, { printBadge } from "@/components/volunteers/AddVolunt
 
 const TASKS = ["Dog Walking", "Cat Socialization", "Kennel Cleaning", "Administrative", "Photography", "Transport", "Training", "Events", "Laundry / Dishes", "Other"];
 
+// Safely parse any JSONB array field that Supabase may return as a JSON string,
+// a real array, a plain string, or null/undefined.
+function safeStringArray(val: unknown): string[] {
+  if (!val) return [];
+  if (Array.isArray(val)) return val as string[];
+  if (typeof val === "string") {
+    const trimmed = val.trim();
+    if (trimmed.startsWith("[")) {
+      try { return JSON.parse(trimmed) as string[]; } catch { /* fall through */ }
+    }
+    return trimmed ? [trimmed] : [];
+  }
+  return [];
+}
+
 function fmt12(iso: string): string {
   const d = new Date(iso);
   let h = d.getHours(), m = d.getMinutes();
@@ -648,7 +663,7 @@ export default function VolunteersPage() {
                           {new Date(app.submitted_at).toLocaleDateString()}
                         </td>
                         <td style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                          {(app.interests || []).slice(0, 3).join(", ")}{(app.interests || []).length > 3 ? ` +${(app.interests || []).length - 3}` : ""}
+                          {(() => { const arr = safeStringArray(app.interests); return arr.slice(0, 3).join(", ") + (arr.length > 3 ? ` +${arr.length - 3}` : ""); })()}
                         </td>
                         <td>
                           <span style={{
@@ -780,11 +795,14 @@ export default function VolunteersPage() {
                 <div style={{ marginBottom: 16 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: "#0f2942", marginBottom: 8 }}>Volunteer Interests</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {(app.interests || []).length === 0 ? (
-                      <span style={{ fontSize: 13, color: "var(--text-muted)" }}>None specified</span>
-                    ) : (app.interests || []).map((i) => (
-                      <span key={i} style={{ fontSize: 12, padding: "2px 10px", borderRadius: 12, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", fontWeight: 600 }}>{i}</span>
-                    ))}
+                    {(() => {
+                      const arr = safeStringArray(app.interests);
+                      return arr.length === 0 ? (
+                        <span style={{ fontSize: 13, color: "var(--text-muted)" }}>None specified</span>
+                      ) : arr.map((i) => (
+                        <span key={i} style={{ fontSize: 12, padding: "2px 10px", borderRadius: 12, background: "#eff6ff", color: "#1d4ed8", border: "1px solid #bfdbfe", fontWeight: 600 }}>{i}</span>
+                      ));
+                    })()}
                   </div>
                 </div>
 
