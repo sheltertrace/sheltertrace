@@ -76,7 +76,7 @@ export default function VolunteerClockPage() {
 
   const loadTodayActivity = useCallback(async () => {
     try {
-      const { supabase } = await import("@/lib/supabase");
+      const { supabasePublic: supabase } = await import("@/lib/supabase-public");
       const todayStr = new Date().toISOString().split("T")[0];
       const { data } = await supabase
         .from("volunteer_sessions").select("*").eq("date", todayStr)
