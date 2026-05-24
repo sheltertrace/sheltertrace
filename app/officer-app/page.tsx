@@ -207,6 +207,8 @@ export default function OfficerAppPage() {
   const [narrativeText, setNarrativeText] = useState("");
   const [narrativeSaving, setNarrativeSaving] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [restoringStatus, setRestoringStatus] = useState(false);
 
   const watchIdRef   = useRef<number | null>(null);
   const lastSavedRef = useRef<number>(0);
@@ -350,6 +352,42 @@ export default function OfficerAppPage() {
 
   useEffect(() => () => { stopGPS(); }, [stopGPS]);
 
+  // ── Restore on-duty state from DB on every login / session-restore ────────
+  // Closing the app must NOT change duty status — only "Go Off Duty" does.
+  const restoreDutyStatus = useCallback(async (acc: StaffAccount) => {
+    setRestoringStatus(true);
+    try {
+      const { data, error } = await supabasePublic
+        .from("staff_accounts")
+        .select("current_field_status, tracking_active, last_location_lat, last_location_lng")
+        .eq("id", acc.id)
+        .single();
+
+      console.log("[officer-app] DB duty status on restore:", data, error);
+      const dbStatus = (data?.current_field_status as FieldStatus) || "Off Duty";
+
+      if (dbStatus !== "Off Duty") {
+        console.log("[officer-app] Restoring ON DUTY state:", dbStatus, "— restarting GPS");
+        setCurrentStatus(dbStatus);
+        setIsOnDuty(true);
+        startGPS(); // resume watchPosition + 30-second DB pings
+      } else {
+        setCurrentStatus("Off Duty");
+        setIsOnDuty(false);
+      }
+    } catch (e) {
+      console.error("[officer-app] restoreDutyStatus error:", e);
+    } finally {
+      setRestoringStatus(false);
+    }
+  }, [startGPS]);
+
+  // Trigger duty restore whenever we get a (new) officer — covers both
+  // fresh login and auto-restore from localStorage on app open.
+  useEffect(() => {
+    if (officer) restoreDutyStatus(officer);
+  }, [officer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Status helpers ────────────────────────────────────────────────────────
   async function saveStatus(status: FieldStatus) {
     if (!officer) return;
@@ -421,9 +459,23 @@ export default function OfficerAppPage() {
     finally { setNarrativeSaving(false); }
   }
 
-  function handleSignOut() {
+  async function confirmLogout() {
+    // Always set Off Duty in DB before clearing session
+    if (officer) {
+      await supabasePublic
+        .from("staff_accounts")
+        .update({
+          current_field_status: "Off Duty",
+          tracking_active: false,
+          last_location_lat: null,
+          last_location_lng: null,
+          last_status_update: new Date().toISOString(),
+        })
+        .eq("id", officer.id);
+    }
     stopGPS();
     localStorage.removeItem(SESSION_KEY);
+    setShowLogoutConfirm(false);
     setOfficer(null);
     setIsOnDuty(false);
     setCurrentStatus("Off Duty");
@@ -473,7 +525,11 @@ export default function OfficerAppPage() {
           {/* Online indicator */}
           <div style={{ width: 8, height: 8, borderRadius: "50%", background: isOnline ? "#22c55e" : "#ef4444" }} title={isOnline ? "Online" : "Offline"} />
           <div style={{ fontSize: 12, color: "#94a3b8", minWidth: 70, textAlign: "right" }}>{time}</div>
-          <button onClick={handleSignOut} style={{ background: "none", border: "none", color: "#475569", fontSize: 12, cursor: "pointer", padding: "4px 6px" }}>Sign out</button>
+          {restoringStatus ? (
+            <span style={{ fontSize: 11, color: "#7fc6c6" }}>Restoring…</span>
+          ) : (
+            <button onClick={() => setShowLogoutConfirm(true)} style={{ background: "none", border: "none", color: "#475569", fontSize: 12, cursor: "pointer", padding: "4px 6px" }}>⎋ Logout</button>
+          )}
         </div>
       </div>
 
@@ -658,6 +714,36 @@ export default function OfficerAppPage() {
           </div>
         )}
       </div>
+
+      {/* ── Logout Confirmation ── */}
+      {showLogoutConfirm && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 400, padding: 24 }}>
+          <div style={{ background: "#1a3a5c", borderRadius: 16, padding: "24px 22px", width: "100%", maxWidth: 360 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: "#fff", marginBottom: 10 }}>
+              {isOnDuty ? "⚠ You are currently ON DUTY" : "Sign Out"}
+            </div>
+            <p style={{ fontSize: 14, color: "#94a3b8", lineHeight: 1.6, marginBottom: 20 }}>
+              {isOnDuty
+                ? "Signing out will set you Off Duty and stop GPS tracking. Your shift will be logged. Continue?"
+                : "Are you sure you want to sign out?"}
+            </p>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                style={{ flex: 1, padding: "13px 0", borderRadius: 10, border: "1px solid #2d4f6e", background: "none", color: "#94a3b8", fontSize: 15, fontWeight: 700, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                style={{ flex: 2, padding: "13px 0", borderRadius: 10, border: "none", background: "#7f1d1d", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer" }}
+              >
+                {isOnDuty ? "Go Off Duty & Sign Out" : "Sign Out"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Add Narrative Modal ── */}
       {addNarrativeCall && (
