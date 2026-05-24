@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
@@ -194,6 +194,70 @@ export default function SearchPage() {
     searched: boolean;
   } | null>(null);
 
+  // National registry lookup state
+  type NationalStatus = "idle" | "checking" | "proxy_ok" | "iframe_try" | "blocked";
+  const [nationalStatus, setNationalStatus] = useState<NationalStatus>("idle");
+  const [proxyResult, setProxyResult] = useState<{
+    registered: boolean; registry?: string; message?: string; error?: string;
+  } | null>(null);
+  const [chipCopied, setChipCopied] = useState(false);
+  const nationalIframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Trigger national lookup whenever a chip search completes
+  useEffect(() => {
+    if (!chipResult?.searched || !chipQuery.trim()) {
+      setNationalStatus("idle");
+      setProxyResult(null);
+      return;
+    }
+    setNationalStatus("checking");
+    setProxyResult(null);
+    setChipCopied(false);
+    if (iframeTimerRef.current) clearTimeout(iframeTimerRef.current);
+
+    fetch(`/api/microchip-proxy?chip=${encodeURIComponent(chipQuery.trim())}`)
+      .then((r) => r.json())
+      .then((data: { registered: boolean; registry?: string; message?: string; error?: string }) => {
+        setProxyResult(data);
+        if (data.registered && !data.error) {
+          setNationalStatus("proxy_ok");
+        } else {
+          // Proxy didn't get usable results — fall through to iframe attempt
+          setNationalStatus("iframe_try");
+          // Iframe is always blocked by X-Frame-Options; transition to fallback after 4 s
+          iframeTimerRef.current = setTimeout(() => setNationalStatus("blocked"), 4000);
+        }
+      })
+      .catch(() => {
+        setNationalStatus("iframe_try");
+        iframeTimerRef.current = setTimeout(() => setNationalStatus("blocked"), 4000);
+      });
+
+    return () => { if (iframeTimerRef.current) clearTimeout(iframeTimerRef.current); };
+  }, [chipResult?.searched, chipQuery]);
+
+  function handleIframeLoad() {
+    // Try to access contentDocument — cross-origin block throws, or returns about:blank
+    try {
+      const doc = nationalIframeRef.current?.contentDocument;
+      if (!doc || doc.URL === "about:blank" || !doc.body?.innerHTML) {
+        setNationalStatus("blocked");
+        if (iframeTimerRef.current) clearTimeout(iframeTimerRef.current);
+      }
+    } catch {
+      setNationalStatus("blocked");
+      if (iframeTimerRef.current) clearTimeout(iframeTimerRef.current);
+    }
+  }
+
+  function copyChipAndOpen() {
+    navigator.clipboard.writeText(chipQuery.trim()).catch(() => {});
+    setChipCopied(true);
+    setTimeout(() => setChipCopied(false), 3000);
+    window.open("https://www.petmicrochiplookup.org", "_blank", "noopener,noreferrer");
+  }
+
   // Read URL params client-side (avoids useSearchParams + Suspense requirement)
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -214,6 +278,7 @@ export default function SearchPage() {
     if (!q) return;
     setChipSearching(true);
     setChipResult(null);
+    setNationalStatus("idle");
     try {
       const r = await lookupMicrochip(q);
       setChipResult({ ...r, searched: true });
@@ -679,6 +744,98 @@ export default function SearchPage() {
                     Call the manufacturer to get owner information:
                   </div>
                   <MicrochipBadge chip={chipQuery} />
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── National Registry Lookup ── */}
+          {chipResult?.searched && nationalStatus !== "idle" && (
+            <div className="card">
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 12 }}>
+                National Registry Lookup
+              </div>
+
+              {/* Checking / proxy running */}
+              {nationalStatus === "checking" && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text-secondary)", fontSize: 13 }}>
+                  <div style={{ width: 16, height: 16, border: "2px solid #cbd5e1", borderTopColor: "var(--teal)", borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+                  <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                  Querying national microchip registries…
+                </div>
+              )}
+
+              {/* Proxy returned a definitive result */}
+              {nationalStatus === "proxy_ok" && proxyResult && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ fontSize: 20 }}>✅</span>
+                  <div>
+                    <div style={{ fontWeight: 800, color: "#15803d", fontSize: 14 }}>
+                      Found in national registry{proxyResult.registry ? `: ${proxyResult.registry}` : ""}
+                    </div>
+                    {proxyResult.message && (
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{proxyResult.message}</div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* iframe_try — hidden iframe attempting to load while we wait for timeout */}
+              {nationalStatus === "iframe_try" && (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--text-secondary)", fontSize: 13, marginBottom: 8 }}>
+                    <div style={{ width: 16, height: 16, border: "2px solid #cbd5e1", borderTopColor: "#f59e0b", borderRadius: "50%", animation: "spin 0.8s linear infinite", flexShrink: 0 }} />
+                    Trying embedded lookup…
+                  </div>
+                  {/* Hidden iframe — attempting load; onLoad fires when it resolves (or is blocked) */}
+                  <iframe
+                    ref={nationalIframeRef}
+                    src={`https://www.petmicrochiplookup.org/?q=${encodeURIComponent(chipQuery.trim())}`}
+                    title="AAHA Microchip Lookup"
+                    onLoad={handleIframeLoad}
+                    style={{ display: "none" }}
+                    sandbox="allow-same-origin allow-scripts allow-forms"
+                  />
+                </>
+              )}
+
+              {/* Blocked / fallback panel */}
+              {nationalStatus === "blocked" && (
+                <div>
+                  <div style={{ background: "#f8fafc", border: "1px solid #e2e8f0", borderRadius: 10, padding: "16px 18px", marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text)", marginBottom: 8 }}>
+                      Chip number to paste:
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                      <code style={{ flex: 1, padding: "8px 12px", background: "#fff", border: "1px solid var(--border)", borderRadius: 6, fontSize: 16, fontFamily: "monospace", letterSpacing: "0.06em", color: "var(--text)" }}>
+                        {chipQuery.trim()}
+                      </code>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(chipQuery.trim()).catch(() => {}); setChipCopied(true); setTimeout(() => setChipCopied(false), 2500); }}
+                        className="btn btn-secondary btn-sm"
+                        style={{ whiteSpace: "nowrap" }}
+                      >
+                        {chipCopied ? "✓ Copied" : "📋 Copy"}
+                      </button>
+                    </div>
+
+                    <button
+                      onClick={copyChipAndOpen}
+                      style={{ width: "100%", padding: "12px 0", background: "#0f2942", color: "#fff", border: "none", borderRadius: 8, fontWeight: 800, fontSize: 15, cursor: "pointer" }}
+                    >
+                      🔍 Open AAHA Universal Lookup ↗
+                    </button>
+
+                    <p style={{ margin: "10px 0 0", fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
+                      AAHA does not allow embedding. Click above — the chip number is copied to your clipboard automatically. Paste it in the search box on their site.
+                    </p>
+                  </div>
+
+                  {proxyResult?.error === "js_rendered" && (
+                    <div style={{ fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
+                      Server-side lookup unsuccessful — the AAHA registry requires a browser to load results.
+                    </div>
+                  )}
                 </div>
               )}
             </div>
