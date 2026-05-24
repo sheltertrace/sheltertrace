@@ -40,16 +40,19 @@ async function dbLogActivity(
   lat?: number | null,
   lng?: number | null
 ) {
-  const { error } = await supabasePublic.from("field_activity").insert({
+  const insertData = {
     officer_id:    officerId,
     officer_name:  officerName,
-    officer_badge: badge,
+    officer_badge: badge ?? null,
     status,
     location_lat:  lat ?? null,
     location_lng:  lng ?? null,
     recorded_at:   new Date().toISOString(),
-  });
-  if (error) console.error("[officer-app] field_activity insert error:", error.message);
+  };
+  console.log("[officer-app] field_activity insert data:", JSON.stringify(insertData, null, 2));
+  const { data, error } = await supabasePublic.from("field_activity").insert(insertData).select();
+  console.log("[officer-app] field_activity result:", data, "error:", error);
+  if (error) console.error("[officer-app] field_activity insert FAILED:", error.message, error.details, error.hint);
 }
 
 async function dbLocationPing(
