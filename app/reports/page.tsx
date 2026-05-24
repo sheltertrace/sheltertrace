@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers, safeArray, safeAnimalNames, safeJsonArray, safeJsonObject, fetchDepartureReceipts } from "@/lib/data";
-import type { Animal, AdoptionRecord, MedicalRecord, Transfer, RescueGroup, DepartureReceipt } from "@/lib/types";
+import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers, safeArray, safeAnimalNames, safeJsonArray, safeJsonObject, fetchDepartureReceipts, fetchMicrochipRegistry } from "@/lib/data";
+import type { Animal, AdoptionRecord, MedicalRecord, Transfer, RescueGroup, DepartureReceipt, MicrochipRegistration } from "@/lib/types";
 import { formatDate, today } from "@/lib/utils";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
 import { printDepartureReceipt } from "@/lib/departureReceipt";
@@ -19,6 +19,10 @@ export default function ReportsPage() {
   const [departureRecs, setDepartureRecs] = useState<DepartureReceipt[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeReport, setActiveReport] = useState<string | null>(null);
+  const [chipRegistry, setChipRegistry] = useState<MicrochipRegistration[]>([]);
+  const [chipDateFrom, setChipDateFrom] = useState("");
+  const [chipDateTo, setChipDateTo] = useState(today());
+  const [chipSpeciesFilter, setChipSpeciesFilter] = useState("");
 
   // Departure receipt filters
   const [drDateFrom, setDrDateFrom] = useState(() => { const d = new Date(); d.setDate(1); return d.toISOString().split("T")[0]; });
@@ -266,6 +270,7 @@ export default function ReportsPage() {
     { id: "status", title: "Status Summary", desc: "Current population by status", icon: "📊" },
     { id: "transfers", title: "Transfer Reports", desc: "Transfers to rescue groups and agencies with receipts", icon: "🚌" },
     { id: "departure_receipts", title: "Departure Receipts", desc: "All departure receipts by type, date, person, and fees", icon: "🧾" },
+    { id: "microchip", title: "Microchip Registry", desc: "Chips registered through MCAS with owner and animal info", icon: "🔬" },
   ];
 
   return (
@@ -695,6 +700,116 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
+
+      {/* ── Microchip Registry Report ── */}
+      {activeReport === "microchip" && (() => {
+        const unChipped = animals.filter((a) => !a.microchip && !["Adopted","Euthanized","Transferred","Redeemed"].includes(a.status));
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 10 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>🔬 Microchip Registry</div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => fetchMicrochipRegistry({ from: chipDateFrom || undefined, to: chipDateTo || undefined, species: chipSpeciesFilter || undefined }).then(setChipRegistry)}
+              >
+                Load / Refresh
+              </button>
+            </div>
+
+            {/* Stats row */}
+            <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+              {[
+                { label: "Registered Chips", value: chipRegistry.length, color: "#0d9488" },
+                { label: "Active",           value: chipRegistry.filter((r) => r.status === "Active").length, color: "#16a34a" },
+                { label: "Unchipped (In Shelter)", value: unChipped.length, color: "#f59e0b" },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 16px", minWidth: 140 }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Filters */}
+            <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">From</label>
+                <input type="date" className="form-input" value={chipDateFrom} onChange={(e) => setChipDateFrom(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">To</label>
+                <input type="date" className="form-input" value={chipDateTo} onChange={(e) => setChipDateTo(e.target.value)} />
+              </div>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label">Species</label>
+                <select className="form-select" value={chipSpeciesFilter} onChange={(e) => setChipSpeciesFilter(e.target.value)}>
+                  <option value="">All</option>
+                  <option>Dog</option>
+                  <option>Cat</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Registry table */}
+            {chipRegistry.length === 0 ? (
+              <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "20px 0", textAlign: "center" }}>
+                Click "Load / Refresh" to fetch registry data.
+              </div>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table className="data-table">
+                  <thead>
+                    <tr>
+                      <th>Chip #</th>
+                      <th>Animal</th>
+                      <th>Species / Breed</th>
+                      <th>Owner</th>
+                      <th>Phone</th>
+                      <th>Registered</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chipRegistry.map((r) => (
+                      <tr key={r.id}>
+                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{r.chip_number}</td>
+                        <td style={{ fontWeight: 600 }}>
+                          {r.animal_id ? <a href={`/animals/${r.animal_id}`} style={{ color: "var(--teal)", textDecoration: "none" }}>{r.animal_name || r.animal_id}</a> : (r.animal_name || "—")}
+                        </td>
+                        <td style={{ fontSize: 12 }}>{[r.species, r.breed].filter(Boolean).join(" / ") || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{r.owner_name || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{r.owner_phone || "—"}</td>
+                        <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{r.registration_date || "—"}</td>
+                        <td>
+                          <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, fontWeight: 700, background: r.status === "Active" ? "#dcfce7" : "#f1f5f9", color: r.status === "Active" ? "#15803d" : "#6b7280" }}>
+                            {r.status || "Active"}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Unchipped animals */}
+            {unChipped.length > 0 && (
+              <div style={{ marginTop: 20, borderTop: "1px solid var(--border)", paddingTop: 16 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10, color: "#f59e0b" }}>
+                  ⚠ {unChipped.length} animal{unChipped.length !== 1 ? "s" : ""} in shelter without a microchip
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {unChipped.map((a) => (
+                    <a key={a.id} href={`/animals/${a.id}`} style={{ fontSize: 12, padding: "3px 10px", borderRadius: 12, background: "#fef3c7", color: "#92400e", border: "1px solid #fbbf24", fontWeight: 600, textDecoration: "none" }}>
+                      {a.name} ({a.species})
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
     </AppShell>
   );
 }

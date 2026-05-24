@@ -729,6 +729,31 @@ export interface AdoptionApplication {
   reviewed_at?: string;
 }
 
+export interface MicrochipRegistration {
+  id?: string;
+  chip_number: string;
+  manufacturer?: string;
+  animal_id?: string;
+  animal_name?: string;
+  species?: string;
+  breed?: string;
+  color?: string;
+  sex?: string;
+  owner_name?: string;
+  owner_phone?: string;
+  owner_email?: string;
+  owner_address?: string;
+  owner_city?: string;
+  owner_state?: string;
+  owner_zip?: string;
+  registration_date?: string;
+  registered_by?: string;
+  status?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export type Database = {
   public: {
     Tables: {

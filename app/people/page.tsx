@@ -3,14 +3,14 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
-import { fetchPeople, fetchCalls, fetchAnimals, fetchCitations, createPerson } from "@/lib/data";
-import type { Person, DispatchCall, Animal, Citation } from "@/lib/types";
+import { fetchPeople, fetchCalls, fetchAnimals, fetchCitations, createPerson, lookupMicrochip } from "@/lib/data";
+import type { Person, DispatchCall, Animal, Citation, MicrochipRegistration } from "@/lib/types";
 import { PERSON_ROLES } from "@/lib/constants";
 import { formatDate, today } from "@/lib/utils";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
 
-type Tab = "people" | "address" | "animals" | "calls";
+type Tab = "people" | "address" | "animals" | "calls" | "microchip";
 
 // ── Address lookup result shape ───────────────────────────────────────────────
 interface AddrResult {
@@ -184,6 +184,27 @@ export default function SearchPage() {
     );
   }, [allAnimals, animalQuery]);
 
+  // ── Microchip lookup tab ──────────────────────────────────────────────────────
+  const [chipQuery, setChipQuery]       = useState("");
+  const [chipSearching, setChipSearching] = useState(false);
+  const [chipResult, setChipResult] = useState<{
+    registration: MicrochipRegistration | null;
+    animal: Animal | null;
+    searched: boolean;
+  } | null>(null);
+
+  async function handleChipSearch(value?: string) {
+    const q = (value ?? chipQuery).trim();
+    if (!q) return;
+    setChipSearching(true);
+    setChipResult(null);
+    try {
+      const r = await lookupMicrochip(q);
+      setChipResult({ ...r, searched: true });
+    } catch { setChipResult({ registration: null, animal: null, searched: true }); }
+    finally { setChipSearching(false); }
+  }
+
   // ── Call lookup tab ──────────────────────────────────────────────────────────
   const [callQuery, setCallQuery] = useState("");
   const [callDateFrom, setCallDateFrom] = useState("");
@@ -215,10 +236,11 @@ export default function SearchPage() {
 
   // ── Shared UI helpers ─────────────────────────────────────────────────────
   const TABS: { id: Tab; label: string; icon: string }[] = [
-    { id: "people", label: "People & Contacts", icon: "👥" },
-    { id: "address", label: "Address Lookup", icon: "📍" },
-    { id: "animals", label: "Animal Lookup", icon: "🐾" },
-    { id: "calls", label: "Call Lookup", icon: "📡" },
+    { id: "people",    label: "People & Contacts", icon: "👥" },
+    { id: "address",   label: "Address Lookup",    icon: "📍" },
+    { id: "animals",   label: "Animal Lookup",     icon: "🐾" },
+    { id: "calls",     label: "Call Lookup",       icon: "📡" },
+    { id: "microchip", label: "Microchip Lookup",  icon: "🔬" },
   ];
 
   const KIND_ICONS: Record<string, string> = { person: "👤", call: "📡", animal: "🐾", citation: "📋" };
@@ -538,6 +560,125 @@ export default function SearchPage() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── MICROCHIP LOOKUP TAB ── */}
+      {tab === "microchip" && (
+        <div style={{ maxWidth: 640, margin: "0 auto" }}>
+          {/* Large scan input */}
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)", marginBottom: 4 }}>🔬 Microchip Lookup</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14 }}>
+              Enter or scan a microchip number to search MCAS records. The field auto-focuses — just scan with a USB scanner.
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                className="form-input"
+                style={{ flex: 1, fontSize: 17, fontFamily: "monospace", letterSpacing: "0.05em" }}
+                value={chipQuery}
+                onChange={(e) => {
+                  setChipQuery(e.target.value);
+                  setChipResult(null);
+                  // Auto-search when scanner sends Enter or chip reaches expected length
+                  if (e.target.value.length >= 15) handleChipSearch(e.target.value);
+                }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleChipSearch(); }}
+                placeholder="Scan or type microchip number…"
+                autoFocus={tab === "microchip"}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={() => handleChipSearch()}
+                disabled={!chipQuery.trim() || chipSearching}
+              >
+                {chipSearching ? "Searching…" : "Search"}
+              </button>
+            </div>
+          </div>
+
+          {/* Results */}
+          {chipResult?.searched && (
+            <div className="card">
+              {chipResult.registration ? (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <span style={{ fontSize: 20 }}>✅</span>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: "#15803d" }}>Found in MCAS Registry</div>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", marginBottom: 14, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "12px 16px" }}>
+                    {[
+                      ["Chip #",         chipResult.registration.chip_number],
+                      ["Manufacturer",   chipResult.registration.manufacturer],
+                      ["Status",         chipResult.registration.status],
+                      ["Registered",     chipResult.registration.registration_date],
+                      ["Owner",          chipResult.registration.owner_name],
+                      ["Phone",          chipResult.registration.owner_phone],
+                      ["Email",          chipResult.registration.owner_email],
+                      ["Address",        [chipResult.registration.owner_address, chipResult.registration.owner_city, chipResult.registration.owner_state].filter(Boolean).join(", ")],
+                      ["Animal",         chipResult.registration.animal_name],
+                      ["Species",        chipResult.registration.species],
+                      ["Breed",          chipResult.registration.breed],
+                    ].map(([label, val]) => val ? (
+                      <div key={label} style={{ fontSize: 13 }}>
+                        <span style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, display: "block" }}>{label}</span>
+                        <span style={{ fontWeight: 600 }}>{val}</span>
+                      </div>
+                    ) : null)}
+                  </div>
+
+                  {chipResult.registration.animal_id && (
+                    <a href={`/animals/${chipResult.registration.animal_id}`}
+                       style={{ color: "var(--teal)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+                      → View Animal Record
+                    </a>
+                  )}
+                </div>
+              ) : chipResult.animal ? (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <span style={{ fontSize: 20 }}>🐾</span>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: "#0f2942" }}>Found in Animals Table (no registry record)</div>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "12px 16px", marginBottom: 14 }}>
+                    {[
+                      ["Name",    chipResult.animal.name],
+                      ["ID",      chipResult.animal.id],
+                      ["Species", chipResult.animal.species],
+                      ["Breed",   chipResult.animal.breed],
+                      ["Status",  chipResult.animal.status],
+                      ["Chip #",  chipResult.animal.microchip],
+                    ].map(([label, val]) => val ? (
+                      <div key={label} style={{ fontSize: 13 }}>
+                        <span style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, display: "block" }}>{label}</span>
+                        <span style={{ fontWeight: 600 }}>{val}</span>
+                      </div>
+                    ) : null)}
+                  </div>
+                  <a href={`/animals/${chipResult.animal.id}`} style={{ color: "var(--teal)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
+                    → View Animal Record
+                  </a>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <span style={{ fontSize: 20 }}>❌</span>
+                    <div style={{ fontWeight: 800, fontSize: 15, color: "#374151" }}>No match in MCAS records</div>
+                  </div>
+                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14 }}>
+                    Chip <code style={{ background: "#f1f5f9", padding: "1px 6px", borderRadius: 4, fontFamily: "monospace" }}>{chipQuery}</code> is not registered in the MCAS database.
+                  </div>
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => window.open(`https://www.petmicrochiplookup.org?chipNumber=${encodeURIComponent(chipQuery.trim())}`, "_blank", "noopener,noreferrer")}
+                  >
+                    🌐 Search National Databases (petmicrochiplookup.org)
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </AppShell>

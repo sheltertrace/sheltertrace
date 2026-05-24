@@ -26,6 +26,12 @@ export const STATUS_COLORS: Record<string, string> = {
 
 export const INTAKE_TYPES = ["Surrender", "Stray", "Transfer", "Return", "Confiscation", "Born in Shelter", "Clinic"] as const;
 
+export const MICROCHIP_MANUFACTURERS = [
+  "HomeAgain", "AVID", "24PetWatch", "Datamars", "Trovan", "AKC Reunite", "Found Animals", "PetLink", "Other",
+] as const;
+
+export const MICROCHIP_STATUS = ["Active", "Transferred", "Deceased"] as const;
+
 // ── Clinic services menu ──────────────────────────────────────────────────────
 export interface ClinicService {
   id: string;

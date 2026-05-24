@@ -1,6 +1,8 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import type { Animal, Person } from "@/lib/types";
+import { lookupMicrochip } from "@/lib/data";
+import type { MicrochipRegistration } from "@/lib/types";
 import {
   INTAKE_TYPES, CIRCUMSTANCE_TYPES, ALL_BREEDS_DOG, ALL_BREEDS_CAT,
   ALL_COLORS, COAT_TYPES, EAR_TYPES, EYE_COLORS, SIZE_OPTIONS,
@@ -67,6 +69,8 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const [rabiesExpiry, setRabiesExpiry] = useState("");
   const [shelterTag, setShelterTag] = useState("");
   const [barCode, setBarCode] = useState("");
+  const [chipMatch, setChipMatch] = useState<MicrochipRegistration | null>(null);
+  const [chipSearching, setChipSearching] = useState(false);
 
   // Step 4
   const [intakeCondition, setIntakeCondition] = useState("");
@@ -103,6 +107,19 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const toggleFlag = (id: string) => {
     setBehaviorFlags((prev) => ({ ...prev, [id]: !prev[id] }));
   };
+
+  // Debounced chip lookup — runs when microchip field has 9+ characters
+  useEffect(() => {
+    if (microchip.length < 9) { setChipMatch(null); return; }
+    setChipSearching(true);
+    const timer = setTimeout(() => {
+      lookupMicrochip(microchip.trim())
+        .then((r) => { setChipMatch(r.registration); })
+        .catch(() => { setChipMatch(null); })
+        .finally(() => setChipSearching(false));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [microchip]);
 
   const handleCreatePerson = async () => {
     if (!npFirst.trim() || !npLast.trim()) return;
@@ -295,6 +312,18 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
             <div className="grid-2">
               <F label="Microchip Number">
                 <input className="form-input" value={microchip} onChange={(e) => setMicrochip(e.target.value)} placeholder="Scan or enter chip #" />
+                {chipSearching && <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>Searching registry…</div>}
+                {chipMatch && (
+                  <div style={{ marginTop: 6, padding: "10px 12px", borderRadius: 8, background: "#fef3c7", border: "1px solid #fbbf24", fontSize: 12 }}>
+                    <div style={{ fontWeight: 800, color: "#92400e", marginBottom: 4 }}>⚠ Microchip already registered in MCAS</div>
+                    <div style={{ color: "#78350f" }}>
+                      Owner: <strong>{chipMatch.owner_name ?? "Unknown"}</strong>
+                      {chipMatch.owner_phone && <> · {chipMatch.owner_phone}</>}
+                    </div>
+                    {chipMatch.animal_name && <div style={{ color: "#78350f" }}>Animal: {chipMatch.animal_name} ({chipMatch.species})</div>}
+                    <div style={{ color: "#92400e", marginTop: 4, fontWeight: 600 }}>This may be a stray that can be returned to its owner.</div>
+                  </div>
+                )}
               </F>
               <F label="Microchip Brand">
                 <input className="form-input" value={microchipBrand} onChange={(e) => setMicrochipBrand(e.target.value)} placeholder="HomeAgain, AKC Reunite, etc." />

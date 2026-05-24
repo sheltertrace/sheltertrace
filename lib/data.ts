@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration } from "./types";
 import { genId, genReceiptId, today } from "./utils";
 
 // ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
@@ -1310,4 +1310,54 @@ export async function fetchFormsByLinked(opts: { callId?: string; animalId?: str
     return (data as import("./types").ShelterForm[]) || [];
   }
   return [];
+}
+
+// ── Microchip Registry ────────────────────────────────────────────────────────
+
+/**
+ * Search the internal registry + the animals table for a chip number.
+ * Returns the registry entry (with owner info) and/or the matching animal record.
+ */
+export async function lookupMicrochip(chipNumber: string): Promise<{
+  registration: MicrochipRegistration | null;
+  animal: Animal | null;
+}> {
+  const q = chipNumber.trim();
+  if (!q) return { registration: null, animal: null };
+
+  const [regRes, animalRes] = await Promise.all([
+    supabase.from("microchip_registry").select("*").ilike("chip_number", q).limit(1),
+    supabase.from("animals").select("*").ilike("microchip", q).limit(1),
+  ]);
+
+  return {
+    registration: (regRes.data?.[0] as MicrochipRegistration) ?? null,
+    animal:       (animalRes.data?.[0] as Animal) ?? null,
+  };
+}
+
+/** Create or update a registry entry. Upserts on chip_number. */
+export async function upsertMicrochipRegistration(
+  reg: Omit<MicrochipRegistration, "id" | "created_at">
+): Promise<MicrochipRegistration> {
+  const { data, error } = await supabase
+    .from("microchip_registry")
+    .upsert({ ...reg, updated_at: new Date().toISOString() }, { onConflict: "chip_number" })
+    .select()
+    .single();
+  if (error) throw error;
+  return data as MicrochipRegistration;
+}
+
+/** Fetch registry entries with optional filters. */
+export async function fetchMicrochipRegistry(
+  opts: { status?: string; species?: string; from?: string; to?: string } = {}
+): Promise<MicrochipRegistration[]> {
+  let q = supabase.from("microchip_registry").select("*").order("created_at", { ascending: false });
+  if (opts.status)  q = q.eq("status", opts.status);
+  if (opts.species) q = q.eq("species", opts.species);
+  if (opts.from)    q = q.gte("registration_date", opts.from);
+  if (opts.to)      q = q.lte("registration_date", opts.to);
+  const { data } = await q;
+  return (data as MicrochipRegistration[]) ?? [];
 }

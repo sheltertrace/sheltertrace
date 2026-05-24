@@ -18,6 +18,7 @@ import {
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
   fetchTransfersByAnimal, safeJsonArray, safeJsonObject, safeArray,
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
+  lookupMicrochip,
   type AnimalDocument,
 } from "@/lib/data";
 import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
@@ -66,6 +67,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [photoUploading, setPhotoUploading] = useState(false);
   const [showCropModal, setShowCropModal] = useState(false);
   const [pubPhotoUploading, setPubPhotoUploading] = useState(false);
+  const [chipLookupResult, setChipLookupResult] = useState<{ ownerName?: string; ownerPhone?: string; ownerEmail?: string; animalName?: string; foundInRegistry: boolean } | null>(null);
+  const [chipLooking, setChipLooking] = useState(false);
 
   // Edit state
   const [editMode, setEditMode] = useState<string | null>(null); // section being edited
@@ -231,6 +234,34 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       console.error("[PublicPhoto] upload failed:", err);
     } finally { setPubPhotoUploading(false); e.target.value = ""; }
   }, [animal.id, animal.photo_urls, animal.featured_photo_url, save]);
+
+  const handleChipLookup = useCallback(async (chip: string) => {
+    if (!chip.trim()) return;
+    setChipLooking(true);
+    setChipLookupResult(null);
+    try {
+      const result = await lookupMicrochip(chip.trim());
+      if (result.registration) {
+        setChipLookupResult({
+          ownerName: result.registration.owner_name,
+          ownerPhone: result.registration.owner_phone,
+          ownerEmail: result.registration.owner_email,
+          animalName: result.registration.animal_name,
+          foundInRegistry: true,
+        });
+      } else if (result.animal) {
+        setChipLookupResult({
+          animalName: result.animal.name,
+          foundInRegistry: false,
+        });
+      } else {
+        setChipLookupResult({ foundInRegistry: false });
+      }
+    } catch { setChipLookupResult(null); }
+    finally { setChipLooking(false); }
+    // Also open the national registry in a new tab
+    window.open(`https://www.petmicrochiplookup.org?chipNumber=${encodeURIComponent(chip.trim())}`, "_blank", "noopener,noreferrer");
+  }, []);
 
   const toggleFlag = useCallback((flagId: string) => {
     const flags = { ...(animal.behavior_flags || {}) };
@@ -646,7 +677,46 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           <CollapsibleSection title="Identification">
             <div className="grid-3">
               <F label="Microchip #">
-                <input className="form-input" defaultValue={animal.microchip || ""} onBlur={(e) => save({ microchip: e.target.value })} placeholder="Scan or type" />
+                <div style={{ display: "flex", gap: 6 }}>
+                  <input
+                    className="form-input"
+                    defaultValue={animal.microchip || ""}
+                    onBlur={(e) => { save({ microchip: e.target.value }); setChipLookupResult(null); }}
+                    placeholder="Scan or type"
+                    style={{ flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleChipLookup(animal.microchip || "")}
+                    disabled={!animal.microchip || chipLooking}
+                    title="Search internal registry + open national database"
+                    style={{ whiteSpace: "nowrap", flexShrink: 0 }}
+                  >
+                    {chipLooking ? "…" : "🔍 Lookup"}
+                  </button>
+                </div>
+                {chipLookupResult !== null && (
+                  <div style={{
+                    marginTop: 6, padding: "8px 10px", borderRadius: 7, fontSize: 12,
+                    background: chipLookupResult.foundInRegistry ? "#fef3c7" : chipLookupResult.animalName ? "#f0fdf4" : "#f1f5f9",
+                    border: `1px solid ${chipLookupResult.foundInRegistry ? "#fbbf24" : chipLookupResult.animalName ? "#86efac" : "#e2e8f0"}`,
+                    color: chipLookupResult.foundInRegistry ? "#92400e" : "#374151",
+                  }}>
+                    {chipLookupResult.foundInRegistry ? (
+                      <>
+                        <strong>⚠ Registered owner:</strong> {chipLookupResult.ownerName ?? "Unknown"}
+                        {chipLookupResult.ownerPhone && ` · ${chipLookupResult.ownerPhone}`}
+                        {chipLookupResult.ownerEmail && ` · ${chipLookupResult.ownerEmail}`}
+                        {chipLookupResult.animalName && ` (registered to: ${chipLookupResult.animalName})`}
+                      </>
+                    ) : chipLookupResult.animalName ? (
+                      <>✓ Found in animals table: <strong>{chipLookupResult.animalName}</strong> — no registry owner record</>
+                    ) : (
+                      <>No match in MCAS registry — check national databases tab that opened</>
+                    )}
+                  </div>
+                )}
               </F>
               <F label="Microchip Brand">
                 <input className="form-input" defaultValue={animal.microchip_brand || ""} onBlur={(e) => save({ microchip_brand: e.target.value })} />
