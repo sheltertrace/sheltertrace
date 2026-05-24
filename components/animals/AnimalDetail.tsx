@@ -259,8 +259,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       }
     } catch { setChipLookupResult(null); }
     finally { setChipLooking(false); }
-    // Also open the national registry in a new tab
-    window.open(`https://www.petmicrochiplookup.org?chipNumber=${encodeURIComponent(chip.trim())}`, "_blank", "noopener,noreferrer");
+    // National databases opened via the Search page (iframes blocked by X-Frame-Options)
+    // Navigate to the dedicated microchip lookup with the chip pre-filled
   }, []);
 
   const toggleFlag = useCallback((flagId: string) => {
@@ -713,8 +713,15 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     ) : chipLookupResult.animalName ? (
                       <>✓ Found in animals table: <strong>{chipLookupResult.animalName}</strong> — no registry owner record</>
                     ) : (
-                      <>No match in MCAS registry — check national databases tab that opened</>
+                      <>No match in MCAS registry</>
                     )}
+                    {" "}
+                    <a
+                      href={`/search?tab=microchip&chip=${encodeURIComponent(animal.microchip || "")}`}
+                      style={{ color: "var(--teal)", fontWeight: 700, textDecoration: "none" }}
+                    >
+                      🔬 Full Search + National Databases →
+                    </a>
                   </div>
                 )}
               </F>

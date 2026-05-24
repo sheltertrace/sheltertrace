@@ -1,9 +1,9 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
-import { fetchPeople, fetchCalls, fetchAnimals, fetchCitations, createPerson, lookupMicrochip } from "@/lib/data";
+import { fetchPeople, fetchCalls, fetchAnimals, fetchCitations, createPerson, lookupMicrochip, upsertMicrochipRegistration, logMicrochipSearch } from "@/lib/data";
 import type { Person, DispatchCall, Animal, Citation, MicrochipRegistration } from "@/lib/types";
 import { PERSON_ROLES } from "@/lib/constants";
 import { formatDate, today } from "@/lib/utils";
@@ -26,7 +26,11 @@ interface AddrResult {
 
 export default function SearchPage() {
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>("people");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<Tab>(() => {
+    const t = searchParams?.get("tab");
+    return (t === "microchip" || t === "people" || t === "address" || t === "animals" || t === "calls") ? t : "people";
+  });
 
   // ── People tab ──────────────────────────────────────────────────────────────
   const [people, setPeople] = useState<Person[]>([]);
@@ -185,24 +189,82 @@ export default function SearchPage() {
   }, [allAnimals, animalQuery]);
 
   // ── Microchip lookup tab ──────────────────────────────────────────────────────
-  const [chipQuery, setChipQuery]       = useState("");
+  const [chipQuery, setChipQuery] = useState(() => searchParams?.get("chip") ?? "");
   const [chipSearching, setChipSearching] = useState(false);
   const [chipResult, setChipResult] = useState<{
     registration: MicrochipRegistration | null;
     animal: Animal | null;
     searched: boolean;
   } | null>(null);
+  const [clipToast, setClipToast] = useState(false);
+
+  // Log-result form state
+  const [showLogForm, setShowLogForm] = useState(false);
+  const [logSource, setLogSource]         = useState("");
+  const [logOwnerName, setLogOwnerName]   = useState("");
+  const [logOwnerPhone, setLogOwnerPhone] = useState("");
+  const [logContacted, setLogContacted]   = useState(false);
+  const [logNotes, setLogNotes]           = useState("");
+  const [logSaving, setLogSaving]         = useState(false);
+  const [logSaved, setLogSaved]           = useState(false);
+
+  // Auto-search if chip was passed via URL param
+  useEffect(() => {
+    const chip = searchParams?.get("chip");
+    if (chip && chip.length >= 8) {
+      setChipQuery(chip);
+      handleChipSearch(chip);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleChipSearch(value?: string) {
     const q = (value ?? chipQuery).trim();
     if (!q) return;
     setChipSearching(true);
     setChipResult(null);
+    setShowLogForm(false);
+    setLogSaved(false);
     try {
       const r = await lookupMicrochip(q);
       setChipResult({ ...r, searched: true });
+      // Log to search history
+      const result = r.registration ? "found_internal" : r.animal ? "found_internal" : "not_found";
+      logMicrochipSearch({ chip_number: q, result, animal_id: r.animal?.id }).catch(() => {});
     } catch { setChipResult({ registration: null, animal: null, searched: true }); }
     finally { setChipSearching(false); }
+  }
+
+  function copyAndOpen(url: string) {
+    navigator.clipboard.writeText(chipQuery.trim()).catch(() => {});
+    setClipToast(true);
+    setTimeout(() => setClipToast(false), 3000);
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  async function handleLogSave() {
+    if (!logSource || !chipQuery.trim()) return;
+    setLogSaving(true);
+    try {
+      await upsertMicrochipRegistration({
+        chip_number: chipQuery.trim(),
+        lookup_source: logSource,
+        owner_name: logOwnerName || undefined,
+        owner_phone: logOwnerPhone || undefined,
+        owner_contacted: logContacted,
+        notes: logNotes || undefined,
+        status: logSource === "Not Registered" ? "Active" : "Active",
+      });
+      await logMicrochipSearch({
+        chip_number: chipQuery.trim(),
+        result: logSource === "Not Registered" ? "not_found" : "found_national",
+        source: logSource,
+        notes: logNotes || undefined,
+      });
+      setLogSaved(true);
+      setTimeout(() => setShowLogForm(false), 2000);
+    } catch (e) { console.error("[logSave]", e); }
+    finally { setLogSaving(false); }
   }
 
   // ── Call lookup tab ──────────────────────────────────────────────────────────
@@ -565,118 +627,183 @@ export default function SearchPage() {
 
       {/* ── MICROCHIP LOOKUP TAB ── */}
       {tab === "microchip" && (
-        <div style={{ maxWidth: 640, margin: "0 auto" }}>
-          {/* Large scan input */}
-          <div className="card" style={{ marginBottom: 16 }}>
-            <div style={{ fontWeight: 700, fontSize: 15, color: "var(--text)", marginBottom: 4 }}>🔬 Microchip Lookup</div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14 }}>
-              Enter or scan a microchip number to search MCAS records. The field auto-focuses — just scan with a USB scanner.
+        <div style={{ maxWidth: 700, margin: "0 auto" }}>
+
+          {/* Clipboard toast */}
+          {clipToast && (
+            <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, background: "#0f2942", color: "#fff", padding: "10px 18px", borderRadius: 10, fontWeight: 700, fontSize: 13, boxShadow: "0 4px 16px rgba(0,0,0,0.25)" }}>
+              📋 Microchip number copied — paste it on the search page
+            </div>
+          )}
+
+          {/* Step 1: Input */}
+          <div className="card" style={{ marginBottom: 14 }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: "var(--text)", marginBottom: 4 }}>🔬 Microchip Lookup</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 12 }}>
+              Plug in a USB chip scanner and scan — or type the number manually. Auto-searches at 15 digits.
             </div>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 className="form-input"
-                style={{ flex: 1, fontSize: 17, fontFamily: "monospace", letterSpacing: "0.05em" }}
+                style={{ flex: 1, fontSize: 17, fontFamily: "monospace", letterSpacing: "0.06em" }}
                 value={chipQuery}
+                autoFocus
                 onChange={(e) => {
-                  setChipQuery(e.target.value);
+                  const v = e.target.value;
+                  setChipQuery(v);
                   setChipResult(null);
-                  // Auto-search when scanner sends Enter or chip reaches expected length
-                  if (e.target.value.length >= 15) handleChipSearch(e.target.value);
+                  setShowLogForm(false);
+                  if (v.length >= 15) handleChipSearch(v);
                 }}
                 onKeyDown={(e) => { if (e.key === "Enter") handleChipSearch(); }}
                 placeholder="Scan or type microchip number…"
-                autoFocus={tab === "microchip"}
               />
-              <button
-                className="btn btn-primary"
-                onClick={() => handleChipSearch()}
-                disabled={!chipQuery.trim() || chipSearching}
-              >
+              <button className="btn btn-primary" onClick={() => handleChipSearch()} disabled={!chipQuery.trim() || chipSearching}>
                 {chipSearching ? "Searching…" : "Search"}
               </button>
             </div>
           </div>
 
-          {/* Results */}
+          {/* Step 2: Internal result */}
           {chipResult?.searched && (
-            <div className="card">
-              {chipResult.registration ? (
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <span style={{ fontSize: 20 }}>✅</span>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: "#15803d" }}>Found in MCAS Registry</div>
-                  </div>
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>Step 1 — MCAS Internal Records</div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", marginBottom: 14, background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "12px 16px" }}>
-                    {[
-                      ["Chip #",         chipResult.registration.chip_number],
-                      ["Manufacturer",   chipResult.registration.manufacturer],
-                      ["Status",         chipResult.registration.status],
-                      ["Registered",     chipResult.registration.registration_date],
-                      ["Owner",          chipResult.registration.owner_name],
-                      ["Phone",          chipResult.registration.owner_phone],
-                      ["Email",          chipResult.registration.owner_email],
-                      ["Address",        [chipResult.registration.owner_address, chipResult.registration.owner_city, chipResult.registration.owner_state].filter(Boolean).join(", ")],
-                      ["Animal",         chipResult.registration.animal_name],
-                      ["Species",        chipResult.registration.species],
-                      ["Breed",          chipResult.registration.breed],
-                    ].map(([label, val]) => val ? (
-                      <div key={label} style={{ fontSize: 13 }}>
-                        <span style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, display: "block" }}>{label}</span>
-                        <span style={{ fontWeight: 600 }}>{val}</span>
+              {chipResult.registration ? (
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 18 }}>✅</span>
+                    <span style={{ fontWeight: 800, color: "#15803d", fontSize: 14 }}>Found in MCAS Registry</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "12px 16px", marginBottom: 10 }}>
+                    {([
+                      ["Owner",    chipResult.registration.owner_name],
+                      ["Phone",    chipResult.registration.owner_phone],
+                      ["Email",    chipResult.registration.owner_email],
+                      ["Address",  [chipResult.registration.owner_address, chipResult.registration.owner_city, chipResult.registration.owner_state].filter(Boolean).join(", ")],
+                      ["Animal",   chipResult.registration.animal_name],
+                      ["Species",  chipResult.registration.species],
+                      ["Manufacturer", chipResult.registration.manufacturer],
+                      ["Registered", chipResult.registration.registration_date],
+                    ] as [string, string | undefined][]).map(([l, v]) => v ? (
+                      <div key={l} style={{ fontSize: 13 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", display: "block" }}>{l}</span>
+                        <strong>{v}</strong>
                       </div>
                     ) : null)}
                   </div>
-
                   {chipResult.registration.animal_id && (
-                    <a href={`/animals/${chipResult.registration.animal_id}`}
-                       style={{ color: "var(--teal)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-                      → View Animal Record
-                    </a>
+                    <a href={`/animals/${chipResult.registration.animal_id}`} style={{ color: "var(--teal)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>→ View Animal Record</a>
                   )}
-                </div>
+                </>
               ) : chipResult.animal ? (
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <span style={{ fontSize: 20 }}>🐾</span>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: "#0f2942" }}>Found in Animals Table (no registry record)</div>
+                <>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+                    <span style={{ fontSize: 18 }}>🐾</span>
+                    <span style={{ fontWeight: 800, color: "#0f2942", fontSize: 14 }}>Found in Animals Table — no registry owner record</span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "12px 16px", marginBottom: 14 }}>
-                    {[
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 24px", background: "#f0f7ff", border: "1px solid #bfdbfe", borderRadius: 8, padding: "12px 16px", marginBottom: 10 }}>
+                    {([
                       ["Name",    chipResult.animal.name],
                       ["ID",      chipResult.animal.id],
                       ["Species", chipResult.animal.species],
                       ["Breed",   chipResult.animal.breed],
                       ["Status",  chipResult.animal.status],
-                      ["Chip #",  chipResult.animal.microchip],
-                    ].map(([label, val]) => val ? (
-                      <div key={label} style={{ fontSize: 13 }}>
-                        <span style={{ color: "var(--text-secondary)", fontSize: 11, fontWeight: 700, display: "block" }}>{label}</span>
-                        <span style={{ fontWeight: 600 }}>{val}</span>
+                    ] as [string, string | undefined][]).map(([l, v]) => v ? (
+                      <div key={l} style={{ fontSize: 13 }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-secondary)", display: "block" }}>{l}</span>
+                        <strong>{v}</strong>
                       </div>
                     ) : null)}
                   </div>
-                  <a href={`/animals/${chipResult.animal.id}`} style={{ color: "var(--teal)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>
-                    → View Animal Record
-                  </a>
-                </div>
+                  <a href={`/animals/${chipResult.animal.id}`} style={{ color: "var(--teal)", fontWeight: 700, fontSize: 13, textDecoration: "none" }}>→ View Animal Record</a>
+                </>
               ) : (
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <span style={{ fontSize: 20 }}>❌</span>
-                    <div style={{ fontWeight: 800, fontSize: 15, color: "#374151" }}>No match in MCAS records</div>
-                  </div>
-                  <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 14 }}>
-                    Chip <code style={{ background: "#f1f5f9", padding: "1px 6px", borderRadius: 4, fontFamily: "monospace" }}>{chipQuery}</code> is not registered in the MCAS database.
-                  </div>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => window.open(`https://www.petmicrochiplookup.org?chipNumber=${encodeURIComponent(chipQuery.trim())}`, "_blank", "noopener,noreferrer")}
-                  >
-                    🌐 Search National Databases (petmicrochiplookup.org)
-                  </button>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 18 }}>❌</span>
+                  <span style={{ fontWeight: 700, color: "#6b7280", fontSize: 14 }}>Not found in MCAS records — check national databases below</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Step 3: National databases (shown after any search) */}
+          {chipResult?.searched && (
+            <div className="card" style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 6 }}>Step 2 — National Database Lookup</div>
+              <p style={{ fontSize: 13, color: "var(--text-secondary)", margin: "0 0 14px" }}>
+                Click any button — the chip number is copied to your clipboard automatically. Paste it on the registry site.
+              </p>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
+                {([
+                  ["AAHA Universal",  "https://www.petmicrochiplookup.org"],
+                  ["HomeAgain",       "https://www.homeagain.com/microsearch.html"],
+                  ["24PetWatch",      "https://www.24petwatch.com/pet-owner/lost-found-pets"],
+                  ["PetLink",         "https://www.petlink.net/us/search"],
+                  ["AKC Reunite",     "https://www.akcreunite.org/microchip-lookup/"],
+                  ["Found.org",       "https://www.found.org/search"],
+                ] as [string, string][]).map(([label, url]) => (
+                  <button
+                    key={label}
+                    onClick={() => copyAndOpen(url)}
+                    style={{ padding: "10px 12px", border: "2px solid var(--border)", borderRadius: 8, background: "var(--bg)", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--text)", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}
+                  >
+                    <span>🌐 {label}</span>
+                    <span style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>copy&amp;open ↗</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Log result */}
+              <div style={{ marginTop: 16, borderTop: "1px solid var(--border-light)", paddingTop: 14 }}>
+                {!showLogForm ? (
+                  <button className="btn btn-secondary btn-sm" onClick={() => setShowLogForm(true)}>
+                    📝 Log What I Found
+                  </button>
+                ) : (
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Log National Lookup Result</div>
+                    <div className="grid-2" style={{ gap: 10, marginBottom: 10 }}>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Found on</label>
+                        <select className="form-select" value={logSource} onChange={(e) => setLogSource(e.target.value)}>
+                          <option value="">— Select —</option>
+                          {["HomeAgain","AVID","24PetWatch","PetLink","AKC Reunite","Found.org","Other Registry","Not Registered"].map((s) => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Owner Name Found</label>
+                        <input className="form-input" value={logOwnerName} onChange={(e) => setLogOwnerName(e.target.value)} placeholder="If found" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Owner Phone</label>
+                        <input className="form-input" value={logOwnerPhone} onChange={(e) => setLogOwnerPhone(e.target.value)} placeholder="If found" />
+                      </div>
+                      <div className="form-group" style={{ margin: 0 }}>
+                        <label className="form-label">Owner Contacted?</label>
+                        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                          {(["Yes", "No"] as const).map((l) => (
+                            <button key={l} onClick={() => setLogContacted(l === "Yes")}
+                              style={{ flex: 1, padding: "7px 0", border: "2px solid", borderColor: (l === "Yes") === logContacted ? "var(--teal)" : "var(--border)", borderRadius: 6, background: (l === "Yes") === logContacted ? "#f0fdfa" : "var(--bg)", color: (l === "Yes") === logContacted ? "var(--teal)" : "var(--text)", fontWeight: 700, cursor: "pointer", fontSize: 13 }}
+                            >{l}</button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="form-group" style={{ marginBottom: 10 }}>
+                      <label className="form-label">Notes</label>
+                      <textarea className="form-input" rows={2} value={logNotes} onChange={(e) => setLogNotes(e.target.value)} placeholder="Any additional details…" style={{ resize: "vertical" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <button className="btn btn-primary btn-sm" onClick={handleLogSave} disabled={logSaving || !logSource}>
+                        {logSaving ? "Saving…" : "Save to Registry"}
+                      </button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => setShowLogForm(false)}>Cancel</button>
+                      {logSaved && <span style={{ fontSize: 13, color: "#16a34a", fontWeight: 700 }}>✓ Saved to MCAS Registry</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>

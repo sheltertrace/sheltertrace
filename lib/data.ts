@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch } from "./types";
 import { genId, genReceiptId, today } from "./utils";
 
 // ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
@@ -1360,4 +1360,19 @@ export async function fetchMicrochipRegistry(
   if (opts.to)      q = q.lte("registration_date", opts.to);
   const { data } = await q;
   return (data as MicrochipRegistration[]) ?? [];
+}
+
+/** Log a chip search event (used for analytics / search history). */
+export async function logMicrochipSearch(entry: Omit<MicrochipSearch, "id" | "searched_at">): Promise<void> {
+  await supabase.from("microchip_searches").insert(entry);
+}
+
+/** Fetch recent chip search history. */
+export async function fetchMicrochipSearchHistory(limit = 100): Promise<MicrochipSearch[]> {
+  const { data } = await supabase
+    .from("microchip_searches")
+    .select("*")
+    .order("searched_at", { ascending: false })
+    .limit(limit);
+  return (data as MicrochipSearch[]) ?? [];
 }

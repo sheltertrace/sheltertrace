@@ -729,6 +729,17 @@ export interface AdoptionApplication {
   reviewed_at?: string;
 }
 
+export interface MicrochipSearch {
+  id?: string;
+  chip_number: string;
+  searched_by?: string;
+  result?: string;   // 'found_internal' | 'found_national' | 'not_found'
+  source?: string;
+  animal_id?: string;
+  notes?: string;
+  searched_at?: string;
+}
+
 export interface MicrochipRegistration {
   id?: string;
   chip_number: string;
@@ -750,6 +761,10 @@ export interface MicrochipRegistration {
   registered_by?: string;
   status?: string;
   notes?: string;
+  lookup_source?: string;
+  owner_contacted?: boolean;
+  contacted_date?: string;
+  contacted_by?: string;
   created_at?: string;
   updated_at?: string;
 }
