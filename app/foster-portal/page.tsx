@@ -1,17 +1,18 @@
 "use client";
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  fetchPersonByPid,
-  fetchFosterPlacementsByParent,
-  fetchFosterUpdatesByPlacement,
-  createFosterUpdate,
-  createFosterSupplyRequest,
-  fetchAnimals,
-} from "@/lib/data";
+// All DB calls use supabasePublic — this is a public page with no staff auth.
 import { supabasePublic } from "@/lib/supabase-public";
 import type { Person, FosterPlacement, FosterUpdate, Animal } from "@/lib/types";
 import { today } from "@/lib/utils";
-import { safeArray } from "@/lib/data";
+
+// ── Tiny helper matching lib/data's safeArray (no DB call) ────────────────────
+function safeArray(v: unknown): string[] {
+  if (Array.isArray(v)) return v as string[];
+  if (typeof v === "string" && v.trim().startsWith("[")) {
+    try { const p = JSON.parse(v); if (Array.isArray(p)) return p as string[]; } catch { /* fall through */ }
+  }
+  return [];
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const UPDATE_STATUSES = ["Great", "Good", "Concerns", "Emergency"] as const;
@@ -59,7 +60,12 @@ function AnimalCard({
 
   useEffect(() => {
     if (placement.id) {
-      fetchFosterUpdatesByPlacement(placement.id).then(setUpdates);
+      supabasePublic
+        .from("foster_updates")
+        .select("*")
+        .eq("placement_id", placement.id)
+        .order("created_at", { ascending: false })
+        .then((res: { data: unknown }) => { if (res.data) setUpdates(res.data as FosterUpdate[]); });
     }
   }, [placement.id, saved]);
 
@@ -79,17 +85,18 @@ function AnimalCard({
           photoUrl = urlData.publicUrl;
         }
       }
-      await createFosterUpdate({
+      const { error: updateErr } = await supabasePublic.from("foster_updates").insert({
         placement_id: placement.id,
         foster_parent_id: placement.foster_parent_id,
         animal_id: placement.animal_id,
         date: today(),
         status: updateStatus,
-        eating_well: eatingWell ?? undefined,
-        weight: weight.trim() || undefined,
-        photo_url: photoUrl,
-        notes: notes.trim() || undefined,
+        eating_well: eatingWell ?? null,
+        weight: weight.trim() || null,
+        photo_url: photoUrl ?? null,
+        notes: notes.trim() || null,
       });
+      if (updateErr) throw updateErr;
       setSaved(true);
       setShowUpdateForm(false);
       setNotes(""); setWeight(""); setEatingWell(null); setPhotoFile(null);
@@ -266,10 +273,20 @@ export default function FosterPortalPage() {
 
   const loadPortalData = useCallback(async (personId: string) => {
     try {
-      const [allPlacements, allAnimals] = await Promise.all([
-        fetchFosterPlacementsByParent(personId),
-        fetchAnimals(),
+      const [placementsRes, animalsRes] = await Promise.all([
+        supabasePublic
+          .from("foster_placements")
+          .select("*")
+          .eq("foster_parent_id", personId)
+          .order("start_date", { ascending: false }),
+        supabasePublic
+          .from("animals")
+          .select("*")
+          .neq("intake_type", "Clinic")
+          .order("created_at", { ascending: false }),
       ]);
+      const allPlacements = (placementsRes.data as FosterPlacement[]) ?? [];
+      const allAnimals    = (animalsRes.data    as Animal[])          ?? [];
       setActivePlacements(allPlacements.filter((p) => p.status === "Active"));
       setPastPlacements(allPlacements.filter((p) => p.status !== "Active"));
       setAnimals(allAnimals);
@@ -289,7 +306,13 @@ export default function FosterPortalPage() {
     try {
       const pidRaw = pidInput.trim().toUpperCase();
       const normalized = /^\d+$/.test(pidRaw) ? `PID-${pidRaw.padStart(5, "0")}` : pidRaw;
-      const found = await fetchPersonByPid(normalized);
+      const { data: rows } = await supabasePublic
+        .from("people")
+        .select("*")
+        .eq("pid", normalized)
+        .eq("active", true)
+        .limit(1);
+      const found = (rows as Person[] | null)?.[0] ?? null;
       if (!found) { setAuthError("ID not found. Check your PID card and try again."); return; }
       if (found.role !== "Foster Parent") { setAuthError("This ID is not registered as a foster parent account. Contact MCAS if this is an error."); return; }
       if (found.last_name.toLowerCase() !== lastNameInput.trim().toLowerCase()) { setAuthError("Last name does not match. Please try again."); return; }
@@ -313,13 +336,14 @@ export default function FosterPortalPage() {
     if (!session || supplyItems.length === 0) return;
     setSupplySubmitting(true);
     try {
-      await createFosterSupplyRequest({
+      const { error: supplyErr } = await supabasePublic.from("foster_supply_requests").insert({
         foster_parent_id: session.personId,
         foster_parent_name: `${session.firstName} ${session.lastName}`,
         items: supplyItems,
-        notes: supplyNotes.trim() || undefined,
+        notes: supplyNotes.trim() || null,
         status: "pending",
       });
+      if (supplyErr) throw supplyErr;
       setSupplySubmitted(true);
       setSupplyItems([]); setSupplyNotes("");
       setTimeout(() => setSupplySubmitted(false), 5000);

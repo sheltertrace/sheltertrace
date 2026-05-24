@@ -1,6 +1,6 @@
 "use client";
 import { useState, useRef } from "react";
-import { createFosterApplication } from "@/lib/data";
+import { supabasePublic } from "@/lib/supabase-public";
 import { today } from "@/lib/utils";
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
@@ -142,39 +142,47 @@ export default function FosterApplyPage() {
     if (!agreeConf    || !confidSig) { setError("Please read and sign the Confidentiality Agreement."); return; }
     setSaving(true);
     try {
-      await createFosterApplication({
+      const payload = {
         first_name: firstName.trim(),
         last_name: lastName.trim(),
-        dob: dob || undefined,
-        phone: phone.trim() || undefined,
-        email: email.trim() || undefined,
-        address: address.trim() || undefined,
-        city: city.trim() || undefined,
-        state: state || undefined,
-        zip: zip.trim() || undefined,
-        housing: housing || undefined,
-        dwelling_type: dwellingType || undefined,
-        landlord_permission: landlordPermission ?? undefined,
-        fenced_yard: fencedYard ?? undefined,
-        fence_details: fenceDetails.trim() || undefined,
-        other_pets: otherPets.trim() || undefined,
-        children: children.trim() || undefined,
-        previous_experience: prevExperience.trim() || undefined,
-        animal_preference: animalPref || undefined,
-        special_needs: specialNeeds ?? undefined,
-        bottle_feed: bottleFeed ?? undefined,
-        max_animals: maxAnimals ? parseInt(maxAnimals) : undefined,
-        foster_duration: fosterDuration || undefined,
-        vet_info: vetInfo.trim() || undefined,
-        emergency_contact_name: ecName.trim() || undefined,
-        emergency_contact_phone: ecPhone.trim() || undefined,
-        why_foster: whyFoster.trim() || undefined,
+        dob: dob || null,
+        phone: phone.trim() || null,
+        email: email.trim() || null,
+        address: address.trim() || null,
+        city: city.trim() || null,
+        state: state || null,
+        zip: zip.trim() || null,
+        housing: housing || null,
+        dwelling_type: dwellingType || null,
+        landlord_permission: landlordPermission ?? null,
+        fenced_yard: fencedYard ?? null,
+        fence_details: fenceDetails.trim() || null,
+        other_pets: otherPets.trim() || null,
+        children: children.trim() || null,
+        previous_experience: prevExperience.trim() || null,
+        animal_preference: animalPref || null,
+        special_needs: specialNeeds ?? null,
+        bottle_feed: bottleFeed ?? null,
+        max_animals: maxAnimals ? parseInt(maxAnimals) : null,
+        foster_duration: fosterDuration || null,
+        vet_info: vetInfo.trim() || null,
+        emergency_contact_name: ecName.trim() || null,
+        emergency_contact_phone: ecPhone.trim() || null,
+        why_foster: whyFoster.trim() || null,
         agree_to_agreement: agreeRelease,
-        agreement_signature: agreeSig || undefined,
+        agreement_signature: agreeSig,
         agree_to_confidentiality: agreeConf,
-        confidentiality_signature: confidSig || undefined,
+        confidentiality_signature: confidSig,
         status: "pending",
-      });
+      };
+      console.log("[foster-apply] insert data:", JSON.stringify(payload, null, 2));
+      const { error: insertError } = await supabasePublic
+        .from("foster_applications")
+        .insert(payload);
+      if (insertError) {
+        console.error("[foster-apply] Supabase error:", insertError.message, insertError.details, insertError.hint);
+        throw insertError;
+      }
       setStep("submitted");
     } catch (err) {
       setError("Failed to submit application. Please try again or call (706) 752-1195.");
