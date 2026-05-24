@@ -2,15 +2,93 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { login } from "@/lib/auth";
+// All Supabase writes use supabasePublic — consistent anon key, no fieldOps abstraction.
 import { supabasePublic } from "@/lib/supabase-public";
-import {
-  updateOfficerFieldStatus,
-  logFieldActivity,
-  saveLocationPing,
-  clearOfficerTracking,
-} from "@/lib/fieldOps";
 import type { StaffAccount, FieldStatus, DispatchCall } from "@/lib/types";
 import { today } from "@/lib/utils";
+
+// ── Direct Supabase helpers (bypass fieldOps / lib/supabase.ts) ───────────────
+
+async function dbUpdateStatus(
+  officerId: string,
+  status: FieldStatus,
+  lat?: number | null,
+  lng?: number | null
+) {
+  const fields = {
+    current_field_status: status,
+    tracking_active: status !== "Off Duty",
+    last_location_lat: lat ?? null,
+    last_location_lng: lng ?? null,
+    last_status_update: new Date().toISOString(),
+  };
+  console.log("[officer-app] ON DUTY update - id:", officerId, "fields:", fields);
+  const { data, error } = await supabasePublic
+    .from("staff_accounts")
+    .update(fields)
+    .eq("id", officerId)
+    .select();
+  console.log("[officer-app] staff_accounts update result:", data, "error:", error);
+  if (error) console.error("[officer-app] UPDATE FAILED:", error.message, error.details, error.hint);
+}
+
+async function dbLogActivity(
+  officerId: string,
+  officerName: string,
+  badge: string | undefined,
+  status: FieldStatus,
+  lat?: number | null,
+  lng?: number | null
+) {
+  const { error } = await supabasePublic.from("field_activity").insert({
+    officer_id:    officerId,
+    officer_name:  officerName,
+    officer_badge: badge,
+    status,
+    location_lat:  lat ?? null,
+    location_lng:  lng ?? null,
+    recorded_at:   new Date().toISOString(),
+  });
+  if (error) console.error("[officer-app] field_activity insert error:", error.message);
+}
+
+async function dbLocationPing(
+  officerId: string,
+  officerName: string,
+  status: FieldStatus,
+  pos: GeolocationPosition
+) {
+  const { latitude, longitude, accuracy, speed, heading } = pos.coords;
+  console.log("[officer-app] GPS update sent:", latitude, longitude, "accuracy:", accuracy, "officer:", officerId);
+
+  const [staffRes, histRes] = await Promise.all([
+    supabasePublic
+      .from("staff_accounts")
+      .update({
+        last_location_lat: latitude,
+        last_location_lng: longitude,
+        last_status_update: new Date().toISOString(),
+        tracking_active: true,
+      })
+      .eq("id", officerId)
+      .select(),
+    supabasePublic.from("location_history").insert({
+      officer_id:   officerId,
+      officer_name: officerName,
+      latitude,
+      longitude,
+      accuracy:     accuracy ?? null,
+      speed:        speed    ?? null,
+      heading:      heading  ?? null,
+      status,
+      timestamp:    new Date().toISOString(),
+    }),
+  ]);
+
+  console.log("[officer-app] GPS update sent:", latitude, longitude, "error:", staffRes.error);
+  if (staffRes.error) console.error("[officer-app] GPS staff update FAILED:", staffRes.error.message);
+  if (histRes.error)  console.log("[officer-app] location_history error:", histRes.error.message);
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -71,6 +149,7 @@ function LoginScreen({ onLogin }: { onLogin: (officer: StaffAccount) => void }) 
         setError("This app is for field officers. Contact admin if you need access.");
         return;
       }
+      console.log("[officer-app] logged in as:", account.id, account.username, account.first_name, account.last_name, "role:", account.role);
       localStorage.setItem(SESSION_KEY, JSON.stringify(account));
       onLogin(account);
     } catch { setError("Login failed. Check your connection."); }
@@ -201,17 +280,8 @@ export default function OfficerAppPage() {
   const persistPing = useCallback((pos: GeolocationPosition) => {
     const off = officerRef.current;
     if (!off) return;
-    console.log("[officer-app] GPS ping (throttled save):", pos.coords.latitude, pos.coords.longitude, "accuracy:", pos.coords.accuracy, "officer id:", off.id);
-    saveLocationPing({
-      officerId:   off.id,
-      officerName: `${off.first_name ?? off.firstName ?? ""} ${off.last_name ?? off.lastName ?? ""}`.trim(),
-      latitude:    pos.coords.latitude,
-      longitude:   pos.coords.longitude,
-      accuracy:    pos.coords.accuracy,
-      speed:       pos.coords.speed,
-      heading:     pos.coords.heading,
-      status:      statusRef.current,
-    }).catch(console.error);
+    const name = `${off.first_name ?? off.firstName ?? ""} ${off.last_name ?? off.lastName ?? ""}`.trim();
+    dbLocationPing(off.id, name, statusRef.current, pos).catch(console.error);
   }, []);
 
   const stopGPS = useCallback(() => {
@@ -223,7 +293,18 @@ export default function OfficerAppPage() {
     wakeLockRef.current = null;
     setGpsState("idle");
     setGpsCoords(null);
-    if (officerRef.current) clearOfficerTracking(officerRef.current.id).catch(() => {});
+    // Clear tracking flag in DB
+    const off = officerRef.current;
+    if (off) {
+      supabasePublic.from("staff_accounts").update({
+        tracking_active: false,
+        last_location_lat: null,
+        last_location_lng: null,
+        last_status_update: new Date().toISOString(),
+      }).eq("id", off.id).then((res: { error: { message: string } | null }) => {
+        if (res.error) console.error("[officer-app] stopGPS clear error:", res.error.message);
+      });
+    }
   }, []);
 
   const startGPS = useCallback(() => {
@@ -269,30 +350,19 @@ export default function OfficerAppPage() {
   // ── Status helpers ────────────────────────────────────────────────────────
   async function saveStatus(status: FieldStatus) {
     if (!officer) return;
-    const now = new Date().toISOString();
-    console.log(`[officer-app] Saving status "${status}" for officer id=${officer.id} lat=${gpsCoords?.lat ?? null} lng=${gpsCoords?.lng ?? null}`);
+    const name = `${officer.first_name ?? officer.firstName ?? ""} ${officer.last_name ?? officer.lastName ?? ""}`.trim();
     await Promise.all([
-      updateOfficerFieldStatus(officer.id, status, {
-        lat: gpsCoords?.lat,
-        lng: gpsCoords?.lng,
-      }),
-      logFieldActivity({
-        officer_id:    officer.id,
-        officer_name:  `${officer.first_name ?? officer.firstName ?? ""} ${officer.last_name ?? officer.lastName ?? ""}`.trim(),
-        officer_badge: officer.badge,
-        status,
-        location_lat:  gpsCoords?.lat ?? null,
-        location_lng:  gpsCoords?.lng ?? null,
-        recorded_at:   now,
-      }),
+      dbUpdateStatus(officer.id, status, gpsCoords?.lat, gpsCoords?.lng),
+      dbLogActivity(officer.id, name, officer.badge, status, gpsCoords?.lat, gpsCoords?.lng),
     ]);
     setCurrentStatus(status);
     setTodayLog((prev) => [{ status, time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) }, ...prev]);
   }
 
   async function handleGoOnDuty() {
+    if (!officer) return;
     console.log("[officer-app] Going on duty, updating staff_accounts...");
-    console.log("[officer-app] Officer id:", officer?.id, "| username:", officer?.username, "| badge:", officer?.badge);
+    console.log("[officer-app] Officer id:", officer.id, "| username:", officer.username, "| badge:", officer.badge);
     console.log("[officer-app] Updated fields: current_field_status, last_location_lat, last_location_lng, last_status_update, tracking_active");
     setIsOnDuty(true);
     startGPS();
@@ -302,9 +372,24 @@ export default function OfficerAppPage() {
   }
 
   async function handleGoOffDuty() {
+    if (!officer) return;
     setIsOnDuty(false);
-    stopGPS();
-    await saveStatus("Off Duty");
+    stopGPS(); // also clears lat/lng/tracking_active in DB
+    // Explicit Off Duty write so the map removes the marker immediately
+    const { data, error } = await supabasePublic
+      .from("staff_accounts")
+      .update({
+        current_field_status: "Off Duty",
+        tracking_active: false,
+        last_location_lat: null,
+        last_location_lng: null,
+        last_status_update: new Date().toISOString(),
+      })
+      .eq("id", officer.id)
+      .select();
+    console.log("[officer-app] OFF DUTY update result:", data, "error:", error);
+    setCurrentStatus("Off Duty");
+    setTodayLog((prev) => [{ status: "Off Duty", time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }) }, ...prev]);
     setStatusMsg("You are now OFF DUTY — location tracking stopped");
     setTimeout(() => setStatusMsg(null), 4000);
   }
