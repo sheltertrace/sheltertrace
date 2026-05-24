@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest } from "./types";
 import { genId, genReceiptId, today } from "./utils";
 
 // ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
@@ -1347,6 +1347,179 @@ export async function upsertMicrochipRegistration(
     .single();
   if (error) throw error;
   return data as MicrochipRegistration;
+}
+
+// ── Foster Care ────────────────────────────────────────────────────────────────
+
+export async function fetchActiveFosterPlacements(): Promise<FosterPlacement[]> {
+  const { data } = await supabase
+    .from("foster_placements")
+    .select("*")
+    .eq("status", "Active")
+    .order("start_date", { ascending: false });
+  return (data as FosterPlacement[]) ?? [];
+}
+
+export async function fetchFosterPlacementsByAnimal(animalId: string): Promise<FosterPlacement[]> {
+  const { data } = await supabase
+    .from("foster_placements")
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("start_date", { ascending: false });
+  return (data as FosterPlacement[]) ?? [];
+}
+
+export async function fetchFosterPlacementsByParent(parentId: string): Promise<FosterPlacement[]> {
+  const { data } = await supabase
+    .from("foster_placements")
+    .select("*")
+    .eq("foster_parent_id", parentId)
+    .order("start_date", { ascending: false });
+  return (data as FosterPlacement[]) ?? [];
+}
+
+export async function createFosterPlacement(
+  p: Omit<FosterPlacement, "id" | "created_at" | "updated_at">
+): Promise<FosterPlacement> {
+  const { data, error } = await supabase
+    .from("foster_placements")
+    .insert(p)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as FosterPlacement;
+}
+
+export async function updateFosterPlacement(
+  id: string,
+  updates: Partial<FosterPlacement>
+): Promise<FosterPlacement> {
+  const { data, error } = await supabase
+    .from("foster_placements")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as FosterPlacement;
+}
+
+export async function fetchFosterUpdatesByPlacement(placementId: string): Promise<FosterUpdate[]> {
+  const { data } = await supabase
+    .from("foster_updates")
+    .select("*")
+    .eq("placement_id", placementId)
+    .order("created_at", { ascending: false });
+  return (data as FosterUpdate[]) ?? [];
+}
+
+export async function fetchFosterUpdatesByAnimal(animalId: string): Promise<FosterUpdate[]> {
+  const { data } = await supabase
+    .from("foster_updates")
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("created_at", { ascending: false });
+  return (data as FosterUpdate[]) ?? [];
+}
+
+export async function createFosterUpdate(
+  u: Omit<FosterUpdate, "id" | "created_at">
+): Promise<FosterUpdate> {
+  const { data, error } = await supabase.from("foster_updates").insert(u).select().single();
+  if (error) throw error;
+  return data as FosterUpdate;
+}
+
+export async function fetchFosterCheckinsByPlacement(placementId: string): Promise<FosterCheckin[]> {
+  const { data } = await supabase
+    .from("foster_checkins")
+    .select("*")
+    .eq("placement_id", placementId)
+    .order("checked_at", { ascending: false });
+  return (data as FosterCheckin[]) ?? [];
+}
+
+export async function createFosterCheckin(
+  c: Omit<FosterCheckin, "id">
+): Promise<FosterCheckin> {
+  const { data, error } = await supabase.from("foster_checkins").insert(c).select().single();
+  if (error) throw error;
+  return data as FosterCheckin;
+}
+
+export async function fetchFosterApplications(): Promise<FosterApplication[]> {
+  const { data, error } = await supabase
+    .from("foster_applications")
+    .select("*")
+    .order("created_at", { ascending: false });
+  console.log("[foster apps] result:", data, error);
+  return (data as FosterApplication[]) ?? [];
+}
+
+export async function createFosterApplication(
+  app: Omit<FosterApplication, "id" | "created_at">
+): Promise<FosterApplication> {
+  console.log("[foster-apply] insert data:", JSON.stringify(app, null, 2));
+  const { data, error } = await supabase.from("foster_applications").insert(app).select().single();
+  if (error) {
+    console.error("[foster-apply] Supabase error:", error.message, error.details);
+    throw error;
+  }
+  return data as FosterApplication;
+}
+
+export async function updateFosterApplication(
+  id: string,
+  updates: Partial<FosterApplication>
+): Promise<FosterApplication> {
+  const { data, error } = await supabase
+    .from("foster_applications")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as FosterApplication;
+}
+
+export async function fetchFosterParents(): Promise<Person[]> {
+  const { data } = await supabase
+    .from("people")
+    .select("*")
+    .eq("role", "Foster Parent")
+    .order("last_name");
+  return (data as Person[]) ?? [];
+}
+
+export async function fetchFosterSupplyRequests(
+  opts: { status?: string } = {}
+): Promise<FosterSupplyRequest[]> {
+  let q = supabase.from("foster_supply_requests").select("*").order("created_at", { ascending: false });
+  if (opts.status) q = q.eq("status", opts.status);
+  const { data } = await q;
+  return (data as FosterSupplyRequest[]) ?? [];
+}
+
+export async function createFosterSupplyRequest(
+  req: Omit<FosterSupplyRequest, "id" | "created_at">
+): Promise<FosterSupplyRequest> {
+  const { data, error } = await supabase.from("foster_supply_requests").insert(req).select().single();
+  if (error) throw error;
+  return data as FosterSupplyRequest;
+}
+
+export async function updateFosterSupplyRequest(
+  id: string,
+  updates: Partial<FosterSupplyRequest>
+): Promise<FosterSupplyRequest> {
+  const { data, error } = await supabase
+    .from("foster_supply_requests")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as FosterSupplyRequest;
 }
 
 /** Fetch registry entries with optional filters. */

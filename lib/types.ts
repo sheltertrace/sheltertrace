@@ -769,6 +769,101 @@ export interface MicrochipRegistration {
   updated_at?: string;
 }
 
+// ── Foster Care System ────────────────────────────────────────────────────────
+
+export interface FosterPlacement {
+  id?: string;
+  animal_id: string;
+  animal_name?: string;
+  foster_parent_id: string;
+  foster_parent_name?: string;
+  start_date?: string;
+  expected_return_date?: string;
+  actual_return_date?: string;
+  reason?: string;
+  care_instructions?: string;
+  medication_schedule?: string;
+  supplies_provided?: string[];
+  condition_at_return?: string;
+  return_notes?: string;
+  status?: string; // Active | Returned | Extended | Transferred
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface FosterUpdate {
+  id?: string;
+  placement_id?: string;
+  foster_parent_id?: string;
+  animal_id?: string;
+  date?: string;
+  status?: string; // Great | Good | Concerns | Emergency
+  eating_well?: boolean;
+  weight?: string;
+  photo_url?: string;
+  notes?: string;
+  created_at?: string;
+}
+
+export interface FosterCheckin {
+  id?: string;
+  placement_id?: string;
+  staff_id?: string;
+  staff_name?: string;
+  method?: string; // Phone | Text | Visit | Email
+  notes?: string;
+  checked_at?: string;
+}
+
+export interface FosterApplication {
+  id?: string;
+  first_name: string;
+  last_name: string;
+  dob?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  phone?: string;
+  email?: string;
+  housing?: string;
+  dwelling_type?: string;
+  landlord_permission?: boolean;
+  fenced_yard?: boolean;
+  fence_details?: string;
+  other_pets?: string;
+  children?: string;
+  previous_experience?: string;
+  animal_preference?: string;
+  special_needs?: boolean;
+  bottle_feed?: boolean;
+  max_animals?: number;
+  foster_duration?: string;
+  vet_info?: string;
+  emergency_contact_name?: string;
+  emergency_contact_phone?: string;
+  why_foster?: string;
+  signature?: string;
+  status?: string; // pending | approved | rejected | more_info
+  admin_notes?: string;
+  reviewed_by?: string;
+  reviewed_at?: string;
+  assigned_pid?: string;
+  created_at?: string;
+}
+
+export interface FosterSupplyRequest {
+  id?: string;
+  foster_parent_id?: string;
+  foster_parent_name?: string;
+  items?: string[];
+  notes?: string;
+  status?: string; // pending | fulfilled | denied
+  fulfilled_by?: string;
+  fulfilled_at?: string;
+  created_at?: string;
+}
+
 export type Database = {
   public: {
     Tables: {
