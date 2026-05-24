@@ -201,6 +201,7 @@ export default function OfficerAppPage() {
   const persistPing = useCallback((pos: GeolocationPosition) => {
     const off = officerRef.current;
     if (!off) return;
+    console.log("[officer-app] GPS ping (throttled save):", pos.coords.latitude, pos.coords.longitude, "accuracy:", pos.coords.accuracy, "officer id:", off.id);
     saveLocationPing({
       officerId:   off.id,
       officerName: `${off.first_name ?? off.firstName ?? ""} ${off.last_name ?? off.lastName ?? ""}`.trim(),
@@ -266,22 +267,23 @@ export default function OfficerAppPage() {
   useEffect(() => () => { stopGPS(); }, [stopGPS]);
 
   // ── Status helpers ────────────────────────────────────────────────────────
-  async function saveStatus(status: FieldStatus, opts?: { onDuty?: boolean }) {
+  async function saveStatus(status: FieldStatus) {
     if (!officer) return;
     const now = new Date().toISOString();
+    console.log(`[officer-app] Saving status "${status}" for officer id=${officer.id} lat=${gpsCoords?.lat ?? null} lng=${gpsCoords?.lng ?? null}`);
     await Promise.all([
       updateOfficerFieldStatus(officer.id, status, {
         lat: gpsCoords?.lat,
         lng: gpsCoords?.lng,
       }),
       logFieldActivity({
-        officer_id:   officer.id,
-        officer_name: `${officer.first_name ?? officer.firstName ?? ""} ${officer.last_name ?? officer.lastName ?? ""}`.trim(),
+        officer_id:    officer.id,
+        officer_name:  `${officer.first_name ?? officer.firstName ?? ""} ${officer.last_name ?? officer.lastName ?? ""}`.trim(),
         officer_badge: officer.badge,
         status,
-        location_lat: gpsCoords?.lat ?? null,
-        location_lng: gpsCoords?.lng ?? null,
-        recorded_at:  now,
+        location_lat:  gpsCoords?.lat ?? null,
+        location_lng:  gpsCoords?.lng ?? null,
+        recorded_at:   now,
       }),
     ]);
     setCurrentStatus(status);
@@ -289,6 +291,9 @@ export default function OfficerAppPage() {
   }
 
   async function handleGoOnDuty() {
+    console.log("[officer-app] Going on duty, updating staff_accounts...");
+    console.log("[officer-app] Officer id:", officer?.id, "| username:", officer?.username, "| badge:", officer?.badge);
+    console.log("[officer-app] Updated fields: current_field_status, last_location_lat, last_location_lng, last_status_update, tracking_active");
     setIsOnDuty(true);
     startGPS();
     await saveStatus("On Duty");

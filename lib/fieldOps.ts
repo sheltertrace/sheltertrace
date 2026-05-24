@@ -4,6 +4,7 @@ import { supabase } from "./supabase";
 import type { FieldActivity, FieldStatus, LocationHistory, OfficerFieldProfile } from "./types";
 
 export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]> {
+  console.log("[field-ops] fetching officers from staff_accounts...");
   const { data, error } = await supabase
     .from("staff_accounts")
     .select("*")
@@ -12,10 +13,19 @@ export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]
     .order("last_name")
     .order("first_name");
 
-  console.log("[on-call] staff query result:", data, error);
+  console.log("[field-ops] officers result:", data, "error:", error);
+  if (data) {
+    console.log("[field-ops] officers with status:", (data as OfficerFieldProfile[]).map((o) => ({
+      name: `${o.first_name} ${o.last_name}`,
+      status: o.current_field_status,
+      lat: o.last_location_lat,
+      lng: o.last_location_lng,
+      tracking: o.tracking_active,
+    })));
+  }
 
   if (error) {
-    console.error("[fetchOfficerFieldStatuses] Supabase error:", error.message, error.details, error.hint);
+    console.error("[field-ops] Supabase error:", error.message, error.details, error.hint);
     return [];
   }
 
@@ -34,15 +44,22 @@ export async function updateOfficerFieldStatus(
     locationLabel?: string;
   } = {}
 ): Promise<void> {
-  await supabase
+  const fields = {
+    current_field_status: status,
+    last_location_lat: opts.lat ?? null,
+    last_location_lng: opts.lng ?? null,
+    last_status_update: new Date().toISOString(),
+    // Mark tracking active for any on-duty status; clear when going off duty
+    tracking_active: status !== "Off Duty",
+  };
+  console.log("[officer-app] updating staff_accounts id:", officerId, "fields:", fields);
+  const { data, error } = await supabase
     .from("staff_accounts")
-    .update({
-      current_field_status: status,
-      last_location_lat: opts.lat ?? null,
-      last_location_lng: opts.lng ?? null,
-      last_status_update: new Date().toISOString(),
-    })
-    .eq("id", officerId);
+    .update(fields)
+    .eq("id", officerId)
+    .select();
+  console.log("[officer-app] staff_accounts update result:", data, "error:", error);
+  if (error) console.error("[updateOfficerFieldStatus] error:", error.message, error.details, error.hint);
 }
 
 export async function logFieldActivity(entry: Omit<FieldActivity, "id" | "created_at">): Promise<void> {
@@ -115,7 +132,9 @@ export async function saveLocationPing(opts: {
   status: FieldStatus;
   callId?: string;
 }): Promise<void> {
-  await Promise.all([
+  console.log("[officer-app] GPS ping:", opts.latitude, opts.longitude, "accuracy:", opts.accuracy, "officer:", opts.officerId);
+
+  const [staffRes, histRes] = await Promise.all([
     supabase
       .from("staff_accounts")
       .update({
@@ -124,7 +143,8 @@ export async function saveLocationPing(opts: {
         last_status_update: new Date().toISOString(),
         tracking_active: true,
       })
-      .eq("id", opts.officerId),
+      .eq("id", opts.officerId)
+      .select(),
     supabase.from("location_history").insert({
       officer_id: opts.officerId,
       officer_name: opts.officerName,
@@ -135,8 +155,13 @@ export async function saveLocationPing(opts: {
       heading: opts.heading ?? null,
       status: opts.status,
       call_id: opts.callId ?? null,
-    }),
+    }).select(),
   ]);
+
+  console.log("[officer-app] staff_accounts GPS update:", staffRes.data, staffRes.error);
+  console.log("[officer-app] location_history insert:", histRes.data, histRes.error);
+  if (staffRes.error) console.error("[saveLocationPing] staff update error:", staffRes.error.message);
+  if (histRes.error) console.error("[saveLocationPing] history insert error:", histRes.error.message);
 }
 
 export async function clearOfficerTracking(officerId: string): Promise<void> {
