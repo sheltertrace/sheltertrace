@@ -7,6 +7,7 @@ import type { Person, MedicalRecord } from "@/lib/types";
 import {
   CLINIC_SERVICES, ALL_BREEDS_DOG, ALL_BREEDS_CAT, ALL_COLORS,
 } from "@/lib/constants";
+import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import { today, nowTime, genId } from "@/lib/utils";
 
 interface Props {
@@ -350,6 +351,7 @@ export default function ClinicWizard({ people, onComplete, onClose }: Props) {
                 <div className="form-group">
                   <label className="form-label">Microchip #</label>
                   <input className="form-input" value={microchip} onChange={(e) => setMicrochip(e.target.value)} placeholder="Scan or enter" />
+                  {microchip.length >= 6 && <MicrochipBadge chip={microchip} compact />}
                 </div>
               </div>
 

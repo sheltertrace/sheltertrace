@@ -22,6 +22,7 @@ import {
   type AnimalDocument,
 } from "@/lib/data";
 import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
+import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
 import MedicalEditModal from "@/components/medical/MedicalEditModal";
 import dynamic from "next/dynamic";
@@ -677,7 +678,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           <CollapsibleSection title="Identification">
             <div className="grid-3">
               <F label="Microchip #">
-                <div style={{ display: "flex", gap: 6 }}>
+                {animal.microchip && <MicrochipBadge chip={animal.microchip} compact />}
+                <div style={{ display: "flex", gap: 6, marginTop: animal.microchip ? 4 : 0 }}>
                   <input
                     className="form-input"
                     defaultValue={animal.microchip || ""}

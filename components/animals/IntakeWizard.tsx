@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import type { Animal, Person } from "@/lib/types";
 import { lookupMicrochip } from "@/lib/data";
 import type { MicrochipRegistration } from "@/lib/types";
+import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import {
   INTAKE_TYPES, CIRCUMSTANCE_TYPES, ALL_BREEDS_DOG, ALL_BREEDS_CAT,
   ALL_COLORS, COAT_TYPES, EAR_TYPES, EYE_COLORS, SIZE_OPTIONS,
@@ -312,6 +313,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
             <div className="grid-2">
               <F label="Microchip Number">
                 <input className="form-input" value={microchip} onChange={(e) => setMicrochip(e.target.value)} placeholder="Scan or enter chip #" />
+                {microchip.length >= 6 && <MicrochipBadge chip={microchip} />}
                 {chipSearching && <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4 }}>Searching registry…</div>}
                 {chipMatch && (
                   <div style={{ marginTop: 6, padding: "10px 12px", borderRadius: 8, background: "#fef3c7", border: "1px solid #fbbf24", fontSize: 12 }}>

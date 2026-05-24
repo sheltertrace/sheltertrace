@@ -5,6 +5,7 @@ import type { Animal } from "@/lib/types";
 import { ALL_BREEDS_DOG, ALL_BREEDS_CAT, ALL_COLORS } from "@/lib/constants";
 import { useKennels } from "@/app/providers";
 import { today } from "@/lib/utils";
+import MicrochipBadge from "@/components/ui/MicrochipBadge";
 
 interface Props {
   callId: string;
@@ -240,6 +241,7 @@ export default function QuickIntakeModal({ callId, callType, onAdded, onClose }:
                     <div className="form-group">
                       <label className="form-label">Microchip # (if scanned)</label>
                       <input className="form-input" value={microchip} onChange={(e) => setMicrochip(e.target.value)} placeholder="Scan or enter manually" />
+                      {microchip.length >= 6 && <MicrochipBadge chip={microchip} />}
                     </div>
                     <div className="form-group">
                       <label className="form-label">Kennel Assignment</label>
