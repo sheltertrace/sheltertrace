@@ -58,8 +58,9 @@ export function nowTime(): string {
 
 export interface ChipId {
   manufacturer: string;
-  phone: string;
-  /** true when prefix is definitively mapped; false for generic fallbacks */
+  /** Phone is undefined when manufacturer is completely unknown — do not show a number */
+  phone?: string;
+  /** true when the prefix definitively maps to one company; false for generic fallbacks */
   certain: boolean;
 }
 
@@ -67,6 +68,9 @@ export interface ChipId {
  * Identify the likely manufacturer of a microchip from its number prefix.
  * Based on known ISO 11784/11785 prefix allocations and AVID/HomeAgain ranges.
  * No network call — purely local lookup.
+ *
+ * Returns null for an empty string.
+ * Returns { phone: undefined } when the prefix is genuinely unknown.
  */
 export function identifyMicrochip(raw: string): ChipId | null {
   const c = raw.replace(/[\s\-]/g, "").toUpperCase();
@@ -87,11 +91,12 @@ export function identifyMicrochip(raw: string): ChipId | null {
 
   // ── 15-digit ISO chips ──────────────────────────────────────────────────────
   if (c.length === 15) {
-    // 985 sub-ranges — check specific before generic
+    // 985 sub-ranges — more specific prefixes checked before generic 985
     if (c.startsWith("98510")) return { manufacturer: "Trovan",                 phone: "(800) 336-2843",  certain: true };
-    if (c.startsWith("98512")) return { manufacturer: "AVID MicroChip ID",      phone: "(800) 336-2843",  certain: true };
     if (c.startsWith("98514")) return { manufacturer: "AKC Reunite",            phone: "(800) 252-7894",  certain: true };
     if (c.startsWith("98515")) return { manufacturer: "Datamars / PetLink",     phone: "(877) 738-5465",  certain: true };
+    // 9851x (excl. 98510/98514/98515 already handled above) → AVID range
+    if (c.startsWith("9851"))  return { manufacturer: "AVID MicroChip ID",      phone: "(800) 336-2843",  certain: true };
     if (c.startsWith("985"))   return { manufacturer: "ISO Standard",           phone: "(800) 252-2894",  certain: false };
 
     // 982 sub-ranges
@@ -107,8 +112,8 @@ export function identifyMicrochip(raw: string): ChipId | null {
     if (c.startsWith("900"))  return { manufacturer: "Datamars / PetLink",      phone: "(877) 738-5465",  certain: true };
   }
 
-  // Unknown — direct caller to AAHA universal lookup
-  return { manufacturer: "Unknown manufacturer", phone: "(800) 252-2894", certain: false };
+  // Prefix doesn't match any known pattern — return no phone number
+  return { manufacturer: "Unknown manufacturer", phone: undefined, certain: false };
 }
 
 export function currencyFmt(amount: number): string {
