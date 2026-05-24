@@ -844,6 +844,10 @@ export interface FosterApplication {
   emergency_contact_phone?: string;
   why_foster?: string;
   signature?: string;
+  agree_to_agreement?: boolean;
+  agreement_signature?: string;
+  agree_to_confidentiality?: boolean;
+  confidentiality_signature?: string;
   status?: string; // pending | approved | rejected | more_info
   admin_notes?: string;
   reviewed_by?: string;
