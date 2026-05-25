@@ -868,6 +868,40 @@ export interface FosterSupplyRequest {
   created_at?: string;
 }
 
+// ── Pet License Registry ──────────────────────────────────────────────────────
+
+export interface PetLicense {
+  id?: string;
+  license_number: string;
+  issue_date?: string;
+  expiration_date?: string;
+  issuing_authority?: string;
+  status?: string;             // Active | Expired | Revoked | Suspended
+  pet_name?: string;
+  species?: string;
+  breed?: string;
+  color?: string;
+  sex?: string;
+  age?: string;
+  spayed_neutered?: boolean | null;
+  microchip_number?: string;
+  rabies_tag?: string;
+  rabies_vaccination_date?: string;
+  rabies_expiration_date?: string;
+  animal_id?: string;
+  owner_name?: string;
+  owner_address?: string;
+  owner_city?: string;
+  owner_state?: string;
+  owner_zip?: string;
+  owner_phone?: string;
+  owner_email?: string;
+  person_id?: string;
+  notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // ── Lost & Found ──────────────────────────────────────────────────────────────
 
 export interface LostFoundReport {

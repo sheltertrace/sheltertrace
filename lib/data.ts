@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense } from "./types";
 import { genId, genReceiptId, today } from "./utils";
 
 // ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
@@ -1596,4 +1596,81 @@ export async function updateLostFoundMatch(
   updates: Partial<LostFoundMatch>
 ): Promise<void> {
   await supabase.from("lost_found_matches").update(updates).eq("id", id);
+}
+
+// ── Pet License Registry ──────────────────────────────────────────────────────
+
+export async function fetchPetLicenses(
+  opts: { search?: string; status?: string; species?: string; year?: number; limit?: number } = {}
+): Promise<PetLicense[]> {
+  let q = supabase.from("pet_licenses").select("*").order("expiration_date", { ascending: true });
+  if (opts.status && opts.status !== "All") q = q.eq("status", opts.status);
+  if (opts.species) q = q.eq("species", opts.species);
+  if (opts.year) {
+    q = q.gte("issue_date", `${opts.year}-01-01`).lte("issue_date", `${opts.year}-12-31`);
+  }
+  if (opts.limit) q = q.limit(opts.limit);
+  const { data } = await q;
+  const results = (data as PetLicense[]) ?? [];
+  if (!opts.search?.trim()) return results;
+  const s = opts.search.toLowerCase();
+  return results.filter(
+    (l) =>
+      (l.license_number ?? "").toLowerCase().includes(s) ||
+      (l.owner_name ?? "").toLowerCase().includes(s) ||
+      (l.pet_name ?? "").toLowerCase().includes(s) ||
+      (l.owner_address ?? "").toLowerCase().includes(s) ||
+      (l.microchip_number ?? "").toLowerCase().includes(s)
+  );
+}
+
+export async function fetchLicensesByAnimal(animalId: string): Promise<PetLicense[]> {
+  const { data } = await supabase.from("pet_licenses").select("*").eq("animal_id", animalId).order("expiration_date", { ascending: false });
+  return (data as PetLicense[]) ?? [];
+}
+
+export async function fetchLicensesByPerson(personId: string): Promise<PetLicense[]> {
+  const { data } = await supabase.from("pet_licenses").select("*").eq("person_id", personId).order("expiration_date", { ascending: false });
+  return (data as PetLicense[]) ?? [];
+}
+
+export async function createPetLicense(
+  license: Omit<PetLicense, "id" | "created_at" | "updated_at">
+): Promise<PetLicense> {
+  const { data, error } = await supabase.from("pet_licenses").insert(license).select().single();
+  if (error) throw error;
+  return data as PetLicense;
+}
+
+export async function updatePetLicense(
+  id: string,
+  updates: Partial<PetLicense>
+): Promise<PetLicense> {
+  const { data, error } = await supabase
+    .from("pet_licenses")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as PetLicense;
+}
+
+export async function deletePetLicense(id: string): Promise<void> {
+  await supabase.from("pet_licenses").delete().eq("id", id);
+}
+
+/** Bulk-insert licenses; skips any whose license_number already exists. */
+export async function bulkCreatePetLicenses(
+  licenses: Omit<PetLicense, "id" | "created_at" | "updated_at">[]
+): Promise<{ inserted: number; skipped: number }> {
+  let inserted = 0;
+  let skipped  = 0;
+  for (const lic of licenses) {
+    const { error } = await supabase.from("pet_licenses").insert(lic);
+    if (error?.code === "23505") skipped++;   // unique violation
+    else if (!error) inserted++;
+    else skipped++;
+  }
+  return { inserted, skipped };
 }

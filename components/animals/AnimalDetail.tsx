@@ -18,7 +18,7 @@ import {
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
   fetchTransfersByAnimal, safeJsonArray, safeJsonObject, safeArray,
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
-  lookupMicrochip,
+  lookupMicrochip, fetchLicensesByAnimal,
   type AnimalDocument,
 } from "@/lib/data";
 import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
@@ -131,6 +131,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [pendingReceipt, setPendingReceipt] = useState<DepartureReceipt | null>(null);
   const [viewingReceipt, setViewingReceipt] = useState<DepartureReceipt | null>(null);
   const [adoptionRecords, setAdoptionRecords] = useState<AdoptionRecord[]>([]);
+  const [animalLicenses, setAnimalLicenses]   = useState<import("@/lib/types").PetLicense[]>([]);
 
   // People attachment
   const [showAttachPerson, setShowAttachPerson] = useState(false);
@@ -147,6 +148,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchTransfersByAnimal(animal.id).then(setAnimalTransfers);
     fetchDepartureReceiptsByAnimal(animal.id).then(setDepartureReceipts);
     fetchAdoptionsByAnimal(animal.id).then(setAdoptionRecords);
+    fetchLicensesByAnimal(animal.id).then(setAnimalLicenses);
   }, [animal.id]);
 
   const save = useCallback(async (
@@ -1200,6 +1202,38 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 </table>
               </div>
             )}
+          </CollapsibleSection>
+
+          {/* ── Pet License ── */}
+          <CollapsibleSection title={`🪪 Pet License${animalLicenses.length ? ` (${animalLicenses.length})` : ""}`} color="#0f2942" defaultOpen={false}>
+            {animalLicenses.length === 0 ? (
+              <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "8px 0" }}>
+                No license on file for this animal.{" "}
+                <a href="/pet-licenses" style={{ color: "var(--teal)", fontWeight: 700 }}>Manage licenses →</a>
+              </div>
+            ) : animalLicenses.map((lic) => {
+              const exp = lic.expiration_date ? new Date(`${lic.expiration_date}T00:00:00`) : null;
+              const expired = exp && exp < new Date();
+              const expiring = exp && !expired && (exp.getTime() - Date.now()) / 86400000 <= 30;
+              return (
+                <div key={lic.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--border-light)" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontWeight: 700, fontSize: 14, fontFamily: "monospace" }}>{lic.license_number}</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: expired ? "#fee2e2" : expiring ? "#fef3c7" : "#dcfce7", color: expired ? "#b91c1c" : expiring ? "#92400e" : "#15803d" }}>
+                      {expired ? "Expired" : expiring ? "Expiring Soon" : "Active"}
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>
+                    {lic.issuing_authority} · Owner: {lic.owner_name ?? "—"}
+                    {lic.expiration_date && ` · Expires: ${lic.expiration_date}`}
+                    {lic.rabies_tag && ` · Rabies: ${lic.rabies_tag}`}
+                  </div>
+                </div>
+              );
+            })}
+            <div style={{ marginTop: 10 }}>
+              <a href="/pet-licenses" className="btn btn-ghost btn-sm" style={{ fontSize: 12 }}>🪪 Manage licenses →</a>
+            </div>
           </CollapsibleSection>
 
           {/* ── Public Website Profile ── */}

@@ -270,7 +270,8 @@ export default function ReportsPage() {
     { id: "status", title: "Status Summary", desc: "Current population by status", icon: "📊" },
     { id: "transfers", title: "Transfer Reports", desc: "Transfers to rescue groups and agencies with receipts", icon: "🚌" },
     { id: "departure_receipts", title: "Departure Receipts", desc: "All departure receipts by type, date, person, and fees", icon: "🧾" },
-    { id: "microchip", title: "Microchip Registry", desc: "Chips registered through MCAS with owner and animal info", icon: "🔬" },
+    { id: "microchip",     title: "Microchip Registry", desc: "Chips registered through MCAS with owner and animal info", icon: "🔬" },
+    { id: "pet_licenses",  title: "Pet Licenses",       desc: "Licenses on file by status, species, expiration date",  icon: "🪪" },
   ];
 
   return (
@@ -810,6 +811,31 @@ export default function ReportsPage() {
           </div>
         );
       })()}
+
+      {/* ── Pet Licenses Report ── */}
+      {activeReport === "pet_licenses" && (
+        <div className="card" style={{ marginBottom: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+            <div style={{ fontWeight: 700, fontSize: 15 }}>🪪 Pet License Registry</div>
+            <a href="/pet-licenses" className="btn btn-secondary btn-sm">Manage Licenses →</a>
+          </div>
+          <div style={{ display: "flex", gap: 16, marginBottom: 14 }}>
+            {[
+              { label: "Active",         color: "#16a34a", count: animals.filter((a) => a.status === "Available").length },
+              { label: "Expiring 30d",   color: "#d97706", count: 0 },
+              { label: "Expired",        color: "#dc2626", count: 0 },
+            ].map(({ label, color, count }) => (
+              <div key={label} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 18px", minWidth: 120 }}>
+                <div style={{ fontSize: 20, fontWeight: 800, color }}>{count}</div>
+                <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</div>
+              </div>
+            ))}
+          </div>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 10 }}>
+            Use the <a href="/pet-licenses" style={{ color: "var(--teal)", fontWeight: 700 }}>Pet License Registry</a> for full filtering, bulk import, CSV export, and expiration tracking.
+          </p>
+        </div>
+      )}
     </AppShell>
   );
 }

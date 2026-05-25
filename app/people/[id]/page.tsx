@@ -8,9 +8,9 @@ import {
   fetchPerson, updatePerson, addPersonNote, fetchPersonNotes,
   uploadPersonPhotoId, deletePersonPhotoId, fetchFormsByLinked,
   fetchAdoptionsByPerson, fetchReceiptsByPerson,
-  fetchCallsByPerson, fetchCitationsByPerson,
+  fetchCallsByPerson, fetchCitationsByPerson, fetchLicensesByPerson,
 } from "@/lib/data";
-import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation } from "@/lib/types";
+import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation, PetLicense } from "@/lib/types";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
@@ -56,6 +56,7 @@ export default function PersonDetailPage() {
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [calls, setCalls] = useState<DispatchCall[]>([]);
   const [citations, setCitations] = useState<Citation[]>([]);
+  const [personLicenses, setPersonLicenses] = useState<PetLicense[]>([]);
   const [personForms, setPersonForms] = useState<ShelterForm[]>([]);
 
   const [newNote, setNewNote] = useState("");
@@ -71,13 +72,14 @@ export default function PersonDetailPage() {
       if (!p) { router.replace("/people"); return; }
       setPerson(p);
       const fullName = `${p.first_name} ${p.last_name}`;
-      const [n, forms, ads, recs, cls, cits] = await Promise.all([
+      const [n, forms, ads, recs, cls, cits, lics] = await Promise.all([
         fetchPersonNotes(id),
         fetchFormsByLinked({ personId: id }),
         fetchAdoptionsByPerson(id),
         fetchReceiptsByPerson(id),
         fetchCallsByPerson(id, fullName),
         fetchCitationsByPerson(p.first_name, p.last_name),
+        fetchLicensesByPerson(id),
       ]);
       setNotes(n as typeof notes);
       setPersonForms(forms);
@@ -85,6 +87,7 @@ export default function PersonDetailPage() {
       setReceipts(recs);
       setCalls(cls);
       setCitations(cits);
+      setPersonLicenses(lics);
     } catch { router.replace("/people"); } finally { setLoading(false); }
   }, [id, router]);
 
@@ -631,6 +634,35 @@ export default function PersonDetailPage() {
                         <td style={{ fontWeight: 700, color: "#059669" }}>${r.total?.toFixed(2)}</td>
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              )}
+            </CollapsibleSection>
+
+            {/* ── Pet Licenses ─────────────────────────────────────────── */}
+            <CollapsibleSection title={`Pet Licenses (${personLicenses.length})`} color="#0f2942" defaultOpen={false}>
+              {personLicenses.length === 0 ? (
+                <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "8px 0" }}>
+                  No pet licenses linked to this person.{" "}
+                  <a href="/pet-licenses" style={{ color: "var(--teal)", fontWeight: 700 }}>Go to License Registry →</a>
+                </div>
+              ) : (
+                <table className="data-table">
+                  <thead><tr><th>License #</th><th>Pet Name</th><th>Species</th><th>Issue Date</th><th>Expires</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {personLicenses.map((lic) => {
+                      const expired = lic.expiration_date && new Date(`${lic.expiration_date}T00:00:00`) < new Date();
+                      return (
+                        <tr key={lic.id}>
+                          <td style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12 }}>{lic.license_number}</td>
+                          <td style={{ fontSize: 12 }}>{lic.pet_name || "—"}</td>
+                          <td style={{ fontSize: 12 }}>{lic.species || "—"}</td>
+                          <td style={{ fontSize: 12 }}>{lic.issue_date || "—"}</td>
+                          <td style={{ fontSize: 12, color: expired ? "#dc2626" : "inherit", fontWeight: expired ? 700 : 400 }}>{lic.expiration_date || "—"}</td>
+                          <td><span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10, background: expired ? "#fee2e2" : "#dcfce7", color: expired ? "#b91c1c" : "#15803d" }}>{expired ? "Expired" : (lic.status ?? "Active")}</span></td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}
