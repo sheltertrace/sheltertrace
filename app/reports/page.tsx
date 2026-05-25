@@ -1,11 +1,13 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers, safeArray, safeAnimalNames, safeJsonArray, safeJsonObject, fetchDepartureReceipts, fetchMicrochipRegistry } from "@/lib/data";
-import type { Animal, AdoptionRecord, MedicalRecord, Transfer, RescueGroup, DepartureReceipt, MicrochipRegistration } from "@/lib/types";
+import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers, safeArray, safeAnimalNames, safeJsonArray, safeJsonObject, fetchDepartureReceipts, fetchMicrochipRegistry, fetchCitations, fetchVolunteerLogs, fetchReceipts } from "@/lib/data";
+import type { Animal, AdoptionRecord, MedicalRecord, Transfer, RescueGroup, DepartureReceipt, MicrochipRegistration, Citation, VolunteerLog, Receipt } from "@/lib/types";
 import { formatDate, today } from "@/lib/utils";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
 import { printDepartureReceipt } from "@/lib/departureReceipt";
+import { computeDateRange, inRange, fmtMoney, fmtDateUS, printReport, downloadCsv, daysBetween, type DatePreset, type DateRange } from "@/lib/reportUtils";
+import { getCurrentUser } from "@/lib/auth";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -281,6 +283,20 @@ export default function ReportsPage() {
   const [gdaDrilldown, setGdaDrilldown] = useState<{ title: string; ids: string[] } | null>(null);
   const [gdaAnnualYear, setGdaAnnualYear] = useState(new Date().getFullYear());
 
+  // ── Global date range ────────────────────────────────────────────────────────
+  const [datePreset, setDatePreset] = useState<DatePreset>("month");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo,   setCustomTo]   = useState(today());
+  const range: DateRange = useMemo(() => computeDateRange(datePreset, customFrom, customTo), [datePreset, customFrom, customTo]);
+
+  // ── Lazy-loaded datasets ─────────────────────────────────────────────────────
+  const [citations,      setCitations]      = useState<Citation[]>([]);
+  const [volLogs,        setVolLogs]        = useState<VolunteerLog[]>([]);
+  const [receipts,       setReceipts]       = useState<Receipt[]>([]);
+  const [citationsLoaded, setCitationsLoaded] = useState(false);
+  const [volLogsLoaded,   setVolLogsLoaded]   = useState(false);
+  const [receiptsLoaded,  setReceiptsLoaded]  = useState(false);
+
   const load = useCallback(async () => {
     try {
       const [a, ad, m, tr, dr] = await Promise.all([fetchAnimals(), fetchAdoptions(), fetchMedical(), fetchTransfers(), fetchDepartureReceipts()]);
@@ -293,6 +309,19 @@ export default function ReportsPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Lazy-load datasets when the relevant report is opened
+  useEffect(() => {
+    if (activeReport === "citations_report" && !citationsLoaded) {
+      fetchCitations().then((c) => { setCitations(c as Citation[]); setCitationsLoaded(true); });
+    }
+    if (activeReport === "volunteer_hours" && !volLogsLoaded) {
+      fetchVolunteerLogs().then((l) => { setVolLogs(l as VolunteerLog[]); setVolLogsLoaded(true); });
+    }
+    if (activeReport === "financial" && !receiptsLoaded) {
+      fetchReceipts().then((r) => { setReceipts(r as Receipt[]); setReceiptsLoaded(true); });
+    }
+  }, [activeReport]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const stats = useMemo(() => {
     const nonEuth = animals.filter((a) => a.status !== "Euthanized");
@@ -516,8 +545,15 @@ export default function ReportsPage() {
     { id: "departure_receipts", title: "Departure Receipts", desc: "All departure receipts by type, date, person, and fees", icon: "🧾" },
     { id: "microchip",     title: "Microchip Registry", desc: "Chips registered through MCAS with owner and animal info", icon: "🔬" },
     { id: "pet_licenses",  title: "Pet Licenses",       desc: "Licenses on file by status, species, expiration date",  icon: "🪪" },
-    { id: "gda_monthly",   title: "GDA Monthly Report", desc: "Georgia Dept. of Agriculture required monthly shelter report — due by the 10th", icon: "🏛️" },
-    { id: "gda_annual",    title: "GDA Annual Summary", desc: "12-month summary with live release rate, totals, and year-over-year trend", icon: "📋" },
+    { id: "gda_monthly",     title: "GDA Monthly Report",     desc: "Georgia Dept. of Agriculture required monthly shelter report — due by the 10th", icon: "🏛️" },
+    { id: "gda_annual",      title: "GDA Annual Summary",      desc: "12-month summary with live release rate, totals, and year-over-year trend", icon: "📋" },
+    { id: "in_shelter",      title: "Animals in Shelter",      desc: "Current shelter population sorted by length of stay — highlights over 30 days", icon: "🏠" },
+    { id: "euthanasia",      title: "Euthanasia Report",        desc: "All euthanasias in selected period with reason, species, days in shelter", icon: "💔" },
+    { id: "citations_report",title: "Citation Report",          desc: "All citations issued in selected period — by officer, type, status", icon: "📋" },
+    { id: "volunteer_hours", title: "Volunteer Hours",          desc: "Volunteer activity and hours logged during selected period", icon: "🙋" },
+    { id: "financial",       title: "Financial Summary",        desc: "Revenue from all sources — adoption, redemption, citations, receipts", icon: "💵" },
+    { id: "intake_detail",   title: "Intake Detail Report",     desc: "All intakes during selected period with full details and print/CSV", icon: "📥" },
+    { id: "outcome_detail",  title: "Outcome Detail Report",    desc: "All outcomes during selected period with type, days in shelter, fees", icon: "📤" },
   ];
 
   return (
@@ -535,6 +571,28 @@ export default function ReportsPage() {
             <div><div className="stat-value" style={{ color }}>{value}</div><div className="stat-label">{label}</div></div>
           </div>
         ))}
+      </div>
+
+      {/* ── Global Date Range Picker ── */}
+      <div style={{ background: "var(--surface)", border: "1px solid var(--border)", borderRadius: 12, padding: "14px 18px", marginBottom: 20 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+          Date Range — applies to all new reports
+        </div>
+        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+          {(["today","week","month","quarter","year","last_month","last_year","custom"] as DatePreset[]).map((p) => (
+            <button key={p} onClick={() => setDatePreset(p)} style={{ padding: "6px 12px", borderRadius: 20, border: "2px solid", borderColor: datePreset === p ? "var(--teal)" : "var(--border)", background: datePreset === p ? "#f0fdfa" : "var(--bg)", color: datePreset === p ? "var(--teal)" : "var(--text-secondary)", fontWeight: datePreset === p ? 700 : 400, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}>
+              {p === "last_month" ? "Last Month" : p === "last_year" ? "Last Year" : p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+          {datePreset === "custom" && (
+            <>
+              <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="form-input" style={{ width: 140, fontSize: 12, padding: "5px 8px" }} />
+              <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>to</span>
+              <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="form-input" style={{ width: 140, fontSize: 12, padding: "5px 8px" }} />
+            </>
+          )}
+          <span style={{ fontSize: 12, color: "var(--teal)", fontWeight: 600, marginLeft: 8 }}>📅 {range.label}</span>
+        </div>
       </div>
 
       {/* Report Cards Grid */}
@@ -1355,6 +1413,541 @@ export default function ReportsPage() {
                     <td style={{ textAlign: "right", padding: "7px 10px", color: "#dc2626" }}>{yearTotals.outcomes}</td>
                     <td style={{ textAlign: "right", padding: "7px 10px", color: "#0d9488" }}>{lrr}%</td>
                   </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Animals in Shelter ── */}
+      {activeReport === "in_shelter" && (() => {
+        const IN_SHELTER = ["Available","Medical Hold","Quarantine","Pending","Imported","Foster"];
+        const inShelter = animals
+          .filter((a) => IN_SHELTER.includes(a.status) && a.intake_type !== "Clinic")
+          .map((a) => ({ ...a, daysIn: a.intake_date ? Math.floor((Date.now() - new Date(`${a.intake_date}T12:00:00`).getTime()) / 86400000) : 0 }))
+          .sort((a, b) => b.daysIn - a.daysIn);
+        const avg = inShelter.length ? Math.round(inShelter.reduce((s, a) => s + a.daysIn, 0) / inShelter.length) : 0;
+        const over30 = inShelter.filter((a) => a.daysIn > 30).length;
+        const by = (key: string) => inShelter.filter((a) => a.status === key).length;
+
+        function doPrint() {
+          const rows = inShelter.map((a) =>
+            `<tr style="background:${a.daysIn>30?"#fee2e2":a.daysIn>14?"#fef3c7":""}">
+              <td>${a.id}</td><td>${a.name}</td><td>${a.species}</td><td>${a.breed||"—"}</td>
+              <td>${a.color||"—"}</td><td>${a.sex||"—"}</td><td>${a.kennel||"—"}</td>
+              <td>${a.status}</td><td>${fmtDateUS(a.intake_date)}</td>
+              <td class="right bold" style="color:${a.daysIn>30?"#b91c1c":a.daysIn>14?"#92400e":""}">${a.daysIn}d</td>
+              <td>${a.microchip||"—"}</td><td>${a.fixed?"Yes":"No"}</td></tr>`
+          ).join("");
+          printReport("Animals Currently in Shelter", `As of ${fmtDateUS(today())}`,
+            `<div class="summary">
+              <div class="summary-item"><div class="val">${inShelter.length}</div><div class="lbl">Total in Care</div></div>
+              <div class="summary-item"><div class="val" style="color:#dc2626">${over30}</div><div class="lbl">Over 30 Days</div></div>
+              <div class="summary-item"><div class="val">${avg}</div><div class="lbl">Avg Days in Shelter</div></div>
+            </div>
+            <table><thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Color</th><th>Sex</th><th>Kennel</th><th>Status</th><th>Intake Date</th><th>Days</th><th>Microchip</th><th>Fixed</th></tr></thead><tbody>${rows}</tbody></table>`);
+        }
+
+        function doExport() {
+          downloadCsv(`Animals-In-Shelter-${today()}.csv`,
+            ["Animal ID","Name","Species","Breed","Color","Sex","Kennel","Status","Intake Date","Days in Shelter","Microchip","Fixed"],
+            inShelter.map((a) => [a.id,a.name,a.species,a.breed,a.color,a.sex,a.kennel,a.status,a.intake_date,a.daysIn,a.microchip,a.fixed?"Yes":"No"]));
+        }
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>🏠 Animals Currently in Shelter — {inShelter.length}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={doPrint}>🖨 Print</button>
+                <button className="btn btn-secondary btn-sm" onClick={doExport}>📥 CSV</button>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
+              {[
+                { label: "Total in Care",  value: inShelter.length, color: "#0f2942" },
+                { label: "Over 30 Days",   value: over30,           color: "#dc2626" },
+                { label: "Avg Days",       value: `${avg}d`,        color: "#d97706" },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px", minWidth: 100 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color }}>{value}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</div>
+                </div>
+              ))}
+              {["Available","Medical Hold","Quarantine","Pending","Foster","Imported"].map((s) => by(s) > 0 && (
+                <div key={s} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                  <div style={{ fontSize: 16, fontWeight: 800 }}>{by(s)}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{s}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="data-table">
+                <thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Kennel</th><th>Status</th><th>Intake Date</th><th>Days</th><th>Microchip</th><th>Fixed</th></tr></thead>
+                <tbody>
+                  {inShelter.map((a) => (
+                    <tr key={a.id} style={{ background: a.daysIn > 30 ? "#fee2e2" : a.daysIn > 14 ? "#fef9eb" : undefined }}>
+                      <td style={{ fontFamily: "monospace", fontSize: 11 }}><a href={`/animals/${a.id}`} style={{ color: "var(--teal)" }}>{a.id}</a></td>
+                      <td style={{ fontWeight: 600 }}>{a.name}</td>
+                      <td style={{ fontSize: 12 }}>{a.species}</td>
+                      <td style={{ fontSize: 12 }}>{a.breed || "—"}</td>
+                      <td style={{ fontSize: 12 }}>{a.kennel || "—"}</td>
+                      <td><span className="badge" style={{ fontSize: 10 }}>{a.status}</span></td>
+                      <td style={{ fontSize: 12 }}>{fmtDateUS(a.intake_date)}</td>
+                      <td style={{ fontWeight: 700, color: a.daysIn > 30 ? "#dc2626" : a.daysIn > 14 ? "#d97706" : "inherit" }}>{a.daysIn}d</td>
+                      <td style={{ fontSize: 11, fontFamily: "monospace" }}>{a.microchip || "—"}</td>
+                      <td style={{ fontSize: 12 }}>{a.fixed ? "Yes" : "No"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Euthanasia Report ── */}
+      {activeReport === "euthanasia" && (() => {
+        const euths = departureRecs.filter((dr) => {
+          const t = (dr.departure_type ?? "").toLowerCase();
+          return t.includes("euthan") && inRange(dr.departure_date, range.from, range.to);
+        });
+        const reasons: Record<string, number> = {};
+        euths.forEach((dr) => {
+          const a = animals.find((x) => x.id === dr.animal_id);
+          let reason = "Unknown";
+          try { const e = typeof a?.euthanasia === "string" ? JSON.parse(a.euthanasia as unknown as string) : a?.euthanasia; reason = (e as { reason?: string })?.reason ?? "Unknown"; } catch { /* */ }
+          reasons[reason] = (reasons[reason] || 0) + 1;
+        });
+
+        function doPrint() {
+          const rows = euths.map((dr) => {
+            const a = animals.find((x) => x.id === dr.animal_id);
+            let euth: { reason?: string; performed_by?: string; authorized_by?: string } = {};
+            try { euth = typeof a?.euthanasia === "string" ? JSON.parse(a.euthanasia as unknown as string) : (a?.euthanasia as typeof euth ?? {}); } catch { /* */ }
+            const daysIn = a?.intake_date ? daysBetween(a.intake_date, dr.departure_date ?? today()) : 0;
+            return `<tr><td>${a?.id??""}</td><td>${a?.name??""}</td><td>${a?.species??""}</td><td>${a?.breed??""}</td>
+              <td>${fmtDateUS(a?.intake_date)}</td><td>${fmtDateUS(dr.departure_date)}</td><td class="right">${daysIn}d</td>
+              <td>${euth.reason??""}</td><td>${euth.authorized_by??""}</td><td>${euth.performed_by??""}</td></tr>`;
+          }).join("");
+          printReport("Euthanasia Report", range.label,
+            `<div class="summary"><div class="summary-item"><div class="val">${euths.length}</div><div class="lbl">Total</div></div></div>
+            <table><thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Intake</th><th>Euth Date</th><th>Days</th><th>Reason</th><th>Auth By</th><th>Performed By</th></tr></thead><tbody>${rows}</tbody></table>`);
+        }
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>💔 Euthanasia Report — {euths.length} · {range.label}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={doPrint}>🖨 Print</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => downloadCsv(`Euthanasia-${range.from}-${range.to}.csv`,
+                  ["Animal ID","Name","Species","Breed","Intake Date","Euth Date","Days in Shelter","Reason","Auth By"],
+                  euths.map((dr) => {
+                    const a = animals.find((x) => x.id === dr.animal_id);
+                    let e: { reason?: string; authorized_by?: string } = {};
+                    try { e = typeof a?.euthanasia === "string" ? JSON.parse(a.euthanasia as unknown as string) : (a?.euthanasia as typeof e ?? {}); } catch { /* */ }
+                    return [a?.id,a?.name,a?.species,a?.breed,a?.intake_date,dr.departure_date,a?.intake_date?daysBetween(a.intake_date,dr.departure_date??today()):0,e.reason,e.authorized_by];
+                  }))}>📥 CSV</button>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              {Object.entries(reasons).map(([reason, count]) => (
+                <div key={reason} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                  <div style={{ fontSize: 16, fontWeight: 800 }}>{count}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{reason}</div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ overflowX: "auto" }}>
+              <table className="data-table">
+                <thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Intake Date</th><th>Euth Date</th><th>Days</th><th>Reason</th><th>Auth By</th></tr></thead>
+                <tbody>
+                  {euths.map((dr) => {
+                    const a = animals.find((x) => x.id === dr.animal_id);
+                    let e: { reason?: string; authorized_by?: string } = {};
+                    try { e = typeof a?.euthanasia === "string" ? JSON.parse(a.euthanasia as unknown as string) : (a?.euthanasia as typeof e ?? {}); } catch { /* */ }
+                    const daysIn = a?.intake_date ? daysBetween(a.intake_date, dr.departure_date ?? today()) : 0;
+                    return (
+                      <tr key={dr.id}>
+                        <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a?.id || dr.animal_id}</td>
+                        <td style={{ fontWeight: 600 }}>{a?.name || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{a?.species || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{a?.breed || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{fmtDateUS(a?.intake_date)}</td>
+                        <td style={{ fontSize: 12 }}>{fmtDateUS(dr.departure_date)}</td>
+                        <td style={{ fontSize: 12, fontWeight: 600 }}>{daysIn}d</td>
+                        <td style={{ fontSize: 12 }}>{e.reason || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{e.authorized_by || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Citation Report ── */}
+      {activeReport === "citations_report" && (() => {
+        const citRange = citations.filter((c) => inRange(c.date, range.from, range.to));
+        const byOfficer: Record<string, number> = {};
+        const byStatus: Record<string, number> = {};
+        let totalFines = 0;
+        citRange.forEach((c) => {
+          if (c.issuing_officer) byOfficer[c.issuing_officer] = (byOfficer[c.issuing_officer] || 0) + 1;
+          byStatus[c.status ?? "Unknown"] = (byStatus[c.status ?? "Unknown"] || 0) + 1;
+          totalFines += c.fine_amount ?? 0;
+        });
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>📋 Citation Report — {citRange.length} citations · {range.label}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => {
+                  const rows = citRange.map((c) =>
+                    `<tr><td>${c.citation_number||""}</td><td>${fmtDateUS(c.date)}</td><td>${c.violator_name||""}</td>
+                    <td>${c.violation_type||""}</td><td>${c.location||""}</td>
+                    <td class="right">${fmtMoney(c.fine_amount)}</td><td>${c.status||""}</td><td>${c.issuing_officer||""}</td></tr>`
+                  ).join("");
+                  printReport("Citation Report", range.label,
+                    `<div class="summary">
+                      <div class="summary-item"><div class="val">${citRange.length}</div><div class="lbl">Total</div></div>
+                      <div class="summary-item"><div class="val">${fmtMoney(totalFines)}</div><div class="lbl">Fines Assessed</div></div>
+                    </div>
+                    <table><thead><tr><th>Citation #</th><th>Date</th><th>Violator</th><th>Violation</th><th>Location</th><th>Fine</th><th>Status</th><th>Officer</th></tr></thead><tbody>${rows}</tbody></table>`);
+                }}>🖨 Print</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => downloadCsv(`Citations-${range.from}-${range.to}.csv`,
+                  ["Citation #","Date","Violator","Address","Violation","Location","Fine Amount","Status","Officer"],
+                  citRange.map((c) => [c.citation_number,c.date,c.violator_name,c.violator_address,c.violation_type,c.location,c.fine_amount,c.status,c.issuing_officer]))}>📥 CSV</button>
+              </div>
+            </div>
+            {!citationsLoaded && <p style={{ color: "var(--text-muted)" }}>Loading citations…</p>}
+            <div style={{ display: "flex", gap: 14, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{citRange.length}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Citations</div>
+              </div>
+              <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#16a34a" }}>{fmtMoney(totalFines)}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Fines Assessed</div>
+              </div>
+              {Object.entries(byStatus).map(([s, n]) => (
+                <div key={s} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                  <div style={{ fontSize: 16, fontWeight: 800 }}>{n}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{s}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="data-table">
+                <thead><tr><th>Citation #</th><th>Date</th><th>Violator</th><th>Violation</th><th>Fine</th><th>Court Date</th><th>Status</th><th>Officer</th></tr></thead>
+                <tbody>
+                  {citRange.map((c) => (
+                    <tr key={c.id}>
+                      <td style={{ fontFamily: "monospace", fontWeight: 700 }}>{c.citation_number}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDateUS(c.date)}</td>
+                      <td style={{ fontSize: 12 }}>{c.violator_name || "—"}</td>
+                      <td style={{ fontSize: 12 }}>{c.violation_type || "—"}</td>
+                      <td style={{ fontWeight: 700, color: "#16a34a" }}>{fmtMoney(c.fine_amount)}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDateUS(c.court_date)}</td>
+                      <td><span className="badge" style={{ fontSize: 10 }}>{c.status || "—"}</span></td>
+                      <td style={{ fontSize: 12 }}>{c.issuing_officer || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Volunteer Hours Report ── */}
+      {activeReport === "volunteer_hours" && (() => {
+        const logsRange = volLogs.filter((l) => inRange(l.date, range.from, range.to));
+        const totalHours = logsRange.reduce((s, l) => s + (l.hours ?? 0), 0);
+        const byVol: Record<string, { name: string; hours: number; sessions: number }> = {};
+        logsRange.forEach((l) => {
+          if (!byVol[l.person_id]) byVol[l.person_id] = { name: l.person_name, hours: 0, sessions: 0 };
+          byVol[l.person_id].hours += l.hours ?? 0;
+          byVol[l.person_id].sessions++;
+        });
+        const volRanking = Object.values(byVol).sort((a, b) => b.hours - a.hours);
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>🙋 Volunteer Hours — {range.label}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => {
+                  const rows = volRanking.map((v) =>
+                    `<tr><td>${v.name}</td><td class="right">${v.sessions}</td><td class="right bold">${v.hours.toFixed(2)}h</td></tr>`
+                  ).join("");
+                  printReport("Volunteer Hours Report", range.label,
+                    `<div class="summary">
+                      <div class="summary-item"><div class="val">${totalHours.toFixed(1)}h</div><div class="lbl">Total Hours</div></div>
+                      <div class="summary-item"><div class="val">${logsRange.length}</div><div class="lbl">Sessions</div></div>
+                      <div class="summary-item"><div class="val">${volRanking.length}</div><div class="lbl">Volunteers</div></div>
+                    </div>
+                    <table><thead><tr><th>Volunteer</th><th>Sessions</th><th>Hours</th></tr></thead><tbody>${rows}</tbody></table>`);
+                }}>🖨 Print</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => downloadCsv(`Volunteer-Hours-${range.from}-${range.to}.csv`,
+                  ["Volunteer","Date","Task","Clock In","Clock Out","Hours"],
+                  logsRange.map((l) => [l.person_name,l.date,l.task,l.clock_in,l.clock_out,l.hours]))}>📥 CSV</button>
+              </div>
+            </div>
+            {!volLogsLoaded && <p style={{ color: "var(--text-muted)" }}>Loading volunteer logs…</p>}
+            <div style={{ display: "flex", gap: 14, marginBottom: 14 }}>
+              {[
+                { label: "Total Hours",   value: `${totalHours.toFixed(1)}h`, color: "#0d9488" },
+                { label: "Sessions",      value: logsRange.length,             color: "#6366f1" },
+                { label: "Volunteers",    value: volRanking.length,            color: "#0f2942" },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color }}>{value}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{label}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10, marginBottom: 14 }}>
+              {volRanking.map((v) => (
+                <div key={v.name} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", display: "flex", justifyContent: "space-between" }}>
+                  <div><div style={{ fontWeight: 700 }}>{v.name}</div><div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{v.sessions} session{v.sessions !== 1 ? "s" : ""}</div></div>
+                  <div style={{ fontWeight: 800, fontSize: 16, color: "var(--teal)" }}>{v.hours.toFixed(1)}h</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Financial Summary ── */}
+      {activeReport === "financial" && (() => {
+        const depsRange = departureRecs.filter((dr) => inRange(dr.departure_date, range.from, range.to));
+        const recsRange = receipts.filter((r) => inRange(r.date, range.from, range.to));
+        const adoptionFees = depsRange.filter((dr) => dr.departure_type === "Adoption").reduce((s, dr) => s + (dr.total_fees ?? 0), 0);
+        const redemptionFees = depsRange.filter((dr) => dr.departure_type?.includes("Redemption") || dr.departure_type?.includes("Owner")).reduce((s, dr) => s + (dr.total_fees ?? 0), 0);
+        const otherDep = depsRange.filter((dr) => !dr.departure_type?.includes("Adoption") && !dr.departure_type?.includes("Redemption") && !dr.departure_type?.includes("Owner")).reduce((s, dr) => s + (dr.total_fees ?? 0), 0);
+        const donations = recsRange.filter((r) => r.category === "Donations").reduce((s, r) => s + (r.total ?? 0), 0);
+        const merchandise = recsRange.filter((r) => r.category === "Merchandise").reduce((s, r) => s + (r.total ?? 0), 0);
+        const services = recsRange.filter((r) => r.category === "Services").reduce((s, r) => s + (r.total ?? 0), 0);
+        const grandTotal = adoptionFees + redemptionFees + otherDep + donations + merchandise + services;
+        const byMethod: Record<string, number> = {};
+        [...depsRange, ...recsRange].forEach((r) => {
+          const m = ("payment_method" in r ? r.payment_method : null) ?? "Unknown";
+          byMethod[m] = (byMethod[m] || 0) + (("total_fees" in r ? r.total_fees : r.total) ?? 0);
+        });
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>💵 Financial Summary — {range.label}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => printReport("Financial Summary", range.label,
+                  `<div class="summary"><div class="summary-item"><div class="val">${fmtMoney(grandTotal)}</div><div class="lbl">Grand Total</div></div></div>
+                  <table><thead><tr><th>Category</th><th class="right">Amount</th></tr></thead><tbody>
+                    <tr><td>Adoption Fees</td><td class="right bold">${fmtMoney(adoptionFees)}</td></tr>
+                    <tr><td>Redemption / Impound Fees</td><td class="right bold">${fmtMoney(redemptionFees)}</td></tr>
+                    <tr><td>Other Departure Fees</td><td class="right bold">${fmtMoney(otherDep)}</td></tr>
+                    <tr><td>Donations</td><td class="right bold">${fmtMoney(donations)}</td></tr>
+                    <tr><td>Merchandise</td><td class="right bold">${fmtMoney(merchandise)}</td></tr>
+                    <tr><td>Services</td><td class="right bold">${fmtMoney(services)}</td></tr>
+                    <tr style="font-weight:700;background:#f0f4f8"><td>GRAND TOTAL</td><td class="right">${fmtMoney(grandTotal)}</td></tr>
+                  </tbody></table>`)}>🖨 Print</button>
+              </div>
+            </div>
+            {!receiptsLoaded && <p style={{ color: "var(--text-muted)" }}>Loading receipts…</p>}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+              <div className="card">
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Revenue by Category</div>
+                {[
+                  ["Adoption Fees",              adoptionFees,   "#6366f1"],
+                  ["Redemption / Impound Fees",  redemptionFees, "#0891b2"],
+                  ["Other Departure Fees",       otherDep,       "#f59e0b"],
+                  ["Donations",                  donations,      "#16a34a"],
+                  ["Merchandise",                merchandise,    "#8b5cf6"],
+                  ["Services",                   services,       "#0d9488"],
+                ].map(([label, amount, color]) => (
+                  <div key={String(label)} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border-light)", fontSize: 13 }}>
+                    <span>{String(label)}</span>
+                    <span style={{ fontWeight: 700, color: String(color) }}>{fmtMoney(amount as number)}</span>
+                  </div>
+                ))}
+                <div style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", fontWeight: 800, fontSize: 15, borderTop: "2px solid var(--border)" }}>
+                  <span>Grand Total</span>
+                  <span style={{ color: "#0f2942" }}>{fmtMoney(grandTotal)}</span>
+                </div>
+              </div>
+              <div className="card">
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>By Payment Method</div>
+                {Object.entries(byMethod).sort((a, b) => b[1] - a[1]).map(([method, amount]) => (
+                  <div key={method} style={{ display: "flex", justifyContent: "space-between", padding: "6px 0", borderBottom: "1px solid var(--border-light)", fontSize: 13 }}>
+                    <span>{method}</span>
+                    <span style={{ fontWeight: 700 }}>{fmtMoney(amount)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Intake Detail Report ── */}
+      {activeReport === "intake_detail" && (() => {
+        const intakes = animals.filter((a) => inRange(a.intake_date, range.from, range.to) && a.intake_type !== "Clinic");
+        const byType: Record<string, number> = {};
+        const bySp: Record<string, number> = {};
+        intakes.forEach((a) => {
+          byType[a.intake_type || "Unknown"] = (byType[a.intake_type || "Unknown"] || 0) + 1;
+          bySp[a.species || "Unknown"] = (bySp[a.species || "Unknown"] || 0) + 1;
+        });
+
+        function doPrint() {
+          const rows = intakes.map((a) =>
+            `<tr><td>${a.id}</td><td>${a.name}</td><td>${a.species}</td><td>${a.breed||""}</td><td>${a.color||""}</td>
+            <td>${a.sex||""}</td><td>${fmtDateUS(a.intake_date)}</td><td>${a.intake_type||""}</td>
+            <td>${a.microchip||""}</td><td>${a.status}</td></tr>`
+          ).join("");
+          printReport("Intake Detail Report", range.label,
+            `<div class="summary">
+              <div class="summary-item"><div class="val">${intakes.length}</div><div class="lbl">Total Intakes</div></div>
+              ${Object.entries(bySp).map(([s,n]) => `<div class="summary-item"><div class="val">${n}</div><div class="lbl">${s}</div></div>`).join("")}
+            </div>
+            <table><thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Color</th><th>Sex</th><th>Intake Date</th><th>Type</th><th>Microchip</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`);
+        }
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>📥 Intake Detail — {intakes.length} intakes · {range.label}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={doPrint}>🖨 Print</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => downloadCsv(`Intakes-${range.from}-${range.to}.csv`,
+                  ["Animal ID","Name","Species","Breed","Color","Sex","Age","Intake Date","Intake Type","Microchip","Status"],
+                  intakes.map((a) => [a.id,a.name,a.species,a.breed,a.color,a.sex,a.age,a.intake_date,a.intake_type,a.microchip,a.status]))}>📥 CSV</button>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+              {Object.entries(bySp).map(([s, n]) => (
+                <div key={s} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px" }}>
+                  <div style={{ fontWeight: 800 }}>{n}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{s}</div>
+                </div>
+              ))}
+              {Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => (
+                <div key={t} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "6px 12px" }}>
+                  <div style={{ fontWeight: 800 }}>{n}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="data-table">
+                <thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Color</th><th>Sex</th><th>Intake Date</th><th>Intake Type</th><th>Microchip</th><th>Status</th></tr></thead>
+                <tbody>
+                  {intakes.map((a) => (
+                    <tr key={a.id}>
+                      <td style={{ fontFamily: "monospace", fontSize: 11 }}><a href={`/animals/${a.id}`} style={{ color: "var(--teal)" }}>{a.id}</a></td>
+                      <td style={{ fontWeight: 600 }}>{a.name}</td>
+                      <td style={{ fontSize: 12 }}>{a.species}</td>
+                      <td style={{ fontSize: 12 }}>{a.breed||"—"}</td>
+                      <td style={{ fontSize: 12 }}>{a.color||"—"}</td>
+                      <td style={{ fontSize: 12 }}>{a.sex||"—"}</td>
+                      <td style={{ fontSize: 12 }}>{fmtDateUS(a.intake_date)}</td>
+                      <td style={{ fontSize: 12 }}>{a.intake_type||"—"}</td>
+                      <td style={{ fontSize: 11, fontFamily: "monospace" }}>{a.microchip||"—"}</td>
+                      <td><span className="badge" style={{ fontSize: 10 }}>{a.status}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ── Outcome Detail Report ── */}
+      {activeReport === "outcome_detail" && (() => {
+        const outcomes = departureRecs.filter((dr) => inRange(dr.departure_date, range.from, range.to));
+        const byType: Record<string, number> = {};
+        const byType$: Record<string, number> = {};
+        let totalFees = 0;
+        outcomes.forEach((dr) => {
+          byType[dr.departure_type || "Unknown"] = (byType[dr.departure_type || "Unknown"] || 0) + 1;
+          byType$[dr.departure_type || "Unknown"] = (byType$[dr.departure_type || "Unknown"] || 0) + (dr.total_fees ?? 0);
+          totalFees += dr.total_fees ?? 0;
+        });
+        const liveTypes = ["Adoption","Owner Redemption","Transfer Out","Field Release","Return to Owner","Foster Placement"];
+        const live = outcomes.filter((dr) => liveTypes.some((t) => (dr.departure_type ?? "").includes(t.split(" ")[0]))).length;
+        const lrr = outcomes.length > 0 ? ((live / outcomes.length) * 100).toFixed(1) : "N/A";
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>📤 Outcome Detail — {outcomes.length} · {range.label}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button className="btn btn-secondary btn-sm" onClick={() => {
+                  const rows = outcomes.map((dr) => {
+                    const a = animals.find((x) => x.id === dr.animal_id);
+                    return `<tr><td>${a?.id||""}</td><td>${a?.name||""}</td><td>${a?.species||""}</td>
+                      <td>${fmtDateUS(a?.intake_date)}</td><td>${fmtDateUS(dr.departure_date)}</td>
+                      <td>${dr.departure_type||""}</td>
+                      <td class="right">${a?.intake_date&&dr.departure_date?daysBetween(a.intake_date,dr.departure_date):"—"}d</td>
+                      <td class="right">${fmtMoney(dr.total_fees)}</td></tr>`;
+                  }).join("");
+                  printReport("Outcome Detail Report", range.label,
+                    `<div class="summary">
+                      <div class="summary-item"><div class="val">${outcomes.length}</div><div class="lbl">Total Outcomes</div></div>
+                      <div class="summary-item"><div class="val">${lrr}%</div><div class="lbl">Live Release Rate</div></div>
+                      <div class="summary-item"><div class="val">${fmtMoney(totalFees)}</div><div class="lbl">Fees Collected</div></div>
+                    </div>
+                    <table><thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Intake</th><th>Outcome</th><th>Type</th><th>Days</th><th>Fees</th></tr></thead><tbody>${rows}</tbody></table>`);
+                }}>🖨 Print</button>
+                <button className="btn btn-secondary btn-sm" onClick={() => downloadCsv(`Outcomes-${range.from}-${range.to}.csv`,
+                  ["Animal ID","Name","Species","Intake Date","Outcome Date","Outcome Type","Days in Shelter","Fees"],
+                  outcomes.map((dr) => {
+                    const a = animals.find((x) => x.id === dr.animal_id);
+                    return [a?.id,a?.name,a?.species,a?.intake_date,dr.departure_date,dr.departure_type,
+                      a?.intake_date&&dr.departure_date?daysBetween(a.intake_date,dr.departure_date):"",dr.total_fees];
+                  }))}>📥 CSV</button>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 12, marginBottom: 14, flexWrap: "wrap" }}>
+              <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                <div style={{ fontSize: 18, fontWeight: 800 }}>{outcomes.length}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Total Outcomes</div>
+              </div>
+              <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#0d9488" }}>{lrr}%</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Live Release Rate</div>
+              </div>
+              <div style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "#16a34a" }}>{fmtMoney(totalFees)}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>Fees Collected</div>
+              </div>
+              {Object.entries(byType).map(([t, n]) => (
+                <div key={t} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "8px 14px" }}>
+                  <div style={{ fontWeight: 800 }}>{n}</div><div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{t}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table className="data-table">
+                <thead><tr><th>ID</th><th>Name</th><th>Species</th><th>Intake Date</th><th>Outcome Date</th><th>Type</th><th>Days</th><th>Fees</th></tr></thead>
+                <tbody>
+                  {outcomes.map((dr) => {
+                    const a = animals.find((x) => x.id === dr.animal_id);
+                    const days = a?.intake_date && dr.departure_date ? daysBetween(a.intake_date, dr.departure_date) : null;
+                    return (
+                      <tr key={dr.id}>
+                        <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a?.id || dr.animal_id}</td>
+                        <td style={{ fontWeight: 600 }}>{a?.name || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{a?.species || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{fmtDateUS(a?.intake_date)}</td>
+                        <td style={{ fontSize: 12 }}>{fmtDateUS(dr.departure_date)}</td>
+                        <td><span className="badge" style={{ fontSize: 10 }}>{dr.departure_type || "—"}</span></td>
+                        <td style={{ fontSize: 12 }}>{days != null ? `${days}d` : "—"}</td>
+                        <td style={{ fontWeight: 700, color: "#16a34a" }}>{fmtMoney(dr.total_fees)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
