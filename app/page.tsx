@@ -6,6 +6,7 @@ import { useAuth } from "./providers";
 import { fetchAnimals, fetchCalls, fetchAdoptions, fetchMedical } from "@/lib/data";
 import { fetchOfficerFieldStatuses } from "@/lib/fieldOps";
 import { fetchTodayOnCall } from "@/lib/schedules";
+import { fetchLostFoundReports } from "@/lib/data";
 import type { Animal, DispatchCall, AdoptionRecord, MedicalRecord, OfficerFieldProfile, FieldStatus, ScheduleOverride } from "@/lib/types";
 import { STATUS_COLORS } from "@/lib/constants";
 import { formatDate, currencyFmt } from "@/lib/utils";
@@ -47,17 +48,23 @@ export default function DashboardPage() {
   const [medical, setMedical] = useState<MedicalRecord[]>([]);
   const [officers, setOfficers] = useState<OfficerFieldProfile[]>([]);
   const [todayOnCall, setTodayOnCall] = useState<ScheduleOverride[]>([]);
+  const [lostFoundStats, setLostFoundStats] = useState({ activeLost: 0, activeFound: 0, reunited: 0 });
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     try {
-      const [a, c, ad, m, offs, oc] = await Promise.all([fetchAnimals(), fetchCalls(), fetchAdoptions(), fetchMedical(), fetchOfficerFieldStatuses(), fetchTodayOnCall()]);
-      setAnimals(a);
-      setCalls(c);
-      setAdoptions(ad);
-      setMedical(m);
-      setOfficers(offs);
-      setTodayOnCall(oc);
+      const [a, c, ad, m, offs, oc, lfReports] = await Promise.all([
+        fetchAnimals(), fetchCalls(), fetchAdoptions(), fetchMedical(),
+        fetchOfficerFieldStatuses(), fetchTodayOnCall(),
+        fetchLostFoundReports({ limit: 500 }),
+      ]);
+      setAnimals(a); setCalls(c); setAdoptions(ad); setMedical(m);
+      setOfficers(offs); setTodayOnCall(oc);
+      setLostFoundStats({
+        activeLost:  lfReports.filter((r) => r.type === "lost"  && r.status === "active").length,
+        activeFound: lfReports.filter((r) => r.type === "found" && r.status === "active").length,
+        reunited:    lfReports.filter((r) => r.status === "reunited").length,
+      });
     } catch {
       // Supabase may not have data yet — start empty
     } finally {
@@ -233,6 +240,31 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
+
+          {/* Lost & Found widget */}
+          {(lostFoundStats.activeLost + lostFoundStats.activeFound) > 0 && (
+            <div className="card" style={{ marginBottom: 16 }}>
+              <div className="card-header">
+                <span className="card-title">🔎 Lost &amp; Found</span>
+                <Link href="/lost-found-admin" style={{ fontSize: 12, color: "var(--teal)", textDecoration: "none" }}>Manage →</Link>
+              </div>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                {[
+                  { label: "Active Lost",  value: lostFoundStats.activeLost,  color: "#dc2626" },
+                  { label: "Active Found", value: lostFoundStats.activeFound, color: "#2563eb" },
+                  { label: "Reunited",     value: lostFoundStats.reunited,    color: "#16a34a" },
+                ].map(({ label, value, color }) => (
+                  <div key={label} style={{ textAlign: "center", flex: 1 }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                <a href="/lost-found" target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "var(--teal)", fontWeight: 600, textDecoration: "none" }}>View public board →</a>
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             {/* Recent dispatch calls */}

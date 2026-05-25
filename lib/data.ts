@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch } from "./types";
 import { genId, genReceiptId, today } from "./utils";
 
 // ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
@@ -1548,4 +1548,52 @@ export async function fetchMicrochipSearchHistory(limit = 100): Promise<Microchi
     .order("searched_at", { ascending: false })
     .limit(limit);
   return (data as MicrochipSearch[]) ?? [];
+}
+
+// ── Lost & Found (staff-side — uses main supabase client) ──────────────────
+
+export async function fetchLostFoundReports(
+  opts: { type?: string; status?: string; limit?: number } = {}
+): Promise<LostFoundReport[]> {
+  let q = supabase
+    .from("lost_found_reports")
+    .select("*")
+    .order("created_at", { ascending: false });
+  if (opts.type)   q = q.eq("type", opts.type);
+  if (opts.status) q = q.eq("status", opts.status);
+  if (opts.limit)  q = q.limit(opts.limit);
+  const { data } = await q;
+  return (data as LostFoundReport[]) ?? [];
+}
+
+export async function updateLostFoundReport(
+  id: string,
+  updates: Partial<LostFoundReport>
+): Promise<LostFoundReport> {
+  const { data, error } = await supabase
+    .from("lost_found_reports")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as LostFoundReport;
+}
+
+export async function fetchLostFoundMatches(
+  reportId: string
+): Promise<LostFoundMatch[]> {
+  const { data } = await supabase
+    .from("lost_found_matches")
+    .select("*")
+    .or(`lost_report_id.eq.${reportId},found_report_id.eq.${reportId}`)
+    .order("match_score", { ascending: false });
+  return (data as LostFoundMatch[]) ?? [];
+}
+
+export async function updateLostFoundMatch(
+  id: string,
+  updates: Partial<LostFoundMatch>
+): Promise<void> {
+  await supabase.from("lost_found_matches").update(updates).eq("id", id);
 }

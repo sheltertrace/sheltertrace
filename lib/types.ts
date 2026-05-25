@@ -868,6 +868,64 @@ export interface FosterSupplyRequest {
   created_at?: string;
 }
 
+// ── Lost & Found ──────────────────────────────────────────────────────────────
+
+export interface LostFoundReport {
+  id?: string;
+  type: "lost" | "found";
+  status?: string;       // active | matched | reunited | archived
+  species?: string;
+  breed?: string;
+  color?: string;
+  size?: string;
+  sex?: string;
+  age?: string;
+  pet_name?: string;
+  microchip?: string;
+  spayed_neutered?: string;
+  collar_description?: string;
+  distinguishing_features?: string;
+  photo_urls?: string[];
+  date_lost_found?: string;
+  time_lost_found?: string;
+  location_address?: string;
+  location_city?: string;
+  location_zip?: string;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  direction_heading?: string;
+  circumstances?: string;
+  current_location?: string;
+  can_hold?: boolean;
+  hold_duration?: string;
+  reporter_name: string;
+  reporter_phone: string;
+  reporter_email: string;
+  reporter_alt_phone?: string;
+  best_contact_time?: string;
+  matched_report_id?: string;
+  matched_animal_id?: string;
+  match_score?: number;
+  reunited_date?: string;
+  reunited_notes?: string;
+  staff_notes?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface LostFoundMatch {
+  id?: string;
+  lost_report_id?: string;
+  found_report_id?: string;
+  animal_id?: string;
+  match_score?: number;
+  match_type?: string;   // lost_to_found | lost_to_shelter | found_to_lost
+  status?: string;       // pending | confirmed | dismissed
+  reviewed_by?: string;
+  reviewed_at?: string;
+  created_at?: string;
+}
+
 export type Database = {
   public: {
     Tables: {
