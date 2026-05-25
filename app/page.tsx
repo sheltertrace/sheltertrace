@@ -74,6 +74,40 @@ export default function DashboardPage() {
 
   useEffect(() => { load(); }, [load]);
 
+  // GDA due-date reminder
+  const gdaReminder = (() => {
+    const now    = new Date();
+    const day    = now.getDate();
+    const month  = now.getMonth();
+    const year   = now.getFullYear();
+    const prevMonth = month === 0 ? 11 : month - 1;
+    const prevYear  = month === 0 ? year - 1 : year;
+    const dueMonth  = month === 11 ? 0 : month + 1;
+    const dueYear   = month === 11 ? year + 1 : year;
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    const dueStr = `${monthNames[dueMonth < 12 ? dueMonth : 0]} 10, ${dueYear}`;
+    if (day >= 1 && day <= 10) {
+      return {
+        label: `GDA report for ${monthNames[prevMonth]} ${prevYear}`,
+        due:   `due by ${dueStr}`,
+        color: day >= 8 ? "#dc2626" : day >= 5 ? "#d97706" : "#16a34a",
+        bg:    day >= 8 ? "#fee2e2" : day >= 5 ? "#fef3c7" : "#f0fdf4",
+        icon:  day >= 8 ? "🚨" : day >= 5 ? "⚠️" : "📋",
+        link:  "/reports",
+        overdue: false,
+      };
+    }
+    if (day > 10) {
+      return {
+        label: `GDA report for ${monthNames[prevMonth]} ${prevYear}`,
+        due:   "is OVERDUE",
+        color: "#dc2626", bg: "#fee2e2", icon: "🚨",
+        link:  "/reports", overdue: true,
+      };
+    }
+    return null;
+  })();
+
   // Stats
   const available = animals.filter((a) => a.status === "Available").length;
   const adopted = animals.filter((a) => a.status === "Adopted").length;
@@ -122,6 +156,19 @@ export default function DashboardPage() {
         <div style={{ textAlign: "center", color: "var(--text-muted)", padding: 40 }}>Loading dashboard…</div>
       ) : (
         <div>
+          {/* GDA reminder banner */}
+          {gdaReminder && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 18px", borderRadius: 10, marginBottom: 16, background: gdaReminder.bg, border: `1px solid ${gdaReminder.color}30` }}>
+              <span style={{ fontSize: 18 }}>{gdaReminder.icon}</span>
+              <div style={{ flex: 1, fontSize: 13, color: gdaReminder.color, fontWeight: 600 }}>
+                <strong>{gdaReminder.label}</strong> {gdaReminder.due}
+              </div>
+              <Link href={gdaReminder.link} style={{ fontSize: 12, color: gdaReminder.color, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+                Generate Report →
+              </Link>
+            </div>
+          )}
+
           {/* Stat row */}
           <div className="grid-4" style={{ marginBottom: 20 }}>
             <StatCard icon="🐾" value={available} label="Available for Adoption" color="#22c55e" />

@@ -8,6 +8,243 @@ import { printTransferReceipt } from "@/components/transfers/TransferWizard";
 import { printDepartureReceipt } from "@/lib/departureReceipt";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const YEARS = Array.from({ length: 10 }, (_, i) => new Date().getFullYear() - i);
+
+// ── GDA Report Engine ──────────────────────────────────────────────────────────
+
+interface GdaSection {
+  beginShelter: number; beginFoster: number;
+  intakeStray: number; intakeRBO: number; intakeOIE: number; intakeTransferIn: number; intakeOther: number;
+  outcomeAdopt: number; outcomeRTO: number; outcomeTransferOut: number; outcomeOtherLive: number;
+  outcomeDied: number; outcomeEuthOwner: number; outcomeEuthShelter: number;
+  endShelter: number; endFoster: number;
+  drilldown: Record<string, string[]>; // category → animal IDs
+}
+
+interface GdaReport { dogs: GdaSection; cats: GdaSection; month: number; year: number; }
+
+function emptySection(): GdaSection {
+  return { beginShelter:0,beginFoster:0,intakeStray:0,intakeRBO:0,intakeOIE:0,intakeTransferIn:0,intakeOther:0,
+    outcomeAdopt:0,outcomeRTO:0,outcomeTransferOut:0,outcomeOtherLive:0,outcomeDied:0,outcomeEuthOwner:0,outcomeEuthShelter:0,
+    endShelter:0,endFoster:0,drilldown:{} };
+}
+
+function gdaSpecies(s?: string | null): "dog" | "cat" | null {
+  if (!s) return null;
+  const l = s.toLowerCase();
+  if (l.includes("dog") || l === "puppy") return "dog";
+  if (l.includes("cat") || l === "kitten") return "cat";
+  return null;
+}
+
+function gdaIntakeKey(intakeType?: string | null, circumstance?: string | null): keyof GdaSection {
+  const t = (intakeType ?? "").toLowerCase();
+  const c = (circumstance ?? "").toLowerCase();
+  if (t.includes("stray") || t === "stray" || c.includes("stray") || t.includes("aco") || t.includes("at large")) return "intakeStray";
+  if (t === "surrender" || t.includes("surrender") || t.includes("relinquish") || c.includes("surrender") || t === "return" || c === "return") return "intakeRBO";
+  if (t.includes("euthan") || c.includes("euthan")) return "intakeOIE";
+  if (t === "transfer" || t.includes("transfer in") || c.includes("transfer in")) return "intakeTransferIn";
+  return "intakeOther";
+}
+
+function gdaOutcomeKey(departureType?: string | null, euthReason?: string | null): keyof GdaSection {
+  const t = (departureType ?? "").toLowerCase();
+  if (t.includes("adopt")) return "outcomeAdopt";
+  if (t.includes("redeem") || t.includes("return") || t.includes("rto") || t.includes("owner claim") || t.includes("owner redemption")) return "outcomeRTO";
+  if (t.includes("transfer")) return "outcomeTransferOut";
+  if (t.includes("euthan") || t.includes("euth")) {
+    const r = (euthReason ?? "").toLowerCase();
+    return (r.includes("owner") || r.includes("request")) ? "outcomeEuthOwner" : "outcomeEuthShelter";
+  }
+  if (t.includes("died") || t.includes("death") || t.includes("doa")) return "outcomeDied";
+  return "outcomeOtherLive"; // foster placement, field release, TNR, etc.
+}
+
+function computeGdaReport(year: number, month: number, animals: Animal[], departureRecs: DepartureReceipt[]): GdaReport {
+  const firstDay = new Date(year, month, 1);
+  const lastDay  = new Date(year, month + 1, 0, 23, 59, 59);
+
+  // All departure records keyed by animal_id → latest departure
+  const depLatest = new Map<string, DepartureReceipt>();
+  for (const dr of departureRecs) {
+    if (!dr.animal_id || !dr.departure_date) continue;
+    const ex = depLatest.get(dr.animal_id);
+    if (!ex || dr.departure_date > (ex.departure_date ?? "")) depLatest.set(dr.animal_id, dr);
+  }
+
+  // Animal IDs that departed BEFORE this month
+  const departedBefore = new Set<string>();
+  for (const dr of departureRecs) {
+    if (dr.animal_id && dr.departure_date && new Date(`${dr.departure_date}T12:00:00`) < firstDay)
+      departedBefore.add(dr.animal_id);
+  }
+  // Animal IDs that departed ON OR BEFORE end of this month
+  const departedByEnd = new Set<string>();
+  for (const dr of departureRecs) {
+    if (dr.animal_id && dr.departure_date && new Date(`${dr.departure_date}T12:00:00`) <= lastDay)
+      departedByEnd.add(dr.animal_id);
+  }
+
+  const result: GdaReport = { dogs: emptySection(), cats: emptySection(), month, year };
+
+  function addDrill(sec: GdaSection, key: string, id: string) {
+    sec.drilldown[key] = [...(sec.drilldown[key] ?? []), id];
+  }
+
+  for (const a of animals) {
+    if (a.intake_type === "Clinic") continue;
+    const sp = gdaSpecies(a.species);
+    if (!sp) continue;
+    const sec = sp === "dog" ? result.dogs : result.cats;
+    const intakeDate = a.intake_date ? new Date(`${a.intake_date}T12:00:00`) : null;
+    if (!intakeDate) continue;
+
+    // Intakes in this month
+    if (intakeDate >= firstDay && intakeDate <= lastDay) {
+      const key = gdaIntakeKey(a.intake_type, a.circumstance);
+      (sec[key] as number)++;
+      addDrill(sec, key, a.id);
+    }
+
+    // Beginning count (in care at start of month)
+    if (intakeDate < firstDay && !departedBefore.has(a.id)) {
+      const dep = depLatest.get(a.id);
+      if (dep?.departure_type?.toLowerCase().includes("foster")) {
+        sec.beginFoster++; addDrill(sec, "beginFoster", a.id);
+      } else {
+        sec.beginShelter++; addDrill(sec, "beginShelter", a.id);
+      }
+    }
+
+    // Ending count (in care at end of month)
+    if (intakeDate <= lastDay && !departedByEnd.has(a.id)) {
+      const dep = depLatest.get(a.id);
+      if (dep?.departure_type?.toLowerCase().includes("foster")) {
+        sec.endFoster++; addDrill(sec, "endFoster", a.id);
+      } else {
+        sec.endShelter++; addDrill(sec, "endShelter", a.id);
+      }
+    }
+  }
+
+  // Outcomes: from departure records in this month
+  for (const dr of departureRecs) {
+    if (!dr.departure_date || !dr.animal_id) continue;
+    const depDate = new Date(`${dr.departure_date}T12:00:00`);
+    if (depDate < firstDay || depDate > lastDay) continue;
+    const a = animals.find((x) => x.id === dr.animal_id);
+    if (!a || a.intake_type === "Clinic") continue;
+    const sp = gdaSpecies(a.species);
+    if (!sp) continue;
+    const sec = sp === "dog" ? result.dogs : result.cats;
+    // Get euthanasia reason from animal record
+    let euthReason = "";
+    try { const euth = typeof a.euthanasia === "string" ? JSON.parse(a.euthanasia) : a.euthanasia; euthReason = euth?.reason ?? ""; } catch { /* ignore */ }
+    const key = gdaOutcomeKey(dr.departure_type, euthReason);
+    (sec[key] as number)++;
+    addDrill(sec, key, a.id);
+  }
+
+  return result;
+}
+
+function gdaTotalIntakes(s: GdaSection): number {
+  return s.intakeStray + s.intakeRBO + s.intakeOIE + s.intakeTransferIn + s.intakeOther;
+}
+function gdaTotalOutcomes(s: GdaSection): number {
+  return s.outcomeAdopt + s.outcomeRTO + s.outcomeTransferOut + s.outcomeOtherLive + s.outcomeDied + s.outcomeEuthOwner + s.outcomeEuthShelter;
+}
+function gdaTotalBegin(s: GdaSection): number { return s.beginShelter + s.beginFoster; }
+function gdaTotalEnd(s: GdaSection): number { return s.endShelter + s.endFoster; }
+function gdaTotalLiveOutcomes(s: GdaSection): number {
+  return s.outcomeAdopt + s.outcomeRTO + s.outcomeTransferOut + s.outcomeOtherLive;
+}
+
+function gdaReportDueDate(year: number, month: number): string {
+  const nextMonth = month === 11 ? 0 : month + 1;
+  const nextYear  = month === 11 ? year + 1 : year;
+  return `${MONTHS_FULL[nextMonth]} 10, ${nextYear}`;
+}
+
+function exportGdaCsv(data: GdaReport) {
+  const rows: string[] = [
+    "Category,Dogs,Cats",
+    `Beginning - In Shelter,${data.dogs.beginShelter},${data.cats.beginShelter}`,
+    `Beginning - In Foster,${data.dogs.beginFoster},${data.cats.beginFoster}`,
+    `Intake - Stray / At Large,${data.dogs.intakeStray},${data.cats.intakeStray}`,
+    `Intake - Relinquished by Owner,${data.dogs.intakeRBO},${data.cats.intakeRBO}`,
+    `Intake - Owner Intended Euthanasia,${data.dogs.intakeOIE},${data.cats.intakeOIE}`,
+    `Intake - Transferred In,${data.dogs.intakeTransferIn},${data.cats.intakeTransferIn}`,
+    `Intake - Other,${data.dogs.intakeOther},${data.cats.intakeOther}`,
+    `Intake - TOTAL,${gdaTotalIntakes(data.dogs)},${gdaTotalIntakes(data.cats)}`,
+    `Outcome - Adoption,${data.dogs.outcomeAdopt},${data.cats.outcomeAdopt}`,
+    `Outcome - Returned to Owner,${data.dogs.outcomeRTO},${data.cats.outcomeRTO}`,
+    `Outcome - Transferred Out,${data.dogs.outcomeTransferOut},${data.cats.outcomeTransferOut}`,
+    `Outcome - Other Live,${data.dogs.outcomeOtherLive},${data.cats.outcomeOtherLive}`,
+    `Outcome - Died in Care,${data.dogs.outcomeDied},${data.cats.outcomeDied}`,
+    `Outcome - Euthanasia (Owner Request),${data.dogs.outcomeEuthOwner},${data.cats.outcomeEuthOwner}`,
+    `Outcome - Euthanasia (Shelter Decision),${data.dogs.outcomeEuthShelter},${data.cats.outcomeEuthShelter}`,
+    `Outcome - TOTAL,${gdaTotalOutcomes(data.dogs)},${gdaTotalOutcomes(data.cats)}`,
+    `Ending - In Shelter,${data.dogs.endShelter},${data.cats.endShelter}`,
+    `Ending - In Foster,${data.dogs.endFoster},${data.cats.endFoster}`,
+  ];
+  const blob = new Blob([rows.join("\n")], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `GDA-Report-${MONTHS_FULL[data.month]}-${data.year}.csv`; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function printGdaReport(data: GdaReport) {
+  const w = window.open("", "_blank", "width=800,height=900");
+  if (!w) return;
+  const ds = (n: number) => `<td style="text-align:right;padding:5px 10px;border:1px solid #ccc">${n}</td>`;
+  const dRow = (label: string, d: number, c: number, bold = false) =>
+    `<tr${bold ? ' style="font-weight:700;background:#f0f4f8"' : ''}><td style="padding:5px 10px;border:1px solid #ccc">${label}</td>${ds(d)}${ds(c)}</tr>`;
+  const lrr = (() => {
+    const lo = gdaTotalLiveOutcomes(data.dogs) + gdaTotalLiveOutcomes(data.cats);
+    const to = gdaTotalOutcomes(data.dogs) + gdaTotalOutcomes(data.cats);
+    return to > 0 ? ((lo / to) * 100).toFixed(1) : "N/A";
+  })();
+  w.document.write(`<!DOCTYPE html><html><head><title>GDA Monthly Report — ${MONTHS_FULL[data.month]} ${data.year}</title>
+<style>body{font-family:Arial,sans-serif;max-width:700px;margin:30px auto;font-size:11pt}h1{font-size:15pt;text-align:center}h2{font-size:12pt;margin-top:20px}table{width:100%;border-collapse:collapse}th{background:#e8eef4;padding:6px 10px;border:1px solid #ccc;text-align:left}th:not(:first-child){text-align:right}.verify{margin-top:14px;font-size:10pt;color:#555}.footer{margin-top:24px;font-size:9pt;color:#aaa;text-align:center}</style>
+</head><body>
+<h1>Georgia Department of Agriculture<br>Monthly Shelter Report</h1>
+<p style="text-align:center;margin:4px 0">Morgan County Animal Services · ${MONTHS_FULL[data.month]} ${data.year}</p>
+<p style="text-align:center;font-size:10pt;color:#666">Due by ${gdaReportDueDate(data.year, data.month)}</p>
+<table><thead><tr><th>Category</th><th>Dogs</th><th>Cats</th></tr></thead><tbody>
+${dRow("Beginning — In Shelter", data.dogs.beginShelter, data.cats.beginShelter)}
+${dRow("Beginning — In Foster", data.dogs.beginFoster, data.cats.beginFoster)}
+${dRow("Beginning — TOTAL", gdaTotalBegin(data.dogs), gdaTotalBegin(data.cats), true)}
+<tr><td colspan="3" style="padding:4px;background:#f9f9f9;font-weight:700;border:1px solid #ccc">INTAKES</td></tr>
+${dRow("Stray / At Large", data.dogs.intakeStray, data.cats.intakeStray)}
+${dRow("Relinquished by Owner", data.dogs.intakeRBO, data.cats.intakeRBO)}
+${dRow("Owner Intended Euthanasia", data.dogs.intakeOIE, data.cats.intakeOIE)}
+${dRow("Transferred In from Agency", data.dogs.intakeTransferIn, data.cats.intakeTransferIn)}
+${dRow("Other Intakes", data.dogs.intakeOther, data.cats.intakeOther)}
+${dRow("Intakes — TOTAL", gdaTotalIntakes(data.dogs), gdaTotalIntakes(data.cats), true)}
+<tr><td colspan="3" style="padding:4px;background:#f9f9f9;font-weight:700;border:1px solid #ccc">OUTCOMES</td></tr>
+${dRow("Adoption", data.dogs.outcomeAdopt, data.cats.outcomeAdopt)}
+${dRow("Returned to Owner (RTO)", data.dogs.outcomeRTO, data.cats.outcomeRTO)}
+${dRow("Transferred to Another Agency", data.dogs.outcomeTransferOut, data.cats.outcomeTransferOut)}
+${dRow("Other Live Outcome", data.dogs.outcomeOtherLive, data.cats.outcomeOtherLive)}
+${dRow("Died in Care", data.dogs.outcomeDied, data.cats.outcomeDied)}
+${dRow("Euthanasia — Owner Request", data.dogs.outcomeEuthOwner, data.cats.outcomeEuthOwner)}
+${dRow("Euthanasia — Shelter Decision", data.dogs.outcomeEuthShelter, data.cats.outcomeEuthShelter)}
+${dRow("Outcomes — TOTAL", gdaTotalOutcomes(data.dogs), gdaTotalOutcomes(data.cats), true)}
+${dRow("Ending — In Shelter", data.dogs.endShelter, data.cats.endShelter)}
+${dRow("Ending — In Foster", data.dogs.endFoster, data.cats.endFoster)}
+${dRow("Ending — TOTAL", gdaTotalEnd(data.dogs), gdaTotalEnd(data.cats), true)}
+</tbody></table>
+<div class="verify"><strong>Verification:</strong>
+Dogs: ${gdaTotalBegin(data.dogs)} + ${gdaTotalIntakes(data.dogs)} − ${gdaTotalOutcomes(data.dogs)} = ${gdaTotalBegin(data.dogs)+gdaTotalIntakes(data.dogs)-gdaTotalOutcomes(data.dogs)} (expected ${gdaTotalEnd(data.dogs)}) ${gdaTotalBegin(data.dogs)+gdaTotalIntakes(data.dogs)-gdaTotalOutcomes(data.dogs)===gdaTotalEnd(data.dogs)?"✓":"⚠ DISCREPANCY"}<br>
+Cats: ${gdaTotalBegin(data.cats)} + ${gdaTotalIntakes(data.cats)} − ${gdaTotalOutcomes(data.cats)} = ${gdaTotalBegin(data.cats)+gdaTotalIntakes(data.cats)-gdaTotalOutcomes(data.cats)} (expected ${gdaTotalEnd(data.cats)}) ${gdaTotalBegin(data.cats)+gdaTotalIntakes(data.cats)-gdaTotalOutcomes(data.cats)===gdaTotalEnd(data.cats)?"✓":"⚠ DISCREPANCY"}<br>
+<strong>Live Release Rate: ${lrr}%</strong></div>
+<div class="footer">Generated by ShelterTrace · Morgan County Animal Services · (706) 752-1195</div>
+</body></html>`);
+  w.document.close(); setTimeout(() => w.print(), 400);
+}
 
 const DEPARTURE_TYPES = ["All", "Adoption", "Owner Redemption", "Foster Placement", "Transfer Out", "Euthanasia", "Field Release", "Return to Owner"];
 
@@ -36,6 +273,13 @@ export default function ReportsPage() {
   const [trAgency, setTrAgency] = useState("All");
   const [trSpecies, setTrSpecies] = useState("All");
   const [trOfficer, setTrOfficer] = useState("All");
+
+  // GDA report state
+  const [gdaMonth, setGdaMonth] = useState<number>(() => { const m = new Date().getMonth() - 1; return m < 0 ? 11 : m; });
+  const [gdaYear,  setGdaYear]  = useState<number>(() => { return new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear(); });
+  const [gdaData,  setGdaData]  = useState<GdaReport | null>(null);
+  const [gdaDrilldown, setGdaDrilldown] = useState<{ title: string; ids: string[] } | null>(null);
+  const [gdaAnnualYear, setGdaAnnualYear] = useState(new Date().getFullYear());
 
   const load = useCallback(async () => {
     try {
@@ -272,6 +516,8 @@ export default function ReportsPage() {
     { id: "departure_receipts", title: "Departure Receipts", desc: "All departure receipts by type, date, person, and fees", icon: "🧾" },
     { id: "microchip",     title: "Microchip Registry", desc: "Chips registered through MCAS with owner and animal info", icon: "🔬" },
     { id: "pet_licenses",  title: "Pet Licenses",       desc: "Licenses on file by status, species, expiration date",  icon: "🪪" },
+    { id: "gda_monthly",   title: "GDA Monthly Report", desc: "Georgia Dept. of Agriculture required monthly shelter report — due by the 10th", icon: "🏛️" },
+    { id: "gda_annual",    title: "GDA Annual Summary", desc: "12-month summary with live release rate, totals, and year-over-year trend", icon: "📋" },
   ];
 
   return (
@@ -808,6 +1054,310 @@ export default function ReportsPage() {
                 </div>
               </div>
             )}
+          </div>
+        );
+      })()}
+
+      {/* ── GDA Monthly Report ── */}
+      {activeReport === "gda_monthly" && (() => {
+        const dueDate = gdaReportDueDate(gdaYear, gdaMonth);
+        const today10 = new Date().getDate();
+        const isCurrentMonth = gdaMonth === new Date().getMonth() && gdaYear === new Date().getFullYear();
+        const isPrevMonth = (gdaMonth === new Date().getMonth() - 1 && gdaYear === new Date().getFullYear()) ||
+          (gdaMonth === 11 && new Date().getMonth() === 0 && gdaYear === new Date().getFullYear() - 1);
+        const pastDue = isPrevMonth && today10 > 10;
+        const dueSoon = isPrevMonth && today10 >= 5 && today10 <= 10;
+
+        function GdaTable({ section, species }: { section: GdaSection; species: string }) {
+          const rows: [string, keyof GdaSection, string][] = [
+            ["Beginning — In Shelter", "beginShelter", "#f8fafc"],
+            ["Beginning — In Foster",  "beginFoster",  "#f8fafc"],
+          ];
+          const intakeRows: [string, keyof GdaSection][] = [
+            ["Stray / At Large", "intakeStray"],
+            ["Relinquished by Owner", "intakeRBO"],
+            ["Owner Intended Euthanasia", "intakeOIE"],
+            ["Transferred In from Agency", "intakeTransferIn"],
+            ["Other Intakes", "intakeOther"],
+          ];
+          const outcomeRows: [string, keyof GdaSection][] = [
+            ["Adoption", "outcomeAdopt"],
+            ["Returned to Owner (RTO)", "outcomeRTO"],
+            ["Transferred to Another Agency", "outcomeTransferOut"],
+            ["Other Live Outcome", "outcomeOtherLive"],
+            ["Died in Care", "outcomeDied"],
+            ["Euthanasia — Owner Request", "outcomeEuthOwner"],
+            ["Euthanasia — Shelter Decision", "outcomeEuthShelter"],
+          ];
+
+          const totalIntakes  = gdaTotalIntakes(section);
+          const totalOutcomes = gdaTotalOutcomes(section);
+          const beginTotal    = gdaTotalBegin(section);
+          const endTotal      = gdaTotalEnd(section);
+          const calcEnd       = beginTotal + totalIntakes - totalOutcomes;
+          const balances      = calcEnd === endTotal;
+
+          function Cell({ val, catKey }: { val: number; catKey: keyof GdaSection }) {
+            const ids = section.drilldown[catKey as string] ?? [];
+            return (
+              <td style={{ textAlign: "right", padding: "6px 12px", borderBottom: "1px solid var(--border-light)", cursor: ids.length ? "pointer" : "default", color: ids.length ? "var(--teal)" : "inherit", fontWeight: ids.length ? 700 : 400 }}
+                onClick={() => ids.length && setGdaDrilldown({ title: `${species} — ${catKey}`, ids })}>
+                {val}
+              </td>
+            );
+          }
+
+          return (
+            <div style={{ flex: 1, minWidth: 280 }}>
+              <div style={{ fontWeight: 800, fontSize: 15, marginBottom: 8, color: species === "Dogs" ? "#0f2942" : "#374151" }}>
+                {species === "Dogs" ? "🐕" : "🐈"} {species}
+              </div>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <colgroup><col style={{ width: "70%" }} /><col /></colgroup>
+                <tbody>
+                  <tr style={{ background: "#f0f4f8" }}>
+                    <td colSpan={2} style={{ padding: "5px 12px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#64748b" }}>Beginning Counts</td>
+                  </tr>
+                  {rows.map(([label, key]) => (
+                    <tr key={label}><td style={{ padding: "5px 12px", borderBottom: "1px solid var(--border-light)" }}>{label}</td><Cell val={section[key] as number} catKey={key} /></tr>
+                  ))}
+                  <tr style={{ background: "#f0f4f8", fontWeight: 700 }}>
+                    <td style={{ padding: "5px 12px" }}>TOTAL IN CARE</td>
+                    <td style={{ textAlign: "right", padding: "5px 12px" }}>{beginTotal}</td>
+                  </tr>
+
+                  <tr style={{ background: "#f0f4f8" }}>
+                    <td colSpan={2} style={{ padding: "5px 12px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#16a34a" }}>Intakes</td>
+                  </tr>
+                  {intakeRows.map(([label, key]) => (
+                    <tr key={label}><td style={{ padding: "5px 12px", borderBottom: "1px solid var(--border-light)" }}>{label}</td><Cell val={section[key] as number} catKey={key} /></tr>
+                  ))}
+                  <tr style={{ background: "#f0f4f8", fontWeight: 700, color: "#16a34a" }}>
+                    <td style={{ padding: "5px 12px" }}>INTAKES TOTAL</td>
+                    <td style={{ textAlign: "right", padding: "5px 12px" }}>{totalIntakes}</td>
+                  </tr>
+
+                  <tr style={{ background: "#f0f4f8" }}>
+                    <td colSpan={2} style={{ padding: "5px 12px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#dc2626" }}>Outcomes</td>
+                  </tr>
+                  {outcomeRows.map(([label, key]) => (
+                    <tr key={label}><td style={{ padding: "5px 12px", borderBottom: "1px solid var(--border-light)" }}>{label}</td><Cell val={section[key] as number} catKey={key} /></tr>
+                  ))}
+                  <tr style={{ background: "#f0f4f8", fontWeight: 700, color: "#dc2626" }}>
+                    <td style={{ padding: "5px 12px" }}>OUTCOMES TOTAL</td>
+                    <td style={{ textAlign: "right", padding: "5px 12px" }}>{totalOutcomes}</td>
+                  </tr>
+
+                  <tr style={{ background: "#f0f4f8" }}>
+                    <td colSpan={2} style={{ padding: "5px 12px", fontWeight: 700, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", color: "#64748b" }}>Ending Counts</td>
+                  </tr>
+                  <tr><td style={{ padding: "5px 12px", borderBottom: "1px solid var(--border-light)" }}>Ending — In Shelter</td><Cell val={section.endShelter} catKey="endShelter" /></tr>
+                  <tr><td style={{ padding: "5px 12px", borderBottom: "1px solid var(--border-light)" }}>Ending — In Foster</td><Cell val={section.endFoster} catKey="endFoster" /></tr>
+                  <tr style={{ background: "#f0f4f8", fontWeight: 700 }}>
+                    <td style={{ padding: "5px 12px" }}>TOTAL IN CARE</td>
+                    <td style={{ textAlign: "right", padding: "5px 12px" }}>{endTotal}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {/* Verification */}
+              <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: balances ? "#f0fdf4" : "#fef2f2", border: `1px solid ${balances ? "#86efac" : "#fca5a5"}`, fontSize: 12 }}>
+                {balances
+                  ? <span style={{ color: "#15803d", fontWeight: 700 }}>✓ {beginTotal} + {totalIntakes} − {totalOutcomes} = {endTotal} (balanced)</span>
+                  : <span style={{ color: "#dc2626", fontWeight: 700 }}>⚠ {beginTotal} + {totalIntakes} − {totalOutcomes} = {calcEnd} but ending shows {endTotal} — DISCREPANCY of {Math.abs(calcEnd - endTotal)}</span>
+                }
+              </div>
+            </div>
+          );
+        }
+
+        const lrrTotal = gdaData
+          ? (() => {
+            const lo = gdaTotalLiveOutcomes(gdaData.dogs) + gdaTotalLiveOutcomes(gdaData.cats);
+            const to = gdaTotalOutcomes(gdaData.dogs) + gdaTotalOutcomes(gdaData.cats);
+            return to > 0 ? ((lo / to) * 100).toFixed(1) : "N/A";
+          })()
+          : null;
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            {/* Controls */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>🏛️ GDA Monthly Report</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                <select className="form-select" style={{ width: 130 }} value={gdaMonth} onChange={(e) => { setGdaMonth(+e.target.value); setGdaData(null); }}>
+                  {MONTHS_FULL.map((m, i) => <option key={m} value={i}>{m}</option>)}
+                </select>
+                <select className="form-select" style={{ width: 90 }} value={gdaYear} onChange={(e) => { setGdaYear(+e.target.value); setGdaData(null); }}>
+                  {YEARS.map((y) => <option key={y}>{y}</option>)}
+                </select>
+                <button className="btn btn-primary btn-sm" onClick={() => setGdaData(computeGdaReport(gdaYear, gdaMonth, animals, departureRecs))}>
+                  Generate Report
+                </button>
+                {gdaData && <>
+                  <button className="btn btn-secondary btn-sm" onClick={() => printGdaReport(gdaData)}>🖨 Print</button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => exportGdaCsv(gdaData)}>📥 CSV</button>
+                </>}
+              </div>
+            </div>
+
+            {/* Due date banner */}
+            {(pastDue || dueSoon) && (
+              <div style={{ padding: "10px 14px", borderRadius: 8, marginBottom: 14, fontWeight: 700, fontSize: 13, background: pastDue ? "#fee2e2" : "#fef3c7", color: pastDue ? "#b91c1c" : "#92400e", border: `1px solid ${pastDue ? "#fca5a5" : "#fbbf24"}` }}>
+                {pastDue ? "🚨 OVERDUE" : "⚠ Due Soon"}: GDA report for {MONTHS_FULL[gdaMonth]} {gdaYear} is due by {dueDate}.
+              </div>
+            )}
+            {!pastDue && !dueSoon && (
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 14 }}>
+                Report for {MONTHS_FULL[gdaMonth]} {gdaYear} · Due by {dueDate} · Click any number to drill down
+              </div>
+            )}
+
+            {gdaData ? (
+              <>
+                {/* LRR */}
+                <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+                  {[
+                    { label: "Total Intakes", value: gdaTotalIntakes(gdaData.dogs) + gdaTotalIntakes(gdaData.cats), color: "#16a34a" },
+                    { label: "Total Outcomes", value: gdaTotalOutcomes(gdaData.dogs) + gdaTotalOutcomes(gdaData.cats), color: "#dc2626" },
+                    { label: "Live Release Rate", value: `${lrrTotal}%`, color: "#0d9488" },
+                  ].map(({ label, value, color }) => (
+                    <div key={label} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 18px", minWidth: 120 }}>
+                      <div style={{ fontSize: 20, fontWeight: 800, color }}>{value}</div>
+                      <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Two-column table */}
+                <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "start" }}>
+                  <GdaTable section={gdaData.dogs} species="Dogs" />
+                  <GdaTable section={gdaData.cats} species="Cats" />
+                </div>
+              </>
+            ) : (
+              <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-muted)" }}>
+                <div style={{ fontSize: 36, marginBottom: 12 }}>🏛️</div>
+                <div>Select a month and year, then click <strong>Generate Report</strong>.</div>
+              </div>
+            )}
+
+            {/* Drill-down modal */}
+            {gdaDrilldown && (
+              <div className="modal-overlay" onClick={() => setGdaDrilldown(null)}>
+                <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640 }}>
+                  <div className="modal-header">
+                    <span className="modal-title">{gdaDrilldown.title} ({gdaDrilldown.ids.length})</span>
+                    <button className="btn btn-ghost btn-sm" onClick={() => setGdaDrilldown(null)}>✕</button>
+                  </div>
+                  <div className="modal-body" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+                    <table className="data-table">
+                      <thead><tr><th>Animal ID</th><th>Name</th><th>Species</th><th>Breed</th><th>Intake Date</th><th>Intake Type</th></tr></thead>
+                      <tbody>
+                        {gdaDrilldown.ids.map((id) => {
+                          const a = animals.find((x) => x.id === id);
+                          if (!a) return null;
+                          return (
+                            <tr key={id}>
+                              <td style={{ fontFamily: "monospace", fontSize: 11 }}><a href={`/animals/${a.id}`} style={{ color: "var(--teal)" }}>{a.id}</a></td>
+                              <td style={{ fontWeight: 600 }}>{a.name}</td>
+                              <td style={{ fontSize: 12 }}>{a.species}</td>
+                              <td style={{ fontSize: 12 }}>{a.breed || "—"}</td>
+                              <td style={{ fontSize: 12 }}>{a.intake_date || "—"}</td>
+                              <td style={{ fontSize: 12 }}>{a.intake_type || "—"}</td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="modal-footer"><button className="btn btn-secondary" onClick={() => setGdaDrilldown(null)}>Close</button></div>
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── GDA Annual Summary ── */}
+      {activeReport === "gda_annual" && (() => {
+        const annualData = useMemo(() =>
+          Array.from({ length: 12 }, (_, i) => ({
+            month: i,
+            data: computeGdaReport(gdaAnnualYear, i, animals, departureRecs),
+          })),
+          // eslint-disable-next-line react-hooks/exhaustive-deps
+          [gdaAnnualYear, animals.length, departureRecs.length]
+        );
+
+        const yearTotals = {
+          intakes:  annualData.reduce((s, m) => s + gdaTotalIntakes(m.data.dogs) + gdaTotalIntakes(m.data.cats), 0),
+          outcomes: annualData.reduce((s, m) => s + gdaTotalOutcomes(m.data.dogs) + gdaTotalOutcomes(m.data.cats), 0),
+          live:     annualData.reduce((s, m) => s + gdaTotalLiveOutcomes(m.data.dogs) + gdaTotalLiveOutcomes(m.data.cats), 0),
+        };
+        const lrr = yearTotals.outcomes > 0 ? ((yearTotals.live / yearTotals.outcomes) * 100).toFixed(1) : "N/A";
+
+        return (
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 12 }}>
+              <div style={{ fontWeight: 700, fontSize: 15 }}>📋 GDA Annual Summary — {gdaAnnualYear}</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <select className="form-select" style={{ width: 90 }} value={gdaAnnualYear} onChange={(e) => setGdaAnnualYear(+e.target.value)}>
+                  {YEARS.map((y) => <option key={y}>{y}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: "flex", gap: 16, marginBottom: 20, flexWrap: "wrap" }}>
+              {[
+                { label: "Total Intakes",      value: yearTotals.intakes,  color: "#16a34a" },
+                { label: "Total Outcomes",     value: yearTotals.outcomes, color: "#dc2626" },
+                { label: "Live Release Rate",  value: `${lrr}%`,           color: "#0d9488" },
+              ].map(({ label, value, color }) => (
+                <div key={label} style={{ background: "var(--bg-alt)", border: "1px solid var(--border)", borderRadius: 8, padding: "10px 18px", minWidth: 120 }}>
+                  <div style={{ fontSize: 22, fontWeight: 800, color }}>{value}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-secondary)", fontWeight: 600 }}>{label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Monthly breakdown table */}
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: "#f0f4f8" }}>
+                    <th style={{ padding: "7px 10px", textAlign: "left", borderBottom: "2px solid #ddd" }}>Month</th>
+                    {["Dog Intakes","Dog Outcomes","Cat Intakes","Cat Outcomes","Total Intakes","Total Outcomes","LRR %"].map((h) => (
+                      <th key={h} style={{ padding: "7px 10px", textAlign: "right", borderBottom: "2px solid #ddd", fontSize: 11 }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {annualData.map(({ month: m, data }) => {
+                    const di = gdaTotalIntakes(data.dogs), ci = gdaTotalIntakes(data.cats);
+                    const do_ = gdaTotalOutcomes(data.dogs), co = gdaTotalOutcomes(data.cats);
+                    const ti = di + ci, to = do_ + co;
+                    const live = gdaTotalLiveOutcomes(data.dogs) + gdaTotalLiveOutcomes(data.cats);
+                    const mLrr = to > 0 ? ((live / to) * 100).toFixed(0) : "—";
+                    const isCurrentM = m === new Date().getMonth() && gdaAnnualYear === new Date().getFullYear();
+                    return (
+                      <tr key={m} style={{ borderBottom: "1px solid var(--border-light)", background: isCurrentM ? "#f0fdf4" : undefined }}>
+                        <td style={{ padding: "6px 10px", fontWeight: isCurrentM ? 700 : 400 }}>{MONTHS_FULL[m]}</td>
+                        {[di, do_, ci, co, ti, to].map((v, i) => <td key={i} style={{ textAlign: "right", padding: "6px 10px", color: i === 4 ? "#16a34a" : i === 5 ? "#dc2626" : "inherit" }}>{v}</td>)}
+                        <td style={{ textAlign: "right", padding: "6px 10px", fontWeight: 700, color: "#0d9488" }}>{mLrr}</td>
+                      </tr>
+                    );
+                  })}
+                  <tr style={{ background: "#f0f4f8", fontWeight: 700 }}>
+                    <td style={{ padding: "7px 10px" }}>TOTAL {gdaAnnualYear}</td>
+                    <td colSpan={4} />
+                    <td style={{ textAlign: "right", padding: "7px 10px", color: "#16a34a" }}>{yearTotals.intakes}</td>
+                    <td style={{ textAlign: "right", padding: "7px 10px", color: "#dc2626" }}>{yearTotals.outcomes}</td>
+                    <td style={{ textAlign: "right", padding: "7px 10px", color: "#0d9488" }}>{lrr}%</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })()}
