@@ -868,6 +868,44 @@ export interface FosterSupplyRequest {
   created_at?: string;
 }
 
+// ── Internal Messaging ───────────────────────────────────────────────────────
+
+export interface Conversation {
+  id: string;
+  name?: string | null;
+  type: "direct" | "group" | "broadcast";
+  participants: string[];
+  created_by?: string;
+  created_at?: string;
+  updated_at?: string;
+  // Client-side enriched fields
+  lastMessage?: Message | null;
+  unreadCount?: number;
+  otherParticipantName?: string;
+}
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  sender_name: string;
+  content: string;
+  message_type: "text" | "urgent" | "system" | "shared_animal" | "shared_call";
+  shared_record_id?: string | null;
+  shared_record_type?: string | null;
+  is_deleted?: boolean;
+  reply_to_id?: string | null;
+  reply_to?: Message | null;  // client-side populated
+  created_at: string;
+}
+
+export interface MessageReadStatus {
+  id?: string;
+  message_id: string;
+  user_id: string;
+  read_at?: string;
+}
+
 // ── Pet License Registry ──────────────────────────────────────────────────────
 
 export interface PetLicense {

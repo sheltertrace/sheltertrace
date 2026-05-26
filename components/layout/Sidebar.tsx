@@ -2,8 +2,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Image from "next/image";
+import { useState, useEffect } from "react";
 import { useAuth, useTheme } from "@/app/providers";
 import { hasPermission } from "@/lib/auth";
+import { fetchUnreadCount } from "@/lib/messages";
 
 interface NavItem {
   href: string;
@@ -49,6 +51,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     section: "Operations",
     items: [
+      { href: "/messages",           label: "Messages",    perm: "dashboard",  icon: "💬" },
       { href: "/receipts",          label: "Receipts",    perm: "receipts",   icon: "🧾" },
       { href: "/people",            label: "Search",      perm: "people",     icon: "🔍" },
       { href: "/lost-found-admin",  label: "Lost & Found",  perm: "animals",   icon: "🔎" },
@@ -74,6 +77,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   if (!user) return null;
 
   const isAdmin = user.permissions.includes("all");
+
+  // ── Unread message count ──────────────────────────────────────────────────
+  const [unreadMsgs, setUnreadMsgs] = useState(0);
+  useEffect(() => {
+    if (!user?.id) return;
+    fetchUnreadCount(user.id).then(setUnreadMsgs).catch(() => {});
+    const id = setInterval(() => fetchUnreadCount(user.id).then(setUnreadMsgs).catch(() => {}), 30_000);
+    return () => clearInterval(id);
+  }, [user?.id]);
 
   function canSee(item: NavItem): boolean {
     if (item.perm === "admin") return isAdmin;
@@ -110,15 +122,22 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </div>
               {visible.map((item) => {
                 const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                const msgBadge = item.href === "/messages" && unreadMsgs > 0 ? unreadMsgs : 0;
                 return (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`nav-item${isActive ? " active" : ""}`}
                     onClick={() => onClose?.()}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
                   >
-                    <span style={{ fontSize: 15, width: 20, textAlign: "center" }}>{item.icon}</span>
-                    {item.label}
+                    <span style={{ fontSize: 15, width: 20, textAlign: "center", flexShrink: 0 }}>{item.icon}</span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {msgBadge > 0 && (
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#0d9488", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 999, minWidth: 18, height: 18, padding: "0 4px" }}>
+                        {msgBadge > 99 ? "99+" : msgBadge}
+                      </span>
+                    )}
                   </Link>
                 );
               })}
