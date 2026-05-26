@@ -17,6 +17,40 @@ import {
 } from "@/lib/messages";
 import type { Conversation, Message } from "@/lib/types";
 
+// ── Notification sound (Web Audio API — no external file needed) ─────────────
+
+function playNotificationSound(): void {
+  try {
+    type AudioCtxCtor = typeof AudioContext;
+    const AudioCtx: AudioCtxCtor =
+      window.AudioContext ??
+      (window as Window & { webkitAudioContext?: AudioCtxCtor }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx       = new AudioCtx();
+    const osc       = ctx.createOscillator();
+    const gain      = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type             = "sine";
+    osc.frequency.value  = 880;   // A5
+    gain.gain.value      = 0.28;
+    osc.start();
+    setTimeout(() => { osc.frequency.value = 1174; }, 150); // D6
+    setTimeout(() => { osc.stop(); ctx.close(); }, 320);
+  } catch { /* silently ignore if audio unavailable */ }
+}
+
+function showBrowserNotification(senderName: string, preview: string): void {
+  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+  try {
+    new Notification("New Message — ShelterTrace", {
+      body: `${senderName}: ${preview}`,
+      icon: "/mcas_logo.png",
+      tag:  "sheltertrace-msg",
+    });
+  } catch { /* ignore */ }
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const AVATAR_COLORS = [
@@ -250,6 +284,11 @@ export default function MessagesPage() {
   const [convSearch, setConvSearch] = useState("");
   const [mobileView, setMobileView] = useState<"list" | "chat">("list");
 
+  const [muted, setMuted] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return localStorage.getItem("msg_muted") === "true";
+  });
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef    = useRef<HTMLTextAreaElement>(null);
   const realtimeRef    = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -269,6 +308,10 @@ export default function MessagesPage() {
   useEffect(() => {
     loadConversations();
     fetchStaffForMessaging().then(setStaff);
+    // Request browser notification permission on first visit to this page
+    if (typeof Notification !== "undefined" && Notification.permission === "default") {
+      Notification.requestPermission().catch(() => {});
+    }
   }, [loadConversations]);
 
   // ── Load messages for active conversation ───────────────────────────────────
@@ -307,6 +350,20 @@ export default function MessagesPage() {
         { event: "INSERT", schema: "public", table: "messages" },
         (payload: { new: Message }) => {
           const msg = payload.new;
+          const isOwnMessage = msg.sender_id === userId;
+
+          // Play sound + browser notification for any incoming message (not our own)
+          if (!isOwnMessage) {
+            const muteFlag = localStorage.getItem("msg_muted") === "true";
+            if (!muteFlag) playNotificationSound();
+            // Show browser notification when tab is hidden or user is elsewhere
+            if (document.hidden || msg.conversation_id !== activeConvId) {
+              showBrowserNotification(
+                msg.sender_name,
+                msg.is_deleted ? "Message deleted" : msg.content.slice(0, 80)
+              );
+            }
+          }
 
           // If in the active conversation, add the message
           if (msg.conversation_id === activeConvId) {
@@ -314,11 +371,10 @@ export default function MessagesPage() {
               if (prev.some((m) => m.id === msg.id)) return prev;
               return [...prev, msg];
             });
-            // Mark as read immediately if it's not ours
-            if (msg.sender_id !== userId) {
+            if (!isOwnMessage) {
               markConversationRead(msg.conversation_id, userId);
             }
-          } else if (msg.sender_id !== userId) {
+          } else if (!isOwnMessage) {
             // Update unread count in conversation list
             setConversations((prev) =>
               prev.map((c) =>
@@ -432,7 +488,25 @@ export default function MessagesPage() {
 
   // ── Render ──────────────────────────────────────────────────────────────────
   return (
-    <AppShell title="Messages" action={totalUnread > 0 ? <span style={{ fontSize: 12, color: "#0d9488", fontWeight: 700 }}>{totalUnread} unread</span> : undefined}>
+    <AppShell
+      title="Messages"
+      action={
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {totalUnread > 0 && <span style={{ fontSize: 12, color: "#0d9488", fontWeight: 700 }}>{totalUnread} unread</span>}
+          <button
+            title={muted ? "Sound muted — click to unmute" : "Sound on — click to mute"}
+            onClick={() => {
+              const next = !muted;
+              setMuted(next);
+              localStorage.setItem("msg_muted", String(next));
+            }}
+            style={{ background: muted ? "#fee2e2" : "#f0fdfa", border: `1px solid ${muted ? "#fca5a5" : "#99f6e4"}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 14, fontWeight: 700, color: muted ? "#dc2626" : "#0d9488" }}
+          >
+            {muted ? "🔇 Muted" : "🔔 Sound On"}
+          </button>
+        </div>
+      }
+    >
       <style>{`
         .msg-layout { display: flex; height: calc(100dvh - 72px); overflow: hidden; }
         .msg-sidebar { width: 300px; border-right: 1px solid var(--border); display: flex; flex-direction: column; flex-shrink: 0; background: var(--bg); }
