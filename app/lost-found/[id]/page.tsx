@@ -6,6 +6,12 @@ import { supabasePublic } from "@/lib/supabase-public";
 import type { LostFoundReport } from "@/lib/types";
 import { safeArray } from "@/lib/data";
 
+function publicArea(address?: string | null, city?: string | null): string {
+  const stripped = (address ?? "").replace(/^\d+\s+/, "").trim();
+  const parts = [stripped, city].filter(Boolean);
+  return parts.length ? parts.join(", ") : "";
+}
+
 function fmtDate(d?: string | null): string {
   if (!d) return "Unknown date";
   return new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -182,7 +188,7 @@ export default function LostFoundDetailPage() {
                 {isLost ? "Last Seen Location" : "Found Location"}
               </div>
               <div style={{ fontSize: 15, fontWeight: 600, color: "#0f2942" }}>
-                {[report.location_address, report.location_city, report.location_zip].filter(Boolean).join(", ") || "Not specified"}
+                {publicArea(report.location_address, report.location_city) || "Not specified"}
               </div>
               {report.circumstances && <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{report.circumstances}</div>}
               {mapsUrl && (

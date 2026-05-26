@@ -154,7 +154,10 @@ export default function ReportLostPage() {
 
       <div style={{ maxWidth:720, margin:"0 auto", padding:"28px 16px 60px" }}>
         <h1 style={{ fontSize:26, fontWeight:900, color:"#0f2942", marginBottom:6 }}>🔴 Report a Lost Pet</h1>
-        <p style={{ fontSize:14, color:"#64748b", marginBottom:24 }}>Fill out this form to post your lost pet on the Morgan County Lost &amp; Found board. Your contact information is kept private — all inquiries go through MCAS.</p>
+        <p style={{ fontSize:14, color:"#64748b", marginBottom:16 }}>Fill out this form to post your lost pet on the Morgan County Lost &amp; Found board.</p>
+        <div style={{ background:"#f0fdf4", border:"1px solid #86efac", borderRadius:10, padding:"10px 16px", marginBottom:20, fontSize:13, color:"#15803d" }}>
+          🔒 <strong>Privacy notice:</strong> For your privacy, only the general area (street name or cross streets) will be shown publicly — not your full address. Your name, phone, and email are only shared with Morgan County Animal Services staff.
+        </div>
 
         <form onSubmit={handleSubmit}>
           {/* Pet Info */}
@@ -241,7 +244,10 @@ export default function ReportLostPage() {
               <F label="Date Last Seen" req><input style={inp} type="date" value={dateLostFound} onChange={(e)=>setDateLostFound(e.target.value)}/></F>
               <F label="Time Last Seen"><input style={inp} type="time" value={timeLostFound} onChange={(e)=>setTimeLostFound(e.target.value)}/></F>
             </G2>
-            <F label="Address or Cross Streets" req><input style={inp} value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="e.g. 123 Main St or Main St & Oak Ave"/></F>
+            <F label="General Area / Cross Streets" req>
+              <input style={inp} value={address} onChange={(e)=>setAddress(e.target.value)} placeholder="e.g. Near Main St & Oak Ave, or In the area of Athens Hwy"/>
+              <div style={{ fontSize:11, color:"#94a3b8", marginTop:4 }}>Do not include a house number — only the street name or cross streets will be shown publicly.</div>
+            </F>
             <G2>
               <F label="City"><input style={inp} value={city} onChange={(e)=>setCity(e.target.value)}/></F>
               <F label="Zip Code"><input style={inp} value={zip} onChange={(e)=>setZip(e.target.value)} maxLength={10}/></F>

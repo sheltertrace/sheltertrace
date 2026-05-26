@@ -12,6 +12,13 @@ function fmtDate(d?: string | null): string {
   return new Date(`${d}T12:00:00`).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+/** Strip leading house number so only street name / cross streets are shown publicly. */
+function publicArea(address?: string | null, city?: string | null): string {
+  const stripped = (address ?? "").replace(/^\d+\s+/, "").trim();
+  const parts = [stripped, city].filter(Boolean);
+  return parts.length ? parts.join(", ") : "";
+}
+
 // ── Photo Carousel ─────────────────────────────────────────────────────────────
 
 function PhotoCarousel({ photos, name, species }: { photos: string[]; name?: string | null; species?: string | null }) {
@@ -149,7 +156,7 @@ function DetailModal({ report, onClose }: { report: LostFoundReport; onClose: ()
               {isLost ? "Last seen location" : "Found location"}
             </div>
             <div style={{ fontSize: 14, fontWeight: 600, color: "#0f2942" }}>
-              {[report.location_address, report.location_city, report.location_zip].filter(Boolean).join(", ") || "Location not specified"}
+              {publicArea(report.location_address, report.location_city) || "Location not specified"}
             </div>
             {report.circumstances && <div style={{ fontSize: 13, color: "#64748b", marginTop: 4 }}>{report.circumstances}</div>}
             {mapsUrl && (
