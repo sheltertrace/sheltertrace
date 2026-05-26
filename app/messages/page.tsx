@@ -17,39 +17,7 @@ import {
 } from "@/lib/messages";
 import type { Conversation, Message } from "@/lib/types";
 
-// ── Notification sound (Web Audio API — no external file needed) ─────────────
-
-function playNotificationSound(): void {
-  try {
-    type AudioCtxCtor = typeof AudioContext;
-    const AudioCtx: AudioCtxCtor =
-      window.AudioContext ??
-      (window as Window & { webkitAudioContext?: AudioCtxCtor }).webkitAudioContext;
-    if (!AudioCtx) return;
-    const ctx       = new AudioCtx();
-    const osc       = ctx.createOscillator();
-    const gain      = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type             = "sine";
-    osc.frequency.value  = 880;   // A5
-    gain.gain.value      = 0.28;
-    osc.start();
-    setTimeout(() => { osc.frequency.value = 1174; }, 150); // D6
-    setTimeout(() => { osc.stop(); ctx.close(); }, 320);
-  } catch { /* silently ignore if audio unavailable */ }
-}
-
-function showBrowserNotification(senderName: string, preview: string): void {
-  if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
-  try {
-    new Notification("New Message — ShelterTrace", {
-      body: `${senderName}: ${preview}`,
-      icon: "/mcas_logo.png",
-      tag:  "sheltertrace-msg",
-    });
-  } catch { /* ignore */ }
-}
+import { playNotificationSound, showBrowserNotification, isSoundMuted } from "@/lib/notificationUtils";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -354,8 +322,7 @@ export default function MessagesPage() {
 
           // Play sound + browser notification for any incoming message (not our own)
           if (!isOwnMessage) {
-            const muteFlag = localStorage.getItem("msg_muted") === "true";
-            if (!muteFlag) playNotificationSound();
+            if (!isSoundMuted()) playNotificationSound();
             // Show browser notification when tab is hidden or user is elsewhere
             if (document.hidden || msg.conversation_id !== activeConvId) {
               showBrowserNotification(
