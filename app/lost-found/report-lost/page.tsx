@@ -70,8 +70,8 @@ export default function ReportLostPage() {
     try {
       // Upload photos
       const photoUrls: string[] = [];
-      for (const file of photos.slice(0,3)) {
-        const path = `lost-found/${Date.now()}-${file.name}`;
+      for (const file of photos.slice(0,5)) {
+        const path = `lost-found/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
         const { data: up, error: upErr } = await supabasePublic.storage.from("animal-photos").upload(path, file, { upsert: true });
         if (!upErr && up) {
           const { data: urlData } = supabasePublic.storage.from("animal-photos").getPublicUrl(path);
@@ -199,9 +199,20 @@ export default function ReportLostPage() {
             <F label="Distinguishing Features">
               <textarea value={features} onChange={(e)=>setFeatures(e.target.value)} rows={3} placeholder="Scars, unusual markings, missing limb, unique coloring pattern, etc."/>
             </F>
-            <F label="Photos (up to 3)">
-              <input type="file" accept="image/*" multiple onChange={(e)=>setPhotos(Array.from(e.target.files??[]).slice(0,3))} style={{ fontSize:13 }}/>
-              {photos.length>0 && <div style={{ fontSize:12, color:"#16a34a", marginTop:4 }}>✓ {photos.length} photo{photos.length>1?"s":""} selected</div>}
+            <F label="Photos (up to 5 — very helpful!)">
+              <input type="file" accept="image/*" multiple onChange={(e)=>setPhotos(Array.from(e.target.files??[]).slice(0,5))} style={{ fontSize:13 }}/>
+              {photos.length>0 && (
+                <div style={{ marginTop:8 }}>
+                  <div style={{ fontSize:12, color:"#16a34a", marginBottom:6, fontWeight:700 }}>✓ {photos.length} photo{photos.length>1?"s":""} selected</div>
+                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
+                    {photos.map((f,i)=>(
+                      <div key={i} style={{ width:60, height:60, borderRadius:8, overflow:"hidden", border:"2px solid #86efac", flexShrink:0 }}>
+                        <img src={URL.createObjectURL(f)} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </F>
           </div>
 
