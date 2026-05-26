@@ -66,8 +66,6 @@ export default function LostFoundDetailPage() {
   const id = typeof params.id === "string" ? params.id : (params.id as string[])?.[0] ?? "";
   const [report, setReport] = useState<LostFoundReport | null>(null);
   const [loading, setLoading] = useState(true);
-  const [shelterAnimals, setShelterAnimals] = useState<{ id: string; name: string; status: string }[]>([]);
-  const [matches, setMatches] = useState<{ id: string; match_score: number; related_id: string }[]>([]);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -78,20 +76,8 @@ export default function LostFoundDetailPage() {
       .eq("id", id)
       .single()
       .then((res: { data: unknown }) => {
-        const r = res.data as LostFoundReport | null;
-        setReport(r);
+        setReport(res.data as LostFoundReport | null);
         setLoading(false);
-        if (r?.species) {
-          supabasePublic.from("animals").select("id, name, status").in("status", ["Available","Medical Hold","Quarantine"]).eq("species", r.species).limit(3)
-            .then((ar: { data: unknown }) => setShelterAnimals((ar.data as { id: string; name: string; status: string }[]) ?? []));
-        }
-        if (r?.id) {
-          supabasePublic.from("lost_found_matches").select("*").or(`lost_report_id.eq.${r.id},found_report_id.eq.${r.id}`).gte("match_score", 40)
-            .then((mr: { data: unknown }) => {
-              const rows = (mr.data as { id: string; lost_report_id?: string; found_report_id?: string; match_score: number }[]) ?? [];
-              setMatches(rows.map((x) => ({ id: x.id, match_score: x.match_score, related_id: (x.lost_report_id === r.id ? x.found_report_id : x.lost_report_id) ?? "" })));
-            });
-        }
       });
   }, [id]);
 
@@ -205,28 +191,6 @@ export default function LostFoundDetailPage() {
                 </a>
               )}
             </div>
-
-            {/* Shelter animals */}
-            {shelterAnimals.length > 0 && (
-              <div style={{ padding: "14px 16px", background: "#fef3c7", borderRadius: 12, border: "1px solid #fbbf24", marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: "#92400e", marginBottom: 6 }}>🏠 Similar Animals at MCAS Shelter</div>
-                <div style={{ fontSize: 14, color: "#78350f", marginBottom: 10 }}>Call us — a matching pet may be at the shelter right now.</div>
-                <a href="tel:+17067521195" style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "10px 18px", background: "#d97706", color: "#fff", borderRadius: 8, fontWeight: 700, fontSize: 14, textDecoration: "none" }}>📞 Call MCAS · (706) 752-1195</a>
-              </div>
-            )}
-
-            {/* Matches */}
-            {matches.length > 0 && (
-              <div style={{ padding: "14px 16px", background: "#f0fdf4", borderRadius: 12, border: "1px solid #86efac", marginBottom: 20 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, color: "#15803d", marginBottom: 6 }}>🔗 {matches.length} Potential Match{matches.length > 1 ? "es" : ""} Found</div>
-                {matches.slice(0, 3).map((m) => (
-                  <Link key={m.id} href={`/lost-found/${m.related_id}`} style={{ display: "block", fontSize: 14, color: "#15803d", fontWeight: 600, marginBottom: 4, textDecoration: "none" }}>
-                    → View potential match (confidence: {m.match_score}%) ↗
-                  </Link>
-                ))}
-                <div style={{ fontSize: 13, color: "#166534", marginTop: 6 }}>Contact MCAS to verify and coordinate a reunion.</div>
-              </div>
-            )}
 
             {/* Contact */}
             <div style={{ padding: "16px 18px", background: "#eff6ff", borderRadius: 12, border: "1px solid #bfdbfe", marginBottom: 20 }}>

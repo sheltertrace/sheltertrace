@@ -180,19 +180,37 @@ export default function ReportFoundPage() {
               <textarea value={features} onChange={(e)=>setFeatures(e.target.value)} rows={3} placeholder="Scars, markings, unusual features…"/>
             </F>
             <F label="Photos (up to 5 — very helpful!)">
-              <input type="file" accept="image/*" capture="environment" multiple onChange={(e)=>setPhotos(Array.from(e.target.files??[]).slice(0,5))} style={{ fontSize:13 }}/>
-              {photos.length>0 && (
-                <div style={{ marginTop:8 }}>
-                  <div style={{ fontSize:12, color:"#16a34a", marginBottom:6, fontWeight:700 }}>✓ {photos.length} photo{photos.length>1?"s":""} selected</div>
-                  <div style={{ display:"flex", gap:6, flexWrap:"wrap" }}>
-                    {photos.map((f,i)=>(
-                      <div key={i} style={{ width:60, height:60, borderRadius:8, overflow:"hidden", border:"2px solid #86efac", flexShrink:0 }}>
-                        <img src={URL.createObjectURL(f)} alt="" style={{ width:"100%", height:"100%", objectFit:"cover" }}/>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                onChange={(e) => {
+                  const newFiles = Array.from(e.target.files ?? []);
+                  setPhotos((prev) => [...prev, ...newFiles].slice(0, 5));
+                  e.target.value = "";
+                }}
+                style={{ fontSize:13, display:"block", marginBottom:6 }}
+              />
+              {photos.length > 0 && (
+                <div>
+                  <div style={{ fontSize:12, color:"#16a34a", marginBottom:8, fontWeight:700 }}>
+                    ✓ {photos.length} photo{photos.length > 1 ? "s" : ""} selected (click ✕ to remove)
+                  </div>
+                  <div style={{ display:"flex", gap:8, flexWrap:"wrap" }}>
+                    {photos.map((f, i) => (
+                      <div key={i} style={{ position:"relative", width:72, height:72, flexShrink:0 }}>
+                        <img src={URL.createObjectURL(f)} alt="" style={{ width:"100%", height:"100%", objectFit:"cover", borderRadius:8, border:"2px solid #86efac", display:"block" }}/>
+                        <button
+                          type="button"
+                          onClick={() => setPhotos((prev) => prev.filter((_, idx) => idx !== i))}
+                          style={{ position:"absolute", top:-6, right:-6, width:20, height:20, borderRadius:"50%", background:"#dc2626", border:"2px solid #fff", color:"#fff", fontSize:11, fontWeight:800, cursor:"pointer", display:"flex", alignItems:"center", justifyContent:"center", padding:0 }}
+                        >✕</button>
                       </div>
                     ))}
                   </div>
                 </div>
               )}
+              {photos.length === 0 && <div style={{ fontSize:12, color:"#94a3b8", marginTop:4 }}>No photos selected yet. Clear photos help identify the animal!</div>}
             </F>
           </div>
 

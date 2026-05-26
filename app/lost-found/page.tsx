@@ -64,37 +64,7 @@ function PhotoCarousel({ photos, name, species }: { photos: string[]; name?: str
 function DetailModal({ report, onClose }: { report: LostFoundReport; onClose: () => void }) {
   const isLost = report.type === "lost";
   const photos = safeArray(report.photo_urls);
-  const [matches, setMatches] = useState<{ id: string; match_score: number; related_id: string; related_name?: string }[]>([]);
-  const [shelterAnimals, setShelterAnimals] = useState<{ id: string; name: string; status: string; species: string }[]>([]);
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    // Load potential matches
-    if (!report.id) return;
-    supabasePublic
-      .from("lost_found_matches")
-      .select("*")
-      .or(`lost_report_id.eq.${report.id},found_report_id.eq.${report.id}`)
-      .gte("match_score", 40)
-      .then((res: { data: unknown }) => {
-        const rows = (res.data as { id: string; lost_report_id?: string; found_report_id?: string; match_score: number }[]) ?? [];
-        setMatches(rows.map((r) => ({
-          id: r.id,
-          match_score: r.match_score,
-          related_id: (r.lost_report_id === report.id ? r.found_report_id : r.lost_report_id) ?? "",
-        })));
-      });
-    // Check shelter animals
-    if (report.species) {
-      supabasePublic
-        .from("animals")
-        .select("id, name, status, species")
-        .in("status", ["Available", "Medical Hold", "Quarantine", "Pending"])
-        .eq("species", report.species)
-        .limit(3)
-        .then((res: { data: unknown }) => setShelterAnimals((res.data as { id: string; name: string; status: string; species: string }[]) ?? []));
-    }
-  }, [report.id, report.species]);
 
   function copyLink() {
     const url = `${window.location.origin}/lost-found/${report.id}`;
@@ -188,36 +158,6 @@ function DetailModal({ report, onClose }: { report: LostFoundReport; onClose: ()
               </a>
             )}
           </div>
-
-          {/* Shelter animal match */}
-          {shelterAnimals.length > 0 && (
-            <div style={{ marginBottom: 16, padding: "12px 14px", background: "#fef3c7", borderRadius: 10, border: "1px solid #fbbf24" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#92400e", marginBottom: 6 }}>🏠 Possibly at MCAS Shelter</div>
-              <div style={{ fontSize: 13, color: "#78350f", marginBottom: 8 }}>
-                {shelterAnimals.length === 1
-                  ? `A similar ${report.species?.toLowerCase()} may currently be at the shelter.`
-                  : `${shelterAnimals.length} similar ${report.species?.toLowerCase()}s are currently at the shelter.`}
-              </div>
-              <a href="tel:+17067521195" style={{ fontSize: 13, fontWeight: 700, color: "#92400e", textDecoration: "none" }}>
-                📞 Call MCAS at (706) 752-1195 to check
-              </a>
-            </div>
-          )}
-
-          {/* Matches */}
-          {matches.length > 0 && (
-            <div style={{ marginBottom: 16, padding: "12px 14px", background: "#f0fdf4", borderRadius: 10, border: "1px solid #86efac" }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#15803d", marginBottom: 6 }}>🔗 Potential Matches Found</div>
-              <div style={{ fontSize: 13, color: "#166534", marginBottom: 8 }}>
-                The system found {matches.length} possible match{matches.length > 1 ? "es" : ""}. Contact MCAS for details.
-              </div>
-              {matches.slice(0, 3).map((m) => (
-                <a key={m.id} href={`/lost-found/${m.related_id}`} style={{ display: "block", fontSize: 13, color: "#15803d", fontWeight: 600, marginBottom: 4, textDecoration: "none" }}>
-                  → View match (score: {m.match_score}/100)
-                </a>
-              ))}
-            </div>
-          )}
 
           {/* Contact */}
           <div style={{ marginBottom: 16, background: "#f0f7ff", borderRadius: 10, padding: "14px 16px", border: "1px solid #bfdbfe" }}>
