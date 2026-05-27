@@ -111,6 +111,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [euthAuthorizedBy, setEuthAuthorizedBy] = useState("");
   const [euthWitness, setEuthWitness] = useState("");
   const [euthNotes, setEuthNotes] = useState("");
+  const [euthOtherReason, setEuthOtherReason] = useState("");
 
   // Documents
   const [docs, setDocs] = useState<AnimalDocument[]>([]);
@@ -319,14 +320,16 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
 
   const handleEuthanize = async () => {
     if (!euthApproved) return;
+    if (euthReason === "Other" && !euthOtherReason.trim()) return;
+    const displayReason = euthReason === "Other" ? `Other — ${euthOtherReason.trim()}` : euthReason;
     const euthRecord = {
-      date: euthDate, drug: euthDrug, reason: euthReason,
+      date: euthDate, drug: euthDrug, reason: displayReason,
       dosage: `${euthDose} ${euthUnit}`, performed_by: euthVet,
       witness: euthWitness, authorized_by: euthAuthorizedBy, notes: euthNotes,
     };
     await save({ status: "Euthanized", euthanasia: euthRecord }, {
       officerName: euthVet,
-      notes: `Reason: ${euthReason}. Drug: ${euthDrug} ${euthDose} ${euthUnit}. Witness: ${euthWitness}.${euthNotes ? " " + euthNotes : ""}`,
+      notes: `Reason: ${displayReason}. Drug: ${euthDrug} ${euthDose} ${euthUnit}. Witness: ${euthWitness}.${euthNotes ? " " + euthNotes : ""}`,
     });
     setShowEuthForm(false);
   };
@@ -1561,7 +1564,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             </div>
             <div className="modal-body">
               <div className="grid-2">
-                <F label="Reason"><select className="form-select" value={euthReason} onChange={(e) => setEuthReason(e.target.value)}>{EUTH_REASONS.map((r) => <option key={r}>{r}</option>)}</select></F>
+                <F label="Reason *"><select className="form-select" value={euthReason} onChange={(e) => { setEuthReason(e.target.value); setEuthOtherReason(""); }}>{EUTH_REASONS.map((r) => <option key={r}>{r}</option>)}</select></F>
                 <F label="Drug"><select className="form-select" value={euthDrug} onChange={(e) => setEuthDrug(e.target.value)}>{EUTH_DRUGS.map((d) => <option key={d}>{d}</option>)}</select></F>
                 <F label="Dosage"><input className="form-input" value={euthDose} onChange={(e) => setEuthDose(e.target.value)} placeholder="Amount" /></F>
                 <F label="Unit"><select className="form-select" value={euthUnit} onChange={(e) => setEuthUnit(e.target.value)}>{["ml","cc","mg"].map((u) => <option key={u}>{u}</option>)}</select></F>
@@ -1570,6 +1573,17 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <F label="Authorized By"><input className="form-input" value={euthAuthorizedBy} onChange={(e) => setEuthAuthorizedBy(e.target.value)} /></F>
                 <F label="Witness"><input className="form-input" value={euthWitness} onChange={(e) => setEuthWitness(e.target.value)} /></F>
               </div>
+              {euthReason === "Other" && (
+                <F label="Specify Reason *">
+                  <input
+                    className="form-input"
+                    value={euthOtherReason}
+                    onChange={(e) => setEuthOtherReason(e.target.value)}
+                    placeholder="Required — describe the reason for euthanasia"
+                    style={{ borderColor: !euthOtherReason.trim() ? "#fca5a5" : undefined }}
+                  />
+                </F>
+              )}
               <F label="Notes"><textarea className="form-textarea" value={euthNotes} onChange={(e) => setEuthNotes(e.target.value)} rows={2} /></F>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", marginTop: 12, padding: "10px 14px", background: "#fee2e2", borderRadius: 8, border: "1px solid #fca5a5" }}>
                 <input type="checkbox" checked={euthApproved} onChange={(e) => setEuthApproved(e.target.checked)} />
@@ -1578,7 +1592,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowEuthForm(false)}>Cancel</button>
-              <button className="btn btn-danger" onClick={handleEuthanize} disabled={!euthApproved || !euthVet}>Confirm Euthanasia</button>
+              <button className="btn btn-danger" onClick={handleEuthanize} disabled={!euthApproved || !euthVet || (euthReason === "Other" && !euthOtherReason.trim())}>Confirm Euthanasia</button>
             </div>
           </div>
         </div>

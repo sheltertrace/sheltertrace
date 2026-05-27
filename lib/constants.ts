@@ -105,9 +105,23 @@ export const EUTH_DRUGS = [
 ];
 
 export const EUTH_REASONS = [
-  "Medical - Untreatable","Medical - Poor Prognosis","Behavioral - Aggressive",
-  "Behavioral - Feral","Space","Owner Request","Court Order","Suffering",
-  "Rabies Suspect","Other",
+  "Owner Request",
+  "Medical — Suffering / Quality of Life",
+  "Medical — Untreatable Condition",
+  "Medical — Infectious Disease",
+  "Kennel Decline",
+  "Behavioral — Aggression (Dog to Dog)",
+  "Behavioral — Aggression (Dog to Human)",
+  "Behavioral — Aggression (Cat)",
+  "Behavioral — Feral / Unsocialized",
+  "Behavioral — Severe Anxiety / Fear",
+  "Court Ordered",
+  "Bite Case — Rabies Testing Required",
+  "Space / Capacity",
+  "Dangerous Animal Declaration",
+  "Neonatal — Too Young to Survive",
+  "Injured — Beyond Treatment",
+  "Other",
 ];
 
 export const CIRCUMSTANCE_TYPES = [
