@@ -318,14 +318,25 @@ export async function createMedical(record: Partial<MedicalRecord>): Promise<Med
 }
 
 export async function updateMedical(id: string, updates: Partial<MedicalRecord>): Promise<MedicalRecord> {
+  console.log("[medical edit] attempting to update record:", id, updates);
   const { data, error } = await supabase
     .from("medical_records")
     .update(updates)
     .eq("id", id)
     .select()
     .single();
+  console.log("[medical edit] result:", data, error);
   if (error) {
     console.error("[updateMedical] Supabase error:", error.message, "| code:", error.code, "| details:", error.details, "| hint:", error.hint);
+    // If the error is a missing column (42703), fall back to updating only base columns
+    if (error.code === "42703") {
+      console.warn("[updateMedical] Missing column detected — falling back to base-column update. Run fix_medical_records_columns.sql in Supabase.");
+      const { description, date, vet, next_due, type } = updates;
+      const baseUpdate = { ...(type && { type }), ...(description !== undefined && { description }), ...(date && { date }), ...(vet !== undefined && { vet }), ...(next_due !== undefined && { next_due }) };
+      const { data: fb, error: fbErr } = await supabase.from("medical_records").update(baseUpdate).eq("id", id).select().single();
+      if (fbErr) throw fbErr;
+      return fb as MedicalRecord;
+    }
     throw error;
   }
   return data as MedicalRecord;

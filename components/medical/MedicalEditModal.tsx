@@ -14,7 +14,7 @@ interface Props {
   onClose: () => void;
 }
 
-const STATUS_OPTIONS = ["Pending", "Completed", "Overdue"];
+const STATUS_OPTIONS = ["Scheduled", "Administered", "Completed", "Pending", "Overdue", "Skipped", "Declined"];
 const RESULT_OPTIONS = ["Positive", "Negative", "Pending", "Inconclusive"];
 const ROUTE_OPTIONS = ["Oral", "Subcutaneous", "Intramuscular", "Intranasal", "Topical", "Intravenous", "Other"];
 
@@ -44,6 +44,8 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
   const updatedByName = user ? `${user.firstName} ${user.lastName}`.trim() : "Staff";
 
   const handleSave = async () => {
+    console.log("[medical edit] record data:", JSON.stringify(record, null, 2));
+    console.log("[medical edit] record id:", record.id, typeof record.id);
     setSaving(true);
     setErrMsg("");
     try {
