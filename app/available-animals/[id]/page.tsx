@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { fetchPublicAnimal, safeArray } from "@/lib/data";
 import type { Animal } from "@/lib/types";
-import { calcAge, formatDate } from "@/lib/utils";
+import { displayAge, formatDate } from "@/lib/utils";
 
 function getStatusBadge(animal: Animal) {
   if (animal.status === "Foster") return { label: "In Foster", color: "#1d4ed8", bg: "#dbeafe" };
@@ -70,7 +70,7 @@ export default function AnimalPublicDetailPage() {
   }
 
   const badge = getStatusBadge(animal);
-  const age = animal.dob ? calcAge(animal.dob) : (animal.age || "Unknown");
+  const age = displayAge(animal.age) || "Unknown";
   const emoji = animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾";
 
   // Build photo gallery — featured first, then any extras, then fall back to photo_url

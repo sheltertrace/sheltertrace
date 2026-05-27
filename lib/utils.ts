@@ -31,6 +31,31 @@ export function calcAge(dob: string | null | undefined): string {
   return `${days}d`;
 }
 
+// Convert a DOB (ISO YYYY-MM-DD) to a human-readable age estimate string
+// used as the initial value for the AgeInput component when DOB is entered.
+export function dobToAgeEstimate(dob: string): string {
+  if (!dob) return "";
+  const birth = new Date(dob + "T00:00:00");
+  const now = new Date();
+  const totalDays = Math.floor((now.getTime() - birth.getTime()) / 86400000);
+  if (totalDays < 0) return "";
+  if (totalDays < 14) return `${totalDays} ${totalDays === 1 ? "Day" : "Days"}`;
+  const weeks = Math.floor(totalDays / 7);
+  if (weeks < 9) return `${weeks} ${weeks === 1 ? "Week" : "Weeks"}`;
+  const months = Math.round(totalDays / 30.4);
+  if (months < 24) return `${months} ${months === 1 ? "Month" : "Months"}`;
+  const years = Math.round(totalDays / 365.25);
+  return `${years} ${years === 1 ? "Year" : "Years"}`;
+}
+
+// Display an animal age with a ~ prefix for numeric estimates.
+// Named presets (Neonate, Unknown, etc.) are shown as-is.
+export function displayAge(age: string | null | undefined): string {
+  if (!age) return "—";
+  if (/^\d/.test(age)) return `~${age}`;
+  return age;
+}
+
 export function genPid(nextNum: number): string {
   return `PID-${String(nextNum).padStart(5, "0")}`;
 }

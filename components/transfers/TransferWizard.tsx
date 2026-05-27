@@ -2,7 +2,7 @@
 import { useState, useMemo } from "react";
 import type { Animal, RescueGroup, MedicalRecord, Transfer } from "@/lib/types";
 import { createTransfer, genTransferReceiptNumber } from "@/lib/data";
-import { today, formatDate } from "@/lib/utils";
+import { today, formatDate, displayAge } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
 import { BEHAVIOR_FLAGS } from "@/lib/constants";
 import DateInput from "@/components/ui/DateInput";
@@ -82,7 +82,7 @@ export function printTransferReceipt(
               ${fld("Breed", a.breed)}
               ${fld("Sex", a.sex)}
               ${fld("Color", [a.color, a.secondary_color].filter(Boolean).join(" / "))}
-              ${fld("Age / DOB", a.dob || a.age || "—")}
+              ${fld("Age", displayAge(a.age))}
               ${fld("Weight", a.weight || "—")}
             </div>
           </div>

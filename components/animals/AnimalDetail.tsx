@@ -12,7 +12,8 @@ import {
 } from "@/lib/constants";
 import StaffSelect from "@/components/ui/StaffSelect";
 import { useKennels } from "@/app/providers";
-import { calcAge, formatDate, today, nowTime, genId } from "@/lib/utils";
+import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId } from "@/lib/utils";
+import AgeInput from "@/components/ui/AgeInput";
 import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical,
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
@@ -379,7 +380,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     const upcoming = animalMed.filter((m) => m.next_due && m.next_due >= todayStr);
     const completed = animalMed.filter((m) => !m.next_due);
     const daysInCare = animal.intake_date ? Math.floor((Date.now() - new Date(animal.intake_date).getTime()) / 86400000) : 0;
-    const age = animal.dob ? calcAge(animal.dob) : (animal.age || "—");
+    const age = displayAge(animal.age);
     const speciesIcon = animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾";
     const fld = (label: string, value: string) =>
       `<div style="margin-bottom:7px;"><div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">${label}</div><div style="font-size:12px;font-weight:600;color:#0f172a;margin-top:1px;">${value || "—"}</div></div>`;
@@ -585,12 +586,16 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   {["Unknown", "Male", "Female"].map((s) => <option key={s}>{s}</option>)}
                 </select>
               </F>
-              <F label="Date of Birth">
-                <DateInput className="form-input" value={animal.dob || ""} onChange={(e) => save({ dob: e.target.value })} />
-                {animal.dob && <div style={{ fontSize: 10, color: "var(--teal)", marginTop: 3, fontWeight: 700 }}>Age: {calcAge(animal.dob)}</div>}
-              </F>
-              <F label="Age (read-only)">
-                <input className="form-input" value={animal.dob ? calcAge(animal.dob) : animal.age || ""} readOnly />
+              <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                <label className="form-label">Estimated Age</label>
+                <AgeInput value={animal.age || ""} onChange={(v) => save({ age: v || undefined })} />
+              </div>
+              <F label="Exact DOB (optional)">
+                <DateInput className="form-input" value={animal.dob || ""} onChange={(e) => {
+                  const iso = e.target.value;
+                  save({ dob: iso || undefined, ...(iso ? { age: dobToAgeEstimate(iso) } : {}) });
+                }} />
+                {animal.dob && <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>{animal.dob}</div>}
               </F>
               <F label="Weight">
                 <input className="form-input" defaultValue={animal.weight || ""} onBlur={(e) => save({ weight: e.target.value })} />

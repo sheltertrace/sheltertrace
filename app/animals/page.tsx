@@ -8,7 +8,7 @@ import IntakeWizard from "@/components/animals/IntakeWizard";
 import { fetchAnimals, createAnimal, fetchPeople, createPerson } from "@/lib/data";
 import type { Animal, Person } from "@/lib/types";
 import { STATUSES, STATUS_COLORS } from "@/lib/constants";
-import { formatDate, calcAge } from "@/lib/utils";
+import { formatDate, displayAge } from "@/lib/utils";
 
 export default function AnimalsPage() {
   const router = useRouter();
@@ -162,7 +162,7 @@ export default function AnimalsPage() {
                   <td>{a.species}</td>
                   <td style={{ fontSize: 12 }}>{a.breed}</td>
                   <td style={{ fontSize: 12 }}>{a.sex}</td>
-                  <td style={{ fontSize: 12 }}>{a.dob ? calcAge(a.dob) : a.age || "—"}</td>
+                  <td style={{ fontSize: 12 }}>{displayAge(a.age)}</td>
                   <td><StatusBadge status={a.status} /></td>
                   <td style={{ fontSize: 12 }}>{a.kennel || "Unassigned"}</td>
                   <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{formatDate(a.intake_date)}</td>

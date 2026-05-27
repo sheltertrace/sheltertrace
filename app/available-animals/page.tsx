@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { fetchPublicAnimals, safeArray } from "@/lib/data";
 import type { Animal } from "@/lib/types";
-import { calcAge } from "@/lib/utils";
+import { displayAge } from "@/lib/utils";
 
 type SpeciesFilter = "All" | "Dogs" | "Cats" | "Other";
 type SortOption = "newest" | "name";
@@ -18,15 +18,10 @@ function getStatusBadge(animal: Animal) {
   return { label: "Available", color: "#166534", bg: "#dcfce7" };
 }
 
-function getDisplayAge(animal: Animal): string {
-  if (animal.dob) return calcAge(animal.dob);
-  return animal.age || "Unknown age";
-}
-
 function AnimalCard({ animal }: { animal: Animal }) {
   const badge = getStatusBadge(animal);
   const photo = animal.featured_photo_url || animal.photo_url || null;
-  const age = getDisplayAge(animal);
+  const age = displayAge(animal.age);
   const emoji = animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾";
 
   return (

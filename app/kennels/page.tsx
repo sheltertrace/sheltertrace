@@ -6,7 +6,7 @@ import type { Animal, ShelterRoom, MedicalRecord } from "@/lib/types";
 import { DEFAULT_SHELTER_CONFIG, STATUS_COLORS, BEHAVIOR_FLAGS } from "@/lib/constants";
 import { useAuth, useKennels } from "@/app/providers";
 import { useRouter } from "next/navigation";
-import { genId, calcAge } from "@/lib/utils";
+import { genId, displayAge } from "@/lib/utils";
 
 const EXCLUDED = ["Adopted", "Foster", "Euthanized"];
 
@@ -17,7 +17,7 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
   const upcoming = medRecords.filter((m) => m.next_due && m.next_due >= todayStr);
   const completed = medRecords.filter((m) => !m.next_due);
   const daysInCare = animal.intake_date ? Math.floor((Date.now() - new Date(animal.intake_date).getTime()) / 86400000) : 0;
-  const age = animal.dob ? calcAge(animal.dob) : (animal.age || "—");
+  const age = displayAge(animal.age);
   const speciesIcon = animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾";
 
   const photoHtml = animal.photo_url

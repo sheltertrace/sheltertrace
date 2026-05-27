@@ -10,7 +10,8 @@ import {
   BEHAVIOR_FLAGS,
 } from "@/lib/constants";
 import { useKennels } from "@/app/providers";
-import { calcAge, genId, today, nowTime } from "@/lib/utils";
+import { dobToAgeEstimate, genId, today, nowTime } from "@/lib/utils";
+import AgeInput from "@/components/ui/AgeInput";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
 import DateInput from "@/components/ui/DateInput";
@@ -51,6 +52,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const [name, setName] = useState("");
   const [breed, setBreed] = useState("");
   const [sex, setSex] = useState("Unknown");
+  const [ageEstimate, setAgeEstimate] = useState("");
   const [dob, setDob] = useState("");
   const [weight, setWeight] = useState("");
   const [color, setColor] = useState("");
@@ -138,11 +140,10 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const handleFinish = async () => {
     setSaving(true);
     try {
-      const age = dob ? calcAge(dob) : "";
       const animal: Partial<Animal> = {
         name: name.trim() || "Unknown",
         species, breed: breed || "Unknown", color: color || "Unknown", secondary_color: secondaryColor,
-        sex, age, dob: dob || undefined, weight, size: size || undefined,
+        sex, age: ageEstimate || undefined, dob: dob || undefined, weight, size: size || undefined,
         coat_type: coatType || undefined, ear_type: earType || undefined, eye_color: eyeColor || undefined,
         markings, fixed: fixed === "Yes",
         status: isCrueltyCase ? "Medical Hold" : "Available",
@@ -247,6 +248,10 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                 </F>
               </div>
             </div>
+            <div className="form-group" style={{ marginBottom: 12 }}>
+              <label className="form-label">Estimated Age *</label>
+              <AgeInput value={ageEstimate} onChange={setAgeEstimate} />
+            </div>
             <div className="grid-3">
               <F label="Breed">
                 <select className="form-select" value={breed} onChange={(e) => setBreed(e.target.value)}>
@@ -258,9 +263,12 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                   {["Unknown", "Male", "Female"].map((o) => <option key={o}>{o}</option>)}
                 </select>
               </F>
-              <F label="Date of Birth (auto-calculates age)">
-                <DateInput className="form-input" value={dob} onChange={(e) => setDob(e.target.value)} />
-                {dob && <div style={{ fontSize: 10, color: "var(--teal)", marginTop: 3, fontWeight: 700 }}>Age: {calcAge(dob)}</div>}
+              <F label="Exact DOB (if known)">
+                <DateInput className="form-input" value={dob} onChange={(e) => {
+                  const iso = e.target.value;
+                  setDob(iso);
+                  if (iso) setAgeEstimate(dobToAgeEstimate(iso));
+                }} />
               </F>
               <F label="Primary Color">
                 <select className="form-select" value={color} onChange={(e) => setColor(e.target.value)}>
@@ -519,7 +527,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                 <div><span style={{ color: "var(--text-secondary)" }}>Breed:</span> {breed || "Unknown"}</div>
                 <div><span style={{ color: "var(--text-secondary)" }}>Sex:</span> {sex}</div>
                 <div><span style={{ color: "var(--text-secondary)" }}>Color:</span> {color || "Unknown"}</div>
-                <div><span style={{ color: "var(--text-secondary)" }}>DOB:</span> {dob || "Unknown"}{dob && ` (${calcAge(dob)})`}</div>
+                <div><span style={{ color: "var(--text-secondary)" }}>Age:</span> {ageEstimate || "Unknown"}{dob && ` (DOB: ${dob})`}</div>
                 <div><span style={{ color: "var(--text-secondary)" }}>Intake Type:</span> {intakeType}</div>
                 <div><span style={{ color: "var(--text-secondary)" }}>Intake Date:</span> {intakeDate}</div>
                 <div><span style={{ color: "var(--text-secondary)" }}>Kennel:</span> {kennel}</div>
