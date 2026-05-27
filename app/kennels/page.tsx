@@ -502,8 +502,8 @@ export default function KennelPage() {
   const [selectedKennel, setSelectedKennel] = useState<string | null>(null);
   const [showDesigner, setShowDesigner] = useState(false);
   const [movingAnimal, setMovingAnimal] = useState<Animal | null>(null);
-  const [showUnassigned, setShowUnassigned] = useState(false);
   const [showMultiPrint, setShowMultiPrint] = useState(false);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
   const [multiPrintKennels, setMultiPrintKennels] = useState<string[]>([]);
 
   const load = useCallback(async () => {
@@ -563,7 +563,7 @@ export default function KennelPage() {
   return (
     <AppShell title="Virtual Shelter" action={
       <div style={{ display: "flex", gap: 8 }}>
-        <button className="btn btn-secondary btn-sm" onClick={() => setShowUnassigned(true)}>
+        <button className="btn btn-secondary btn-sm" onClick={() => document.getElementById("unassigned-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}>
           📋 Unassigned ({unassigned.length})
         </button>
         <button className="btn btn-secondary btn-sm" onClick={() => { setMultiPrintKennels([]); setShowMultiPrint(true); }}>
@@ -649,7 +649,7 @@ export default function KennelPage() {
                                   padding: "1px 2px",
                                   position: "relative",
                                 }}
-                                onClick={() => setSelectedKennel(isSelected ? null : label)}
+                                onClick={() => { setSelectedKennel(isSelected ? null : label); setConfirmRemoveId(null); }}
                               >
                                 <div style={{ fontSize: 7, fontWeight: 700, color: "#374151" }}>{label}</div>
                                 {occupants.length > 0 && (
@@ -684,10 +684,11 @@ export default function KennelPage() {
             </div>
             {selectedAnimals.map((a) => {
               const rStatus = getRabiesStatus(a, medRecordsAll);
+              const confirming = confirmRemoveId === a.id;
               return (
                 <div key={a.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                    <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 6 }}>
+                    <div style={{ minWidth: 0 }}>
                       <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap" }}>
                         <span style={{ fontWeight: 700, fontSize: 14, cursor: "pointer", color: "var(--teal)" }} onClick={() => router.push(`/animals/${a.id}`)}>
                           {a.name}
@@ -697,7 +698,29 @@ export default function KennelPage() {
                       <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{a.species} · {a.breed}</div>
                       <span className="badge" style={{ background: `${STATUS_COLORS[a.status]}20`, color: STATUS_COLORS[a.status], marginTop: 3 }}>{a.status}</span>
                     </div>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setMovingAnimal(a)}>Move</button>
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4, flexShrink: 0 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => { setMovingAnimal(a); setConfirmRemoveId(null); }}>Move</button>
+                      {confirming ? (
+                        <div style={{ display: "flex", gap: 3 }}>
+                          <button
+                            className="btn btn-sm"
+                            style={{ background: "#dc2626", color: "#fff", borderColor: "#dc2626", fontSize: 10, padding: "2px 6px" }}
+                            onClick={() => { handleMoveAnimal(a, "Unassigned"); setConfirmRemoveId(null); }}
+                          >
+                            Confirm
+                          </button>
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 10, padding: "2px 6px" }} onClick={() => setConfirmRemoveId(null)}>✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          className="btn btn-sm"
+                          style={{ background: "#fee2e2", color: "#dc2626", borderColor: "#fca5a5", fontSize: 10, padding: "2px 7px" }}
+                          onClick={() => setConfirmRemoveId(a.id)}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -717,44 +740,57 @@ export default function KennelPage() {
         )}
       </div>
 
-      {/* Unassigned Panel */}
-      {showUnassigned && (
-        <div className="modal-overlay" onClick={() => setShowUnassigned(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
-              <span className="modal-title">📋 Unassigned Animals ({unassigned.length})</span>
-              <button className="btn btn-ghost btn-sm" onClick={() => setShowUnassigned(false)}>✕</button>
-            </div>
-            <div className="modal-body">
-              {unassigned.length === 0 ? (
-                <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px 0" }}>All animals are assigned to kennels</div>
-              ) : (
-                <table className="data-table">
-                  <thead><tr><th>Name</th><th>Species</th><th>Status</th><th>Rabies</th><th>Action</th></tr></thead>
-                  <tbody>
-                    {unassigned.map((a) => {
-                      const rStatus = getRabiesStatus(a, medRecordsAll);
-                      return (
-                        <tr key={a.id}>
-                          <td style={{ fontWeight: 600 }}>{a.name}</td>
-                          <td>{a.species}</td>
-                          <td><span className="badge" style={{ background: `${STATUS_COLORS[a.status]}20`, color: STATUS_COLORS[a.status] }}>{a.status}</span></td>
-                          <td>
-                            {rStatus === "none" ? <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span> : <RabiesBadge status={rStatus} size="inline" />}
-                          </td>
-                          <td>
-                            <button className="btn btn-primary btn-sm" onClick={() => { setMovingAnimal(a); setShowUnassigned(false); }}>Assign</button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
+      {/* Unassigned Animals — always visible when animals exist without kennels */}
+      <div style={{ marginTop: 20, border: "1px solid #fde68a", borderRadius: 8, overflow: "hidden", background: "#fff" }} id="unassigned-section">
+        <div style={{ padding: "10px 16px", background: "#fffbeb", borderBottom: "1px solid #fde68a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#b45309" }}>
+            📋 Unassigned Animals
+            <span style={{ marginLeft: 8, background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", borderRadius: 10, fontSize: 11, padding: "1px 7px", fontWeight: 700 }}>
+              {unassigned.length}
+            </span>
           </div>
+          <div style={{ fontSize: 11, color: "#92400e" }}>Animals in the shelter with no kennel assignment</div>
         </div>
-      )}
+        {unassigned.length === 0 ? (
+          <div style={{ padding: "18px 16px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 }}>
+            ✅ All shelter animals are assigned to a kennel
+          </div>
+        ) : (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
+            {unassigned.map((a) => {
+              const rStatus = getRabiesStatus(a, medRecordsAll);
+              return (
+                <div key={a.id} style={{ padding: "10px 14px", borderBottom: "1px solid var(--border-light)", borderRight: "1px solid var(--border-light)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                      <span
+                        style={{ fontWeight: 700, fontSize: 13, cursor: "pointer", color: "var(--teal)" }}
+                        onClick={() => router.push(`/animals/${a.id}`)}
+                      >
+                        {a.name}
+                      </span>
+                      <RabiesBadge status={rStatus} size="inline" />
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--text-secondary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {a.species} · {a.breed}
+                    </div>
+                    <span className="badge" style={{ background: `${STATUS_COLORS[a.status]}20`, color: STATUS_COLORS[a.status], marginTop: 2, display: "inline-block" }}>
+                      {a.status}
+                    </span>
+                  </div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    style={{ flexShrink: 0 }}
+                    onClick={() => setMovingAnimal(a)}
+                  >
+                    Assign Kennel
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* Move Animal Modal */}
       {movingAnimal && (
