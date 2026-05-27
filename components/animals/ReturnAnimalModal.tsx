@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import type { Animal } from "@/lib/types";
 import { today } from "@/lib/utils";
 import { useKennels } from "@/app/providers";
 import { updateAnimal, addAnimalNote, fetchAdoptions } from "@/lib/data";
+import DateInput from "@/components/ui/DateInput";
 
 const RETURN_REASONS = [
   "Owner Surrender",
@@ -107,7 +108,7 @@ export default function ReturnAnimalModal({ animal, adopterName: adopterNameProp
             )}
             <div className="form-group">
               <label className="form-label">Return Date *</label>
-              <input className="form-input" type="date" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
+              <DateInput className="form-input" value={returnDate} onChange={(e) => setReturnDate(e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Condition on Return</label>

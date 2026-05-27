@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
@@ -6,6 +6,7 @@ import { fetchReceipts, createReceipt, fetchPeople, createPerson } from "@/lib/d
 import type { Receipt, Person, LineItem } from "@/lib/types";
 import { RECEIPT_CATEGORIES, SERVICE_ITEMS, DONATION_ITEMS, MERCH_ITEMS, PAYMENT_METHODS } from "@/lib/constants";
 import { formatDate, today, currencyFmt, genReceiptId } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 function getItems(cat: string): string[] {
   if (cat === "Services") return SERVICE_ITEMS;
@@ -221,7 +222,7 @@ export default function ReceiptsPage() {
               )}
               <div className="form-group">
                 <label className="form-label">Date</label>
-                <input className="form-input" type="date" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} />
+                <DateInput className="form-input" value={receiptDate} onChange={(e) => setReceiptDate(e.target.value)} />
               </div>
             </div>
 

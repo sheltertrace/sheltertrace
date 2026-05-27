@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Link from "next/link";
@@ -13,6 +13,7 @@ import {
 import type { Animal, Person, FosterPlacement, FosterCheckin, FosterApplication, FosterSupplyRequest } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
+import DateInput from "@/components/ui/DateInput";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FOSTER_REASONS = ["Medical recovery","Behavioral","Underage / Bottle baby","Space","Socialization","Other"];
@@ -529,8 +530,8 @@ export default function FosterPage() {
                 </div>
               ) : placeStep===2 ? (
                 <div className="grid-2">
-                  <div className="form-group"><label className="form-label">Start Date</label><input className="form-input" type="date" value={placeStartDate} onChange={(e)=>setPlaceStartDate(e.target.value)}/></div>
-                  <div className="form-group"><label className="form-label">Expected Return</label><input className="form-input" type="date" value={placeReturnDate} onChange={(e)=>setPlaceReturnDate(e.target.value)}/></div>
+                  <div className="form-group"><label className="form-label">Start Date</label><DateInput className="form-input" value={placeStartDate} onChange={(e)=>setPlaceStartDate(e.target.value)}/></div>
+                  <div className="form-group"><label className="form-label">Expected Return</label><DateInput className="form-input" value={placeReturnDate} onChange={(e)=>setPlaceReturnDate(e.target.value)}/></div>
                   <div className="form-group" style={{gridColumn:"1/-1"}}>
                     <label className="form-label">Reason</label>
                     <select className="form-select" value={placeReason} onChange={(e)=>setPlaceReason(e.target.value)}>{FOSTER_REASONS.map((r)=><option key={r}>{r}</option>)}</select>

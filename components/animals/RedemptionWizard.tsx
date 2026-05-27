@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { fetchPeople, createPerson, createRedemption, linkAnimalToPerson, updateAnimal } from "@/lib/data";
 import type { Animal, Person } from "@/lib/types";
 import { today } from "@/lib/utils";
 import StaffSelect from "@/components/ui/StaffSelect";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
+import DateInput from "@/components/ui/DateInput";
 
 export interface RedemptionReceiptInfo {
   ownerName: string;
@@ -459,7 +460,7 @@ export default function RedemptionWizard({ animal, onComplete, onClose }: Props)
             <div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
                 <div><label className="form-label">Redemption Date</label>
-                  <input type="date" className="form-input" value={redemptionDate} onChange={(e) => setRedemptionDate(e.target.value)} />
+                  <DateInput className="form-input" value={redemptionDate} onChange={(e) => setRedemptionDate(e.target.value)} />
                 </div>
                 <div><label className="form-label">Receipt Number</label>
                   <input className="form-input" value={receiptNumber} onChange={(e) => setReceiptNumber(e.target.value)} placeholder="RCP-XXXX" />

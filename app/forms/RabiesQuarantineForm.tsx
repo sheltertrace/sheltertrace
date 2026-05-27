@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchAnimals, updateAnimal } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
 import type { ShelterForm, Officer, Animal, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
+import DateInput from "@/components/ui/DateInput";
 
 const REQUIREMENTS = [
   "Animal(s) in quarantine must be isolated from other animals. The animal(s) in quarantine cannot have ANY contact with other animals either inside or outside the home.",
@@ -202,7 +203,7 @@ export default function RabiesQuarantineForm({ onSave, onClose, prefill }: Props
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Date</label>
-              <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateInput className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers } from "@/lib/data";
 import { today, nowTime } from "@/lib/utils";
@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers";
 import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
 import type { ShelterForm, Officer, FormPreFill } from "@/lib/types";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
+import DateInput from "@/components/ui/DateInput";
 
 const CHECKS = [
   { id: "complaint",   label: "We have received a complaint about your animal." },
@@ -130,7 +131,7 @@ export default function DoorKnockerForm({ onSave, onClose, prefill }: Props) {
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Date</label>
-              <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateInput className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Time</label>

@@ -7,6 +7,7 @@ import type { Person } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
 import ClinicWizard from "@/components/clinic/ClinicWizard";
 import CheckoutModal from "@/components/clinic/CheckoutModal";
+import DateInput from "@/components/ui/DateInput";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -224,8 +225,7 @@ export default function ClinicPage() {
             >
               ←
             </button>
-            <input
-              type="date"
+            <DateInput
               value={date}
               onChange={(e) => setDate(e.target.value)}
               style={{ border: "1px solid var(--border)", borderRadius: 6, padding: "6px 10px", fontSize: 14, background: "var(--bg)" }}

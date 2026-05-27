@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import AppShell from "@/components/layout/AppShell";
 import {
@@ -7,6 +7,7 @@ import {
 } from "@/lib/data";
 import type { PetLicense, Animal, Person } from "@/lib/types";
 import { today, formatDate } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -376,8 +377,8 @@ export default function PetLicensesPage() {
               <div className="grid-2">
                 <div className="form-group"><label className="form-label">License Number *</label><input className="form-input" value={f.license_number ?? ""} onChange={(e) => setF((p) => ({ ...p, license_number: e.target.value }))} /></div>
                 <div className="form-group"><label className="form-label">Status</label><select className="form-select" value={f.status ?? "Active"} onChange={(e) => setF((p) => ({ ...p, status: e.target.value }))}>{STATUSES.map((s) => <option key={s}>{s}</option>)}</select></div>
-                <div className="form-group"><label className="form-label">Issue Date</label><input className="form-input" type="date" value={f.issue_date ?? ""} onChange={(e) => setF((p) => ({ ...p, issue_date: e.target.value }))} /></div>
-                <div className="form-group"><label className="form-label">Expiration Date</label><input className="form-input" type="date" value={f.expiration_date ?? ""} onChange={(e) => setF((p) => ({ ...p, expiration_date: e.target.value }))} /></div>
+                <div className="form-group"><label className="form-label">Issue Date</label><DateInput className="form-input" value={f.issue_date ?? ""} onChange={(e) => setF((p) => ({ ...p, issue_date: e.target.value }))} /></div>
+                <div className="form-group"><label className="form-label">Expiration Date</label><DateInput className="form-input" value={f.expiration_date ?? ""} onChange={(e) => setF((p) => ({ ...p, expiration_date: e.target.value }))} /></div>
                 <div className="form-group" style={{ gridColumn: "1/-1" }}>
                   <label className="form-label">Issuing Authority</label>
                   <select className="form-select" value={f.issuing_authority ?? "City of Madison"} onChange={(e) => setF((p) => ({ ...p, issuing_authority: e.target.value }))}>
@@ -397,8 +398,8 @@ export default function PetLicensesPage() {
                 <div className="form-group"><label className="form-label">Age</label><input className="form-input" value={f.age ?? ""} onChange={(e) => setF((p) => ({ ...p, age: e.target.value }))} placeholder="e.g. 3 years"/></div>
                 <div className="form-group"><label className="form-label">Microchip #</label><input className="form-input" value={f.microchip_number ?? ""} onChange={(e) => setF((p) => ({ ...p, microchip_number: e.target.value }))} /></div>
                 <div className="form-group"><label className="form-label">Rabies Tag #</label><input className="form-input" value={f.rabies_tag ?? ""} onChange={(e) => setF((p) => ({ ...p, rabies_tag: e.target.value }))} /></div>
-                <div className="form-group"><label className="form-label">Rabies Vaccination</label><input className="form-input" type="date" value={f.rabies_vaccination_date ?? ""} onChange={(e) => setF((p) => ({ ...p, rabies_vaccination_date: e.target.value }))} /></div>
-                <div className="form-group"><label className="form-label">Rabies Expires</label><input className="form-input" type="date" value={f.rabies_expiration_date ?? ""} onChange={(e) => setF((p) => ({ ...p, rabies_expiration_date: e.target.value }))} /></div>
+                <div className="form-group"><label className="form-label">Rabies Vaccination</label><DateInput className="form-input" value={f.rabies_vaccination_date ?? ""} onChange={(e) => setF((p) => ({ ...p, rabies_vaccination_date: e.target.value }))} /></div>
+                <div className="form-group"><label className="form-label">Rabies Expires</label><DateInput className="form-input" value={f.rabies_expiration_date ?? ""} onChange={(e) => setF((p) => ({ ...p, rabies_expiration_date: e.target.value }))} /></div>
                 <div className="form-group"><label className="form-label">Spayed/Neutered</label><select className="form-select" value={f.spayed_neutered == null ? "" : f.spayed_neutered ? "Yes" : "No"} onChange={(e) => setF((p) => ({ ...p, spayed_neutered: e.target.value === "" ? null : e.target.value === "Yes" }))}><option value="">Unknown</option><option>Yes</option><option>No</option></select></div>
               </div>
 

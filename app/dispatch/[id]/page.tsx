@@ -16,6 +16,7 @@ import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import { formatDate } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const STEPS = [
@@ -577,7 +578,7 @@ function CallDetailPageInner() {
                 <F label="Phone"><input className="form-input" value={data.victim_phone} onChange={(e) => upd({ victim_phone: e.target.value })} /></F>
                 <F label="Address"><input className="form-input" value={data.victim_address} onChange={(e) => upd({ victim_address: e.target.value })} /></F>
                 <F label="Driver's License #"><input className="form-input" value={data.victim_dl} onChange={(e) => upd({ victim_dl: e.target.value })} /></F>
-                <F label="Date of Birth"><input className="form-input" type="date" value={data.victim_dob} onChange={(e) => upd({ victim_dob: e.target.value })} /></F>
+                <F label="Date of Birth"><DateInput className="form-input" value={data.victim_dob} onChange={(e) => upd({ victim_dob: e.target.value })} /></F>
                 <F label="Sex"><select className="form-select" value={data.victim_sex} onChange={(e) => upd({ victim_sex: e.target.value })}><option value="">—</option>{["Male","Female","Unknown"].map((s) => <option key={s}>{s}</option>)}</select></F>
                 <F label="Injuries / Complaint" span><textarea className="form-textarea" rows={2} value={data.victim_injuries} onChange={(e) => upd({ victim_injuries: e.target.value })} placeholder="Describe any injuries or complaint…" /></F>
               </div>
@@ -633,7 +634,7 @@ function CallDetailPageInner() {
                 <F label="Phone"><input className="form-input" value={data.suspect_phone} onChange={(e) => upd({ suspect_phone: e.target.value })} /></F>
                 <F label="Address"><input className="form-input" value={data.suspect_address} onChange={(e) => upd({ suspect_address: e.target.value })} /></F>
                 <F label="Driver's License #"><input className="form-input" value={data.suspect_dl} onChange={(e) => upd({ suspect_dl: e.target.value })} /></F>
-                <F label="Date of Birth"><input className="form-input" type="date" value={data.suspect_dob} onChange={(e) => upd({ suspect_dob: e.target.value })} /></F>
+                <F label="Date of Birth"><DateInput className="form-input" value={data.suspect_dob} onChange={(e) => upd({ suspect_dob: e.target.value })} /></F>
                 <F label="Sex"><select className="form-select" value={data.suspect_sex} onChange={(e) => upd({ suspect_sex: e.target.value })}><option value="">—</option>{["Male","Female","Unknown"].map((s) => <option key={s}>{s}</option>)}</select></F>
               </div>
               <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", color: "var(--text-secondary)", margin: "8px 0 4px" }}>Physical Description</div>

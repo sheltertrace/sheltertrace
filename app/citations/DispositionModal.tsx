@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import type { Citation, DispositionEntry } from "@/lib/types";
 import { updateCitationDisposition } from "@/lib/data";
 import { useAuth } from "@/app/providers";
 import { today } from "@/lib/utils";
 import { PAYMENT_METHODS } from "@/lib/constants";
+import DateInput from "@/components/ui/DateInput";
 
 export const CITATION_STATUSES = [
   "Issued", "Served", "Active", "Continued", "Guilty", "Not Guilty",
@@ -101,7 +102,7 @@ export default function DispositionModal({ citation, onSave, onClose }: Props) {
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Disposition Date *</label>
-              <input className="form-input" type="date" value={dispDate} onChange={(e) => setDispDate(e.target.value)} />
+              <DateInput className="form-input" value={dispDate} onChange={(e) => setDispDate(e.target.value)} />
             </div>
           </div>
 
@@ -148,7 +149,7 @@ export default function DispositionModal({ citation, onSave, onClose }: Props) {
               <div style={{ fontWeight: 700, fontSize: 13, color: "#92400e", marginBottom: 10 }}>📅 Reschedule Court Date</div>
               <div className="form-group" style={{ margin: 0, maxWidth: 220 }}>
                 <label className="form-label">New Court Date</label>
-                <input className="form-input" type="date" value={newCourtDate} onChange={(e) => setNewCourtDate(e.target.value)} />
+                <DateInput className="form-input" value={newCourtDate} onChange={(e) => setNewCourtDate(e.target.value)} />
               </div>
             </div>
           )}

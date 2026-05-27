@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import type { MedicalRecord } from "@/lib/types";
 import { MEDICAL_TYPES, MEDICAL_DESC_MAP } from "@/lib/constants";
@@ -6,6 +6,7 @@ import StaffSelect from "@/components/ui/StaffSelect";
 import { updateMedical, deleteMedical } from "@/lib/data";
 import { useAuth } from "@/app/providers";
 import { formatDate, today } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 interface Props {
   record: MedicalRecord;
@@ -142,7 +143,7 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
             </div>
             <div className="form-group">
               <label className="form-label">Date *</label>
-              <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateInput className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="form-group">
               <label className="form-label">Vet / Staff</label>
@@ -151,7 +152,7 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
             <div className="form-group">
               <label className="form-label">Next Due</label>
               <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                <input className="form-input" type="date" value={nextDue} onChange={(e) => setNextDue(e.target.value)} style={{ flex: 1 }} />
+                <DateInput className="form-input" value={nextDue} onChange={(e) => setNextDue(e.target.value)} style={{ flex: 1 }} />
                 {nextDue && (
                   <button type="button" className="btn btn-ghost btn-sm" onClick={() => setNextDue("")} title="Clear" style={{ padding: "4px 8px" }}>✕</button>
                 )}

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
@@ -17,6 +17,7 @@ import {
   DAY_LABELS,
 } from "@/lib/schedules";
 import type { OfficerSchedule, ScheduleOverride } from "@/lib/types";
+import DateInput from "@/components/ui/DateInput";
 
 interface StaffRow { id: string; first_name: string; last_name: string; role: string; badge?: string; phone?: string }
 
@@ -178,7 +179,7 @@ function OverrideForm({ officers, onSaved }: { officers: StaffRow[]; onSaved: ()
         </div>
         <div>
           <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 3 }}>Date</label>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+          <DateInput value={date} onChange={(e) => setDate(e.target.value)}
             style={{ width: "100%", border: "1px solid #d1d5db", borderRadius: 6, padding: "7px 10px", fontSize: 13, boxSizing: "border-box" }} />
         </div>
       </div>
@@ -625,7 +626,7 @@ export default function SchedulesPage() {
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
                   <div>
                     <label style={{ fontSize: 12, fontWeight: 600, color: "#555", display: "block", marginBottom: 3 }}>Date</label>
-                    <input type="date" value={ocDate} onChange={(e) => setOcDate(e.target.value)}
+                    <DateInput value={ocDate} onChange={(e) => setOcDate(e.target.value)}
                       style={{ width: "100%", border: "1px solid #d1d5db", borderRadius: 6, padding: "8px 10px", fontSize: 13, boxSizing: "border-box" }} />
                   </div>
                   <div>

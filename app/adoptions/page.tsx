@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -10,6 +10,7 @@ import { printCompletedAdoptionForm } from "@/lib/adoptionPrint";
 import ReturnAnimalModal from "@/components/animals/ReturnAnimalModal";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import { formatDate, today, genId, genReceiptId } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 export default function AdoptionsPage() {
   const router = useRouter();
@@ -630,7 +631,7 @@ export default function AdoptionsPage() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Adoption Date</label>
-                    <input className="form-input" type="date" value={adoptionDate} onChange={(e) => setAdoptionDate(e.target.value)} style={{ maxWidth: 200 }} />
+                    <DateInput className="form-input" value={adoptionDate} onChange={(e) => setAdoptionDate(e.target.value)} style={{ maxWidth: 200 }} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Notes</label>

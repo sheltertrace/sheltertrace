@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 import { useState, useMemo } from "react";
 import type { Animal, RescueGroup, MedicalRecord, Transfer } from "@/lib/types";
 import { createTransfer, genTransferReceiptNumber } from "@/lib/data";
 import { today, formatDate } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
 import { BEHAVIOR_FLAGS } from "@/lib/constants";
+import DateInput from "@/components/ui/DateInput";
 
 interface Props {
   animals: Animal[];
@@ -533,7 +534,7 @@ export default function TransferWizard({ animals, medicalByAnimal, rescueGroups,
                   <div className="grid-2">
                     <div className="form-group">
                       <label className="form-label">Transfer Date *</label>
-                      <input className="form-input" type="date" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} />
+                      <DateInput className="form-input" value={transferDate} onChange={(e) => setTransferDate(e.target.value)} />
                     </div>
                     <div className="form-group">
                       <label className="form-label">Officer Badge # <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(optional)</span></label>

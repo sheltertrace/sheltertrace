@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -6,6 +6,7 @@ import { fetchPeople, fetchOfficers, createCall, createPerson, addPersonNote } f
 import type { Person, Officer } from "@/lib/types";
 import { CALL_TYPES, CALL_PRIORITIES, PRIORITY_COLORS, MORGAN_COUNTY_JURISDICTIONS } from "@/lib/constants";
 import { today, nowTime } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 // ── Module-level components (prevents focus loss) ──────────────────────────────
 function F({ label, req, span, children }: { label: string; req?: boolean; span?: boolean; children: React.ReactNode }) {
@@ -168,7 +169,7 @@ export default function NewCallPage() {
               </div>
             </F>
             <F label="Date Reported">
-              <input className="form-input" type="date" value={data.date_reported} onChange={(e) => upd({ date_reported: e.target.value })} />
+              <DateInput className="form-input" value={data.date_reported} onChange={(e) => upd({ date_reported: e.target.value })} />
             </F>
             <F label="Time Reported">
               <input className="form-input" type="time" value={data.time_reported} onChange={(e) => upd({ time_reported: e.target.value })} />

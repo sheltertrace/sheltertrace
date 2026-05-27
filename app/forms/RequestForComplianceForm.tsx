@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -7,6 +7,7 @@ import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
 import type { ShelterForm, Officer, Person, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
+import DateInput from "@/components/ui/DateInput";
 
 const VIOLATIONS = [
   { id: "at_large",    label: "Animal running at large causing a nuisance.", section: "Section 10-7" },
@@ -212,7 +213,7 @@ export default function RequestForComplianceForm({ onSave, onClose, prefill }: P
             ))}
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Date</label>
-              <input className="form-input" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <DateInput className="form-input" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
           </div>
 
@@ -234,7 +235,7 @@ export default function RequestForComplianceForm({ onSave, onClose, prefill }: P
 
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="form-label">Complaint Date</label>
-            <input className="form-input" type="date" value={complaintDate} onChange={(e) => setComplaintDate(e.target.value)} style={{ maxWidth: 200 }} />
+            <DateInput className="form-input" value={complaintDate} onChange={(e) => setComplaintDate(e.target.value)} style={{ maxWidth: 200 }} />
           </div>
 
           {/* Violations */}
@@ -265,7 +266,7 @@ export default function RequestForComplianceForm({ onSave, onClose, prefill }: P
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 14 }}>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Compliance Deadline</label>
-              <input className="form-input" type="date" value={complianceDate} onChange={(e) => setComplianceDate(e.target.value)} />
+              <DateInput className="form-input" value={complianceDate} onChange={(e) => setComplianceDate(e.target.value)} />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Phone Number</label>

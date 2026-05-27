@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useRef } from "react";
 import { createForm, fetchPeople, fetchAnimals, fetchShelterSettings } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
 import type { ShelterForm, Person, Animal, ShelterSettings, FormPreFill } from "@/lib/types";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
+import DateInput from "@/components/ui/DateInput";
 
 export interface InventoryRow {
   rowId: string;
@@ -269,7 +270,7 @@ export default function GdaAnimalInventoryForm({ onSave, onClose, prefill }: Pro
           </div>
           <div>
             <label style={labelStyle}>Report Date</label>
-            <input type="date" style={fieldStyle} value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
+            <DateInput style={fieldStyle} value={reportDate} onChange={(e) => setReportDate(e.target.value)} />
           </div>
         </div>
 
@@ -363,10 +364,10 @@ export default function GdaAnimalInventoryForm({ onSave, onClose, prefill }: Pro
                     </select>
                   </td>
                   <td style={{ border: "1px solid var(--border)", padding: 4 }}>
-                    <input type="date" style={{ ...fieldStyle, fontSize: 12 }} value={row.date_in} onChange={(e) => updateRow(row.rowId, "date_in", e.target.value)} />
+                    <DateInput style={{ ...fieldStyle, fontSize: 12 }} value={row.date_in} onChange={(e) => updateRow(row.rowId, "date_in", e.target.value)} />
                   </td>
                   <td style={{ border: "1px solid var(--border)", padding: 4 }}>
-                    <input type="date" style={{ ...fieldStyle, fontSize: 12 }} value={row.date_out} onChange={(e) => updateRow(row.rowId, "date_out", e.target.value)} />
+                    <DateInput style={{ ...fieldStyle, fontSize: 12 }} value={row.date_out} onChange={(e) => updateRow(row.rowId, "date_out", e.target.value)} />
                   </td>
                   <td style={{ border: "1px solid var(--border)", padding: 4 }}>
                     <input style={{ ...fieldStyle, fontSize: 12 }} value={row.notes} onChange={(e) => updateRow(row.rowId, "notes", e.target.value)} />

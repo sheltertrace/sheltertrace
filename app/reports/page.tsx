@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { fetchAnimals, fetchAdoptions, fetchMedical, fetchTransfers, safeArray, safeAnimalNames, safeJsonArray, safeJsonObject, fetchDepartureReceipts, fetchMicrochipRegistry, fetchCitations, fetchVolunteerLogs, fetchReceipts } from "@/lib/data";
@@ -8,6 +8,7 @@ import { printTransferReceipt } from "@/components/transfers/TransferWizard";
 import { printDepartureReceipt } from "@/lib/departureReceipt";
 import { computeDateRange, inRange, fmtMoney, fmtDateUS, printReport, downloadCsv, daysBetween, type DatePreset, type DateRange } from "@/lib/reportUtils";
 import { getCurrentUser } from "@/lib/auth";
+import DateInput from "@/components/ui/DateInput";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -586,9 +587,9 @@ export default function ReportsPage() {
           ))}
           {datePreset === "custom" && (
             <>
-              <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="form-input" style={{ width: 140, fontSize: 12, padding: "5px 8px" }} />
+              <DateInput value={customFrom} onChange={(e) => setCustomFrom(e.target.value)} className="form-input" style={{ width: 140, fontSize: 12, padding: "5px 8px" }} />
               <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>to</span>
-              <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="form-input" style={{ width: 140, fontSize: 12, padding: "5px 8px" }} />
+              <DateInput value={customTo} onChange={(e) => setCustomTo(e.target.value)} className="form-input" style={{ width: 140, fontSize: 12, padding: "5px 8px" }} />
             </>
           )}
           <span style={{ fontSize: 12, color: "var(--teal)", fontWeight: 600, marginLeft: 8 }}>📅 {range.label}</span>
@@ -667,11 +668,11 @@ export default function ReportsPage() {
           <div style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label" style={{ fontSize: 10 }}>From</label>
-              <input className="form-input" type="date" value={trDateFrom} onChange={(e) => setTrDateFrom(e.target.value)} style={{ width: 140 }} />
+              <DateInput className="form-input" value={trDateFrom} onChange={(e) => setTrDateFrom(e.target.value)} style={{ width: 140 }} />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label" style={{ fontSize: 10 }}>To</label>
-              <input className="form-input" type="date" value={trDateTo} onChange={(e) => setTrDateTo(e.target.value)} style={{ width: 140 }} />
+              <DateInput className="form-input" value={trDateTo} onChange={(e) => setTrDateTo(e.target.value)} style={{ width: 140 }} />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label" style={{ fontSize: 10 }}>Agency</label>
@@ -914,9 +915,9 @@ export default function ReportsPage() {
                 <select className="form-select" value={drType} onChange={(e) => setDrType(e.target.value)} style={{ width: 170, fontSize: 12 }}>
                   {DEPARTURE_TYPES.map((t) => <option key={t}>{t}</option>)}
                 </select>
-                <input className="form-input" type="date" value={drDateFrom} onChange={(e) => setDrDateFrom(e.target.value)} style={{ width: 135, fontSize: 12 }} />
+                <DateInput className="form-input" value={drDateFrom} onChange={(e) => setDrDateFrom(e.target.value)} style={{ width: 135, fontSize: 12 }} />
                 <span style={{ fontSize: 12 }}>to</span>
-                <input className="form-input" type="date" value={drDateTo} onChange={(e) => setDrDateTo(e.target.value)} style={{ width: 135, fontSize: 12 }} />
+                <DateInput className="form-input" value={drDateTo} onChange={(e) => setDrDateTo(e.target.value)} style={{ width: 135, fontSize: 12 }} />
                 <button className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={filtered.length === 0}>⬇ CSV</button>
               </div>
             </div>
@@ -1039,11 +1040,11 @@ export default function ReportsPage() {
             <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap", alignItems: "flex-end" }}>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">From</label>
-                <input type="date" className="form-input" value={chipDateFrom} onChange={(e) => setChipDateFrom(e.target.value)} />
+                <DateInput className="form-input" value={chipDateFrom} onChange={(e) => setChipDateFrom(e.target.value)} />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">To</label>
-                <input type="date" className="form-input" value={chipDateTo} onChange={(e) => setChipDateTo(e.target.value)} />
+                <DateInput className="form-input" value={chipDateTo} onChange={(e) => setChipDateTo(e.target.value)} />
               </div>
               <div className="form-group" style={{ margin: 0 }}>
                 <label className="form-label">Species</label>

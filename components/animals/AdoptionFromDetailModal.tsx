@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useMemo } from "react";
 import type { Animal, Person, DepartureReceipt } from "@/lib/types";
 import { createAdoption, createPerson, updateAnimal, createDepartureReceipt } from "@/lib/data";
@@ -6,6 +6,7 @@ import { buildDepartureReceiptPayload, writeReceiptToWindow } from "@/lib/depart
 import { getCurrentUser } from "@/lib/auth";
 import { today, genReceiptId } from "@/lib/utils";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
+import DateInput from "@/components/ui/DateInput";
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="form-group"><label className="form-label">{label}</label>{children}</div>;
@@ -316,7 +317,7 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
               )}
 
               <div className="grid-2">
-                <F label="Adoption Date *"><input className="form-input" type="date" value={adoptionDate} onChange={(e) => setAdoptionDate(e.target.value)} /></F>
+                <F label="Adoption Date *"><DateInput className="form-input" value={adoptionDate} onChange={(e) => setAdoptionDate(e.target.value)} /></F>
               </div>
             </>
           )}

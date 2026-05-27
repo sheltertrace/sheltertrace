@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 import { useState } from "react";
 import Link from "next/link";
 import { supabasePublic } from "@/lib/supabase-public";
+import DateInput from "@/components/ui/DateInput";
 
 const SPECIES_OPTIONS = ["Dog","Cat","Other"];
 const SIZE_OPTIONS    = ["Small","Medium","Large","Extra Large"];
@@ -221,7 +222,7 @@ export default function ReportFoundPage() {
           <div style={sect}>
             <h3 style={{ fontSize:15, fontWeight:800, color:"#0f2942", marginBottom:14 }}>2. Where &amp; When Found</h3>
             <G2>
-              <F label="Date Found" req><input style={inp} type="date" value={dateLostFound} onChange={(e)=>setDateLostFound(e.target.value)}/></F>
+              <F label="Date Found" req><DateInput style={inp} value={dateLostFound} onChange={(e)=>setDateLostFound(e.target.value)}/></F>
               <F label="Time Found"><input style={inp} type="time" value={timeLostFound} onChange={(e)=>setTimeLostFound(e.target.value)}/></F>
             </G2>
             <F label="General Area / Cross Streets" req>

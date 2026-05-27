@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { createCitation, fetchCourtSettings, markCitationNotified } from "@/lib/data";
 import { today, nowTime, genCitationNumber } from "@/lib/utils";
@@ -8,6 +8,7 @@ import { CITABLE_ORDINANCES, MORGAN_COUNTY_ORDINANCES } from "@/lib/constants";
 import SignaturePad from "@/components/ui/SignaturePad";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import { openCourtEmail } from "@/lib/courtEmail";
+import DateInput from "@/components/ui/DateInput";
 
 const ORDINANCE_ARTICLES = Array.from(new Set(CITABLE_ORDINANCES.map((o) => o.article)));
 
@@ -249,7 +250,7 @@ export default function CitationModal({ onSave, onClose }: Props) {
               </div>
             </F>
             <F label="Sex"><select className="form-select" value={violatorSex} onChange={(e) => setViolatorSex(e.target.value)}><option value="">—</option><option>M</option><option>F</option></select></F>
-            <F label="Date of Birth"><input className="form-input" type="date" value={violatorDob} onChange={(e) => setViolatorDob(e.target.value)} /></F>
+            <F label="Date of Birth"><DateInput className="form-input" value={violatorDob} onChange={(e) => setViolatorDob(e.target.value)} /></F>
           </div>
           {(violatorFirst || violatorLast) && (
             <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 8 }}>
@@ -305,11 +306,11 @@ export default function CitationModal({ onSave, onClose }: Props) {
             <div style={{ fontSize: 11, color: "var(--text-secondary)", alignSelf: "flex-end", paddingBottom: 10 }}>
               {courtType === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650"}
             </div>
-            <F label="Court Date"><input className="form-input" type="date" value={courtDate} onChange={(e) => setCourtDate(e.target.value)} /></F>
+            <F label="Court Date"><DateInput className="form-input" value={courtDate} onChange={(e) => setCourtDate(e.target.value)} /></F>
             <F label="Court Time"><input className="form-input" value={courtTime} onChange={(e) => setCourtTime(e.target.value)} placeholder="e.g. 9:00" /></F>
             <F label="AM/PM"><select className="form-select" value={courtAmPm} onChange={(e) => setCourtAmPm(e.target.value)}><option>AM</option><option>PM</option></select></F>
             <F label="Fine Amount ($)"><input className="form-input" value={fineAmount} onChange={(e) => setFineAmount(e.target.value)} placeholder="0.00" /></F>
-            <F label="Due Date"><input className="form-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></F>
+            <F label="Due Date"><DateInput className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></F>
           </div>
 
           <SH title="Officer & Service" />
@@ -321,7 +322,7 @@ export default function CitationModal({ onSave, onClose }: Props) {
                 {["Personal Service", "Posted on Door", "Certified Mail", "Hand Delivered"].map((s) => <option key={s}>{s}</option>)}
               </select>
             </F>
-            <F label="Date"><input className="form-input" type="date" value={citDate} onChange={(e) => setCitDate(e.target.value)} /></F>
+            <F label="Date"><DateInput className="form-input" value={citDate} onChange={(e) => setCitDate(e.target.value)} /></F>
             <F label="Time"><input className="form-input" value={citTime} onChange={(e) => setCitTime(e.target.value)} /></F>
             <F label="Location"><input className="form-input" value={citLocation} onChange={(e) => setCitLocation(e.target.value)} /></F>
           </div>

@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo } from "react";
 import { createForm, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
 import type { ShelterForm, Person, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
+import DateInput from "@/components/ui/DateInput";
 
 const MCAS_BLUE = "#0f2942";
 
@@ -272,9 +273,9 @@ export default function VolunteerAgreementForm({ onSave, onClose, prefill }: Pro
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 140px 80px 120px", gap: 10, marginBottom: 12 }}>
             <div><label style={labelStyle}>First Name *</label><input style={fieldStyle} value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div><label style={labelStyle}>Last Name *</label><input style={fieldStyle} value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
-            <div><label style={labelStyle}>Date of Birth</label><input style={fieldStyle} type="date" value={dob} onChange={(e) => setDob(e.target.value)} /></div>
+            <div><label style={labelStyle}>Date of Birth</label><DateInput style={fieldStyle} value={dob} onChange={(e) => setDob(e.target.value)} /></div>
             <div><label style={labelStyle}>Age</label><input style={{ ...fieldStyle, background: "var(--surface-alt)" }} value={age} readOnly /></div>
-            <div><label style={labelStyle}>Agreement Date</label><input style={fieldStyle} type="date" value={agreementDate} onChange={(e) => setAgreementDate(e.target.value)} /></div>
+            <div><label style={labelStyle}>Agreement Date</label><DateInput style={fieldStyle} value={agreementDate} onChange={(e) => setAgreementDate(e.target.value)} /></div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 60px 80px", gap: 10, marginBottom: 12 }}>
             <div><label style={labelStyle}>Address</label><input style={fieldStyle} value={address} onChange={(e) => setAddress(e.target.value)} /></div>
@@ -317,7 +318,7 @@ export default function VolunteerAgreementForm({ onSave, onClose, prefill }: Pro
               </div>
               <div style={{ marginTop: 8 }}>
                 <label style={labelStyle}>Date</label>
-                <input style={fieldStyle} type="date" value={volunteerSigDate} onChange={(e) => setVolunteerSigDate(e.target.value)} />
+                <DateInput style={fieldStyle} value={volunteerSigDate} onChange={(e) => setVolunteerSigDate(e.target.value)} />
               </div>
             </div>
             <div>
@@ -334,7 +335,7 @@ export default function VolunteerAgreementForm({ onSave, onClose, prefill }: Pro
               </div>
               <div style={{ marginTop: 8 }}>
                 <label style={labelStyle}>Date</label>
-                <input style={fieldStyle} type="date" value={repSigDate} onChange={(e) => setRepSigDate(e.target.value)} />
+                <DateInput style={fieldStyle} value={repSigDate} onChange={(e) => setRepSigDate(e.target.value)} />
               </div>
             </div>
           </div>
@@ -367,7 +368,7 @@ export default function VolunteerAgreementForm({ onSave, onClose, prefill }: Pro
                   </div>
                   <div>
                     <label style={labelStyle}>Date</label>
-                    <input style={fieldStyle} type="date" value={guardianSigDate} onChange={(e) => setGuardianSigDate(e.target.value)} />
+                    <DateInput style={fieldStyle} value={guardianSigDate} onChange={(e) => setGuardianSigDate(e.target.value)} />
                   </div>
                 </div>
               </div>

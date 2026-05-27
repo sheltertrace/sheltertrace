@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchPeople, fetchShelterSettings } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers";
 import type { ShelterForm, Officer, Person, ShelterSettings, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
+import DateInput from "@/components/ui/DateInput";
 
 export const INSPECTION_ITEMS = [
   { num: 1, label: "Adequate Food", ref: "40-13-13-.01", outdoorNA: false },
@@ -277,7 +278,7 @@ export default function GdaFosterInspectionForm({ onSave, onClose, prefill }: Pr
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Inspection Date</label>
-              <input className="form-input" type="date" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} />
+              <DateInput className="form-input" value={inspectionDate} onChange={(e) => setInspectionDate(e.target.value)} />
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Inspection Type</label>

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchPeople, fetchAnimals } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers";
 import type { ShelterForm, Person, Animal, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
+import DateInput from "@/components/ui/DateInput";
 
 const MCAS_BLUE = "#1a3a6b";
 
@@ -387,7 +388,7 @@ export default function AdoptionApplicationForm({ onSave, onClose, prefill }: Pr
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 20 }}>
           <div>
             <label style={labelStyle}>Application Date</label>
-            <input type="date" style={fieldStyle} value={applicationDate} onChange={(e) => setApplicationDate(e.target.value)} />
+            <DateInput style={fieldStyle} value={applicationDate} onChange={(e) => setApplicationDate(e.target.value)} />
           </div>
         </div>
 
@@ -453,7 +454,7 @@ export default function AdoptionApplicationForm({ onSave, onClose, prefill }: Pr
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
           <div><label style={labelStyle}>First Name</label><input style={fieldStyle} value={adopterFirst} onChange={(e) => setAdopterFirst(e.target.value)} /></div>
           <div><label style={labelStyle}>Last Name</label><input style={fieldStyle} value={adopterLast} onChange={(e) => setAdopterLast(e.target.value)} /></div>
-          <div><label style={labelStyle}>Date of Birth</label><input type="date" style={fieldStyle} value={adopterDob} onChange={(e) => setAdopterDob(e.target.value)} /></div>
+          <div><label style={labelStyle}>Date of Birth</label><DateInput style={fieldStyle} value={adopterDob} onChange={(e) => setAdopterDob(e.target.value)} /></div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
           <div><label style={labelStyle}>Address</label><input style={fieldStyle} value={adopterAddress} onChange={(e) => setAdopterAddress(e.target.value)} /></div>

@@ -1,10 +1,11 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo } from "react";
 import { createForm, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
 import type { ShelterForm, Person, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
+import DateInput from "@/components/ui/DateInput";
 
 const MCAS_BLUE = "#0f2942";
 
@@ -223,7 +224,7 @@ export default function VolunteerConfidentialityForm({ onSave, onClose, prefill 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 140px", gap: 10, marginBottom: 12 }}>
             <div><label style={labelStyle}>First Name *</label><input style={fieldStyle} value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div><label style={labelStyle}>Last Name *</label><input style={fieldStyle} value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
-            <div><label style={labelStyle}>Agreement Date</label><input style={fieldStyle} type="date" value={agreementDate} onChange={(e) => setAgreementDate(e.target.value)} /></div>
+            <div><label style={labelStyle}>Agreement Date</label><DateInput style={fieldStyle} value={agreementDate} onChange={(e) => setAgreementDate(e.target.value)} /></div>
           </div>
 
           {/* Agreement text */}
@@ -249,7 +250,7 @@ export default function VolunteerConfidentialityForm({ onSave, onClose, prefill 
               </div>
               <div style={{ marginTop: 8 }}>
                 <label style={labelStyle}>Date</label>
-                <input style={fieldStyle} type="date" value={sigDate} onChange={(e) => setSigDate(e.target.value)} />
+                <DateInput style={fieldStyle} value={sigDate} onChange={(e) => setSigDate(e.target.value)} />
               </div>
             </div>
             <div style={{ padding: "12px 14px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 7, fontSize: 12, color: "#15803d" }}>

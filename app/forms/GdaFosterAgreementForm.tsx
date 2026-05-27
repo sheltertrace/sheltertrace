@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchPeople, fetchShelterSettings } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers";
 import type { ShelterForm, Officer, Person, ShelterSettings, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
+import DateInput from "@/components/ui/DateInput";
 
 const AGREEMENT_POINTS = [
   "This form must be maintained at the animal shelter's licensed address.",
@@ -238,7 +239,7 @@ export default function GdaFosterAgreementForm({ onSave, onClose, prefill }: Pro
             </div>
             <div className="form-group" style={{ margin: 0 }}>
               <label className="form-label">Agreement Effective Date</label>
-              <input className="form-input" type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
+              <DateInput className="form-input" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
             </div>
           </div>
 
@@ -355,7 +356,7 @@ export default function GdaFosterAgreementForm({ onSave, onClose, prefill }: Pro
               </div>
               <div className="form-group" style={{ margin: 0, maxWidth: 200 }}>
                 <label className="form-label">Termination Date</label>
-                <input className="form-input" type="date" value={terminationDate} onChange={(e) => setTerminationDate(e.target.value)} />
+                <DateInput className="form-input" value={terminationDate} onChange={(e) => setTerminationDate(e.target.value)} />
               </div>
             </div>
           )}

@@ -1,6 +1,7 @@
-"use client";
+﻿"use client";
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { createVolunteerApplication } from "@/lib/data";
+import DateInput from "@/components/ui/DateInput";
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
@@ -320,7 +321,7 @@ export default function VolunteerApplyPage() {
             </div>
             <div style={grid2}>
               <Field label="Date of Birth">
-                <input type="date" style={input} value={dob} onChange={(e) => setDob(e.target.value)} />
+                <DateInput style={input} value={dob} onChange={(e) => setDob(e.target.value)} />
                 {isMinor && dob && <div style={{ fontSize: 12, color: "#d97706", marginTop: 4, fontWeight: 600 }}>⚠ Under 18 — parent/guardian signature required below</div>}
               </Field>
               <Field label="Sex">

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
@@ -9,6 +9,7 @@ import StaffSelect from "@/components/ui/StaffSelect";
 import { formatDate, today } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import MedicalEditModal from "@/components/medical/MedicalEditModal";
+import DateInput from "@/components/ui/DateInput";
 
 export default function MedicalPage() {
   const router = useRouter();
@@ -206,7 +207,7 @@ export default function MedicalPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Date *</label>
-                  <input className="form-input" type="date" value={medDate} onChange={(e) => setMedDate(e.target.value)} />
+                  <DateInput className="form-input" value={medDate} onChange={(e) => setMedDate(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Vet / Staff</label>
@@ -214,7 +215,7 @@ export default function MedicalPage() {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Next Due</label>
-                  <input className="form-input" type="date" value={medNextDue} onChange={(e) => setMedNextDue(e.target.value)} />
+                  <DateInput className="form-input" value={medNextDue} onChange={(e) => setMedNextDue(e.target.value)} />
                 </div>
               </div>
             </div>

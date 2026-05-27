@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 import { useState, useRef, useEffect, useCallback } from "react";
 import { createAdoptionApplication } from "@/lib/data";
 import { printBlankAdoptionForm } from "@/lib/adoptionPrint";
+import DateInput from "@/components/ui/DateInput";
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
@@ -306,7 +307,7 @@ export default function AdoptApplyPage() {
           <Section title="3. Adopter Information">
             <div style={g2}>
               <FRow label="Full Name *"><input style={inp} value={adopterName} onChange={(e) => setAdopterName(e.target.value)} required placeholder="First Middle Last" /></FRow>
-              <FRow label="Date of Birth"><input type="date" style={inp} value={adopterDob} onChange={(e) => setAdopterDob(e.target.value)} /></FRow>
+              <FRow label="Date of Birth"><DateInput style={inp} value={adopterDob} onChange={(e) => setAdopterDob(e.target.value)} /></FRow>
             </div>
             <FRow label="Street Address *"><input style={inp} value={adopterAddr} onChange={(e) => setAdopterAddr(e.target.value)} required /></FRow>
             <div style={g3}>

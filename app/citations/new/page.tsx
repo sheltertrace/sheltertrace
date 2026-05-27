@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -9,6 +9,7 @@ import { useAuth } from "@/app/providers";
 import { CITABLE_ORDINANCES, MORGAN_COUNTY_ORDINANCES } from "@/lib/constants";
 import SignaturePad from "@/components/ui/SignaturePad";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
+import DateInput from "@/components/ui/DateInput";
 
 const ORDINANCE_ARTICLES = Array.from(new Set(CITABLE_ORDINANCES.map((o) => o.article)));
 
@@ -342,7 +343,7 @@ function CitationNewInner() {
                 <option value="">—</option><option>M</option><option>F</option>
               </select>
             </F>
-            <F label="Date of Birth"><input className="form-input" type="date" value={violatorDob} onChange={(e) => setViolatorDob(e.target.value)} /></F>
+            <F label="Date of Birth"><DateInput className="form-input" value={violatorDob} onChange={(e) => setViolatorDob(e.target.value)} /></F>
           </div>
 
           <SectionHeader title="Physical Description" />
@@ -394,7 +395,7 @@ function CitationNewInner() {
             <div style={{ fontSize: 11, color: "var(--text-secondary)", alignSelf: "flex-end", paddingBottom: 10 }}>
               {courtType === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650"}
             </div>
-            <F label="Court Date"><input className="form-input" type="date" value={courtDate} onChange={(e) => setCourtDate(e.target.value)} /></F>
+            <F label="Court Date"><DateInput className="form-input" value={courtDate} onChange={(e) => setCourtDate(e.target.value)} /></F>
             <F label="Court Time"><input className="form-input" value={courtTime} onChange={(e) => setCourtTime(e.target.value)} placeholder="e.g. 9:00" /></F>
             <F label="AM/PM">
               <select className="form-select" value={courtAmPm} onChange={(e) => setCourtAmPm(e.target.value)}>
@@ -402,7 +403,7 @@ function CitationNewInner() {
               </select>
             </F>
             <F label="Fine Amount ($)"><input className="form-input" value={fineAmount} onChange={(e) => setFineAmount(e.target.value)} placeholder="0.00" /></F>
-            <F label="Due Date"><input className="form-input" type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></F>
+            <F label="Due Date"><DateInput className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></F>
           </div>
 
           <SectionHeader title="Officer & Service" />
@@ -414,7 +415,7 @@ function CitationNewInner() {
                 {["Personal Service", "Posted on Door", "Certified Mail", "Hand Delivered"].map((s) => <option key={s}>{s}</option>)}
               </select>
             </F>
-            <F label="Date"><input className="form-input" type="date" value={citDate} onChange={(e) => setCitDate(e.target.value)} /></F>
+            <F label="Date"><DateInput className="form-input" value={citDate} onChange={(e) => setCitDate(e.target.value)} /></F>
             <F label="Time"><input className="form-input" value={citTime} onChange={(e) => setCitTime(e.target.value)} /></F>
             <F label="Location"><input className="form-input" value={citLocation} onChange={(e) => setCitLocation(e.target.value)} /></F>
           </div>

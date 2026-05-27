@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 import { useState, useRef } from "react";
 import { supabasePublic } from "@/lib/supabase-public";
 import { today } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const ANIMAL_PREFS = ["Dogs","Cats","Both — Dogs and Cats","Puppies / Kittens","Any / No Preference"];
@@ -250,7 +251,7 @@ export default function FosterApplyPage() {
             <Grid2>
               <Field label="First Name" req><input style={inp} value={firstName} onChange={(e) => setFirstName(e.target.value)} required /></Field>
               <Field label="Last Name" req><input style={inp} value={lastName} onChange={(e) => setLastName(e.target.value)} required /></Field>
-              <Field label="Date of Birth"><input style={inp} type="date" value={dob} onChange={(e) => setDob(e.target.value)} /></Field>
+              <Field label="Date of Birth"><DateInput style={inp} value={dob} onChange={(e) => setDob(e.target.value)} /></Field>
               <Field label="Phone"><input style={inp} type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
               <Field label="Email"><input style={inp} type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
             </Grid2>

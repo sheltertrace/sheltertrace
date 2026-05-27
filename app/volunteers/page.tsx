@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements, updatePerson, fetchForms, fetchVolunteerApplications, updateVolunteerApplication, createPerson, genNextPid } from "@/lib/data";
@@ -8,6 +8,7 @@ import { today, formatDate } from "@/lib/utils";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AddVolunteerModal, { printBadge } from "@/components/volunteers/AddVolunteerModal";
+import DateInput from "@/components/ui/DateInput";
 
 const TASKS = ["Dog Walking", "Cat Socialization", "Kennel Cleaning", "Administrative", "Photography", "Transport", "Training", "Events", "Laundry / Dishes", "Other"];
 
@@ -402,11 +403,11 @@ export default function VolunteersPage() {
             <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
               <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
                 <label className="form-label">From</label>
-                <input type="date" className="form-input" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+                <DateInput className="form-input" value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
               </div>
               <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
                 <label className="form-label">To</label>
-                <input type="date" className="form-input" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
+                <DateInput className="form-input" value={filterTo} onChange={(e) => setFilterTo(e.target.value)} />
               </div>
               <div className="form-group" style={{ margin: 0, minWidth: 200 }}>
                 <label className="form-label">Volunteer</label>

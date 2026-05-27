@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill, Transfer, RescueGroup, DepartureReceipt, AdoptionRecord } from "@/lib/types";
@@ -35,6 +35,7 @@ import ReturnAnimalModal from "./ReturnAnimalModal";
 import ReceiptPreviewModal from "./ReceiptPreviewModal";
 import AdoptionFromDetailModal, { type AdoptionReceiptInfo } from "./AdoptionFromDetailModal";
 import { type RedemptionReceiptInfo } from "./RedemptionWizard";
+import DateInput from "@/components/ui/DateInput";
 const RedemptionWizard = dynamic(() => import("./RedemptionWizard"), { ssr: false });
 
 interface Props {
@@ -585,7 +586,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 </select>
               </F>
               <F label="Date of Birth">
-                <input className="form-input" type="date" value={animal.dob || ""} onChange={(e) => save({ dob: e.target.value })} />
+                <DateInput className="form-input" value={animal.dob || ""} onChange={(e) => save({ dob: e.target.value })} />
                 {animal.dob && <div style={{ fontSize: 10, color: "var(--teal)", marginTop: 3, fontWeight: 700 }}>Age: {calcAge(animal.dob)}</div>}
               </F>
               <F label="Age (read-only)">
@@ -642,7 +643,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <input className="form-input" value={animal.intake_type || ""} readOnly />
               </F>
               <F label="Intake Date">
-                <input className="form-input" type="date" value={animal.intake_date || ""} onChange={(e) => save({ intake_date: e.target.value })} />
+                <DateInput className="form-input" value={animal.intake_date || ""} onChange={(e) => save({ intake_date: e.target.value })} />
               </F>
               <F label="Circumstance">
                 <select className="form-select" value={animal.circumstance || ""} onChange={(e) => save({ circumstance: e.target.value })}>
@@ -736,13 +737,13 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <input className="form-input" defaultValue={animal.microchip_brand || ""} onBlur={(e) => save({ microchip_brand: e.target.value })} />
               </F>
               <F label="Microchip Implant Date">
-                <input className="form-input" type="date" value={animal.microchip_date || ""} onChange={(e) => save({ microchip_date: e.target.value })} />
+                <DateInput className="form-input" value={animal.microchip_date || ""} onChange={(e) => save({ microchip_date: e.target.value })} />
               </F>
               <F label="Rabies Tag #">
                 <input className="form-input" defaultValue={animal.rabies_tag || ""} onBlur={(e) => save({ rabies_tag: e.target.value })} />
               </F>
               <F label="Rabies Expiry">
-                <input className="form-input" type="date" value={animal.rabies_expiry || ""} onChange={(e) => save({ rabies_expiry: e.target.value })} />
+                <DateInput className="form-input" value={animal.rabies_expiry || ""} onChange={(e) => save({ rabies_expiry: e.target.value })} />
               </F>
               <F label="Shelter Tag #">
                 <input className="form-input" defaultValue={animal.shelter_tag || ""} onBlur={(e) => save({ shelter_tag: e.target.value })} />
@@ -801,7 +802,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   </div>
                   <div className="form-group">
                     <label className="form-label">Date</label>
-                    <input className="form-input" type="date" value={medDate} onChange={(e) => setMedDate(e.target.value)} />
+                    <DateInput className="form-input" value={medDate} onChange={(e) => setMedDate(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Vet / Staff</label>
@@ -809,7 +810,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   </div>
                   <div className="form-group">
                     <label className="form-label">Next Due</label>
-                    <input className="form-input" type="date" value={medNextDue} onChange={(e) => setMedNextDue(e.target.value)} />
+                    <DateInput className="form-input" value={medNextDue} onChange={(e) => setMedNextDue(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Status</label>
@@ -1569,7 +1570,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <F label="Dosage"><input className="form-input" value={euthDose} onChange={(e) => setEuthDose(e.target.value)} placeholder="Amount" /></F>
                 <F label="Unit"><select className="form-select" value={euthUnit} onChange={(e) => setEuthUnit(e.target.value)}>{["ml","cc","mg"].map((u) => <option key={u}>{u}</option>)}</select></F>
                 <F label="Performed By (Vet)"><StaffSelect value={euthVet} onChange={setEuthVet} placeholder="— Select —" /></F>
-                <F label="Date"><input className="form-input" type="date" value={euthDate} onChange={(e) => setEuthDate(e.target.value)} /></F>
+                <F label="Date"><DateInput className="form-input" value={euthDate} onChange={(e) => setEuthDate(e.target.value)} /></F>
                 <F label="Authorized By"><input className="form-input" value={euthAuthorizedBy} onChange={(e) => setEuthAuthorizedBy(e.target.value)} /></F>
                 <F label="Witness"><input className="form-input" value={euthWitness} onChange={(e) => setEuthWitness(e.target.value)} /></F>
               </div>

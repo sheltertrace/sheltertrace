@@ -1,9 +1,10 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo } from "react";
 import { createForm, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
 import type { ShelterForm, Person, FormPreFill } from "@/lib/types";
+import DateInput from "@/components/ui/DateInput";
 
 const MCAS_BLUE = "#0f2942";
 
@@ -253,7 +254,7 @@ export default function VolunteerApplicationForm({ onSave, onClose, prefill }: P
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 140px 80px", gap: 10, marginBottom: 12 }}>
             <div><label style={labelStyle}>First Name *</label><input style={fieldStyle} value={firstName} onChange={(e) => setFirstName(e.target.value)} /></div>
             <div><label style={labelStyle}>Last Name *</label><input style={fieldStyle} value={lastName} onChange={(e) => setLastName(e.target.value)} /></div>
-            <div><label style={labelStyle}>Date of Birth</label><input style={fieldStyle} type="date" value={dob} onChange={(e) => setDob(e.target.value)} /></div>
+            <div><label style={labelStyle}>Date of Birth</label><DateInput style={fieldStyle} value={dob} onChange={(e) => setDob(e.target.value)} /></div>
             <div><label style={labelStyle}>Age</label><input style={{ ...fieldStyle, background: "var(--surface-alt)" }} value={age} readOnly /></div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 60px 80px", gap: 10, marginBottom: 12 }}>
@@ -346,14 +347,14 @@ export default function VolunteerApplicationForm({ onSave, onClose, prefill }: P
           </div>
           <div style={{ marginBottom: 12 }}>
             <label style={labelStyle}>Last Tetanus Vaccination Date</label>
-            <input style={{ ...fieldStyle, maxWidth: 200 }} type="date" value={tetanusDate} onChange={(e) => setTetanusDate(e.target.value)} />
+            <DateInput style={{ ...fieldStyle, maxWidth: 200 }} value={tetanusDate} onChange={(e) => setTetanusDate(e.target.value)} />
           </div>
 
           {/* Office use */}
           <div style={sectionHead}>Office Use Only</div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
             <div><label style={labelStyle}>Processed By</label><input style={fieldStyle} value={processedBy} onChange={(e) => setProcessedBy(e.target.value)} /></div>
-            <div><label style={labelStyle}>Application Date</label><input style={fieldStyle} type="date" value={applicationDate} onChange={(e) => setApplicationDate(e.target.value)} /></div>
+            <div><label style={labelStyle}>Application Date</label><DateInput style={fieldStyle} value={applicationDate} onChange={(e) => setApplicationDate(e.target.value)} /></div>
           </div>
         </div>
 

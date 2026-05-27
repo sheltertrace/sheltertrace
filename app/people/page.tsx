@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -10,6 +10,7 @@ import { PERSON_ROLES } from "@/lib/constants";
 import { formatDate, today } from "@/lib/utils";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
+import DateInput from "@/components/ui/DateInput";
 
 type Tab = "people" | "address" | "animals" | "calls" | "microchip";
 
@@ -547,11 +548,11 @@ export default function SearchPage() {
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label" style={{ fontSize: 11 }}>From Date</label>
-              <input className="form-input" type="date" value={callDateFrom} onChange={(e) => setCallDateFrom(e.target.value)} />
+              <DateInput className="form-input" value={callDateFrom} onChange={(e) => setCallDateFrom(e.target.value)} />
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label className="form-label" style={{ fontSize: 11 }}>To Date</label>
-              <input className="form-input" type="date" value={callDateTo} onChange={(e) => setCallDateTo(e.target.value)} />
+              <DateInput className="form-input" value={callDateTo} onChange={(e) => setCallDateTo(e.target.value)} />
             </div>
             {(callQuery || callDateFrom || callDateTo) && (
               <button className="btn btn-ghost btn-sm" onClick={() => { setCallQuery(""); setCallDateFrom(""); setCallDateTo(""); }}>Clear</button>

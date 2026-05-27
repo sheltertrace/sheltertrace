@@ -17,6 +17,7 @@ import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
 import { PERSON_ROLES } from "@/lib/constants";
 import { formatDate, today, nowTime, genId } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 const HAIR_COLORS = ["", "Black", "Brown", "Dark Brown", "Light Brown", "Blonde", "Red", "Auburn", "Gray", "White", "Salt & Pepper", "Bald", "Other"];
 const PERSON_EYE_COLORS = ["", "Brown", "Blue", "Green", "Hazel", "Gray", "Amber", "Other"];
@@ -336,7 +337,7 @@ export default function PersonDetailPage() {
                   <input className="form-input" type="email" defaultValue={person.email || ""} onBlur={(e) => save({ email: e.target.value || undefined })} />
                 </F>
                 <F label="Date of Birth">
-                  <input className="form-input" type="date" value={person.dob || ""} onChange={(e) => save({ dob: e.target.value || undefined })} />
+                  <DateInput className="form-input" value={person.dob || ""} onChange={(e) => save({ dob: e.target.value || undefined })} />
                   {person.dob && <div style={{ fontSize: 10, color: "var(--teal)", marginTop: 3, fontWeight: 700 }}>Age: {calcAge(person.dob)}</div>}
                 </F>
                 <F label="Sex">
@@ -393,7 +394,7 @@ export default function PersonDetailPage() {
                   <input className="form-input" defaultValue={person.id_state || ""} onBlur={(e) => save({ id_state: e.target.value || undefined })} placeholder="GA" style={{ maxWidth: 80 }} />
                 </F>
                 <F label="ID Expiration">
-                  <input className="form-input" type="date" value={person.id_expiration || ""} onChange={(e) => save({ id_expiration: e.target.value || undefined })} />
+                  <DateInput className="form-input" value={person.id_expiration || ""} onChange={(e) => save({ id_expiration: e.target.value || undefined })} />
                 </F>
               </div>
 

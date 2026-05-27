@@ -9,6 +9,7 @@ import {
 } from "@/lib/data";
 import type { Person, VolunteerLog } from "@/lib/types";
 import { formatDate, today } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 const TASKS = [
   "Dog Walking","Cat Socialization","Kennel Cleaning","Administrative",
@@ -170,7 +171,7 @@ function AddSessionModal({ person, onClose, onAdded }: AddSessionModalProps) {
         <div className="modal-body">
           <div className="form-group">
             <label className="form-label">Date</label>
-            <input type="date" className="form-input" value={date} onChange={(e) => setDate(e.target.value)} max={today()} />
+            <DateInput className="form-input" value={date} onChange={(e) => setDate(e.target.value)} max={today()} />
           </div>
           <div className="form-group">
             <label className="form-label">Task</label>
@@ -410,8 +411,8 @@ export default function VolunteerProfilePage() {
             Session History ({filteredSessions.length})
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <input type="date" className="form-input" style={{ padding: "4px 8px", fontSize: 12, width: 140 }} value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} placeholder="From" />
-            <input type="date" className="form-input" style={{ padding: "4px 8px", fontSize: 12, width: 140 }} value={filterTo}   onChange={(e) => setFilterTo(e.target.value)}   placeholder="To" />
+            <DateInput className="form-input" style={{ padding: "4px 8px", fontSize: 12, width: 140 }} value={filterFrom} onChange={(e) => setFilterFrom(e.target.value)} />
+            <DateInput className="form-input" style={{ padding: "4px 8px", fontSize: 12, width: 140 }} value={filterTo}   onChange={(e) => setFilterTo(e.target.value)} />
             {(filterFrom || filterTo) && (
               <button className="btn btn-ghost btn-sm" onClick={() => { setFilterFrom(""); setFilterTo(""); }}>✕ Clear</button>
             )}

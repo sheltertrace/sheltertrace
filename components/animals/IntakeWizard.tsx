@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useCallback, useEffect } from "react";
 import type { Animal, Person } from "@/lib/types";
 import { lookupMicrochip } from "@/lib/data";
@@ -13,6 +13,7 @@ import { useKennels } from "@/app/providers";
 import { calcAge, genId, today, nowTime } from "@/lib/utils";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
+import DateInput from "@/components/ui/DateInput";
 
 interface Props {
   onComplete: (animal: Partial<Animal>) => Promise<void>;
@@ -202,7 +203,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                 </select>
               </F>
               <F label="Intake Date *">
-                <input className="form-input" type="date" value={intakeDate} onChange={(e) => setIntakeDate(e.target.value)} />
+                <DateInput className="form-input" value={intakeDate} onChange={(e) => setIntakeDate(e.target.value)} />
               </F>
               <F label="Intake Time">
                 <input className="form-input" type="time" value={intakeTime} onChange={(e) => setIntakeTime(e.target.value)} />
@@ -258,7 +259,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                 </select>
               </F>
               <F label="Date of Birth (auto-calculates age)">
-                <input className="form-input" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+                <DateInput className="form-input" value={dob} onChange={(e) => setDob(e.target.value)} />
                 {dob && <div style={{ fontSize: 10, color: "var(--teal)", marginTop: 3, fontWeight: 700 }}>Age: {calcAge(dob)}</div>}
               </F>
               <F label="Primary Color">
@@ -331,13 +332,13 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                 <input className="form-input" value={microchipBrand} onChange={(e) => setMicrochipBrand(e.target.value)} placeholder="HomeAgain, AKC Reunite, etc." />
               </F>
               <F label="Microchip Implant Date">
-                <input className="form-input" type="date" value={microchipDate} onChange={(e) => setMicrochipDate(e.target.value)} />
+                <DateInput className="form-input" value={microchipDate} onChange={(e) => setMicrochipDate(e.target.value)} />
               </F>
               <F label="Rabies Tag #">
                 <input className="form-input" value={rabiesTag} onChange={(e) => setRabiesTag(e.target.value)} placeholder="Tag number" />
               </F>
               <F label="Rabies Tag Expiry">
-                <input className="form-input" type="date" value={rabiesExpiry} onChange={(e) => setRabiesExpiry(e.target.value)} />
+                <DateInput className="form-input" value={rabiesExpiry} onChange={(e) => setRabiesExpiry(e.target.value)} />
               </F>
               <F label="Shelter Tag #">
                 <input className="form-input" value={shelterTag} onChange={(e) => setShelterTag(e.target.value)} placeholder="Internal tag" />

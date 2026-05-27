@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
@@ -9,6 +9,7 @@ import {
 } from "@/lib/constants";
 import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import { today, nowTime, genId } from "@/lib/utils";
+import DateInput from "@/components/ui/DateInput";
 
 interface Props {
   people: Person[];
@@ -336,7 +337,7 @@ export default function ClinicWizard({ people, onComplete, onClose }: Props) {
                 </div>
                 <div className="form-group">
                   <label className="form-label">Date of Birth</label>
-                  <input className="form-input" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+                  <DateInput className="form-input" value={dob} onChange={(e) => setDob(e.target.value)} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Weight (lbs)</label>
