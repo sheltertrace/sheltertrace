@@ -6,6 +6,7 @@ import { useState, useEffect } from "react";
 import { useAuth, useTheme } from "@/app/providers";
 import { hasPermission } from "@/lib/auth";
 import { fetchUnreadCount } from "@/lib/messages";
+import { countNewCitizenReports } from "@/lib/data";
 
 interface NavItem {
   href: string;
@@ -33,11 +34,12 @@ const NAV_GROUPS: NavGroup[] = [
   {
     section: "Field",
     items: [
-      { href: "/dispatch",   label: "Dispatch",     perm: "dispatch", icon: "📡" },
-      { href: "/field-ops",  label: "Field Ops",    perm: "dispatch", icon: "🚓" },
-      { href: "/citations",  label: "Citations",    perm: "dispatch", icon: "📋" },
-      { href: "/court",      label: "Court Portal", perm: "court",    icon: "⚖️" },
-      { href: "/ordinances", label: "Ordinances",   perm: "dispatch", icon: "📖" },
+      { href: "/dispatch",        label: "Dispatch",        perm: "dispatch", icon: "📡" },
+      { href: "/citizen-reports", label: "Citizen Reports",  perm: "dispatch", icon: "🌐" },
+      { href: "/field-ops",       label: "Field Ops",        perm: "dispatch", icon: "🚓" },
+      { href: "/citations",       label: "Citations",        perm: "dispatch", icon: "📋" },
+      { href: "/court",           label: "Court Portal",     perm: "court",    icon: "⚖️" },
+      { href: "/ordinances",      label: "Ordinances",       perm: "dispatch", icon: "📖" },
     ],
   },
   {
@@ -87,6 +89,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     return () => clearInterval(id);
   }, [user?.id]);
 
+  // ── New citizen report count ──────────────────────────────────────────────
+  const [newReports, setNewReports] = useState(0);
+  useEffect(() => {
+    countNewCitizenReports().then(setNewReports).catch(() => {});
+    const id = setInterval(() => countNewCitizenReports().then(setNewReports).catch(() => {}), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   function canSee(item: NavItem): boolean {
     if (item.perm === "admin") return isAdmin;
     if (item.perm === "dashboard") return true;
@@ -122,7 +132,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               </div>
               {visible.map((item) => {
                 const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-                const msgBadge = item.href === "/messages" && unreadMsgs > 0 ? unreadMsgs : 0;
+                const msgBadge    = item.href === "/messages"        && unreadMsgs  > 0 ? unreadMsgs  : 0;
+                const reportBadge = item.href === "/citizen-reports" && newReports   > 0 ? newReports  : 0;
                 return (
                   <Link
                     key={item.href}
@@ -136,6 +147,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     {msgBadge > 0 && (
                       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#0d9488", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 999, minWidth: 18, height: 18, padding: "0 4px" }}>
                         {msgBadge > 99 ? "99+" : msgBadge}
+                      </span>
+                    )}
+                    {reportBadge > 0 && (
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 999, minWidth: 18, height: 18, padding: "0 4px" }}>
+                        {reportBadge > 99 ? "99+" : reportBadge}
                       </span>
                     )}
                   </Link>

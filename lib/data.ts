@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport } from "./types";
 import { genId, genReceiptId, today } from "./utils";
 
 // ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
@@ -1684,4 +1684,45 @@ export async function bulkCreatePetLicenses(
     else skipped++;
   }
   return { inserted, skipped };
+}
+
+// ── Citizen Reports ───────────────────────────────────────────────────────────
+
+export async function fetchCitizenReports(filters?: {
+  status?: string;
+  reportType?: string;
+  dateFrom?: string;
+  dateTo?: string;
+}): Promise<CitizenReport[]> {
+  let q = supabase.from("citizen_reports").select("*").order("created_at", { ascending: false });
+  if (filters?.status && filters.status !== "All") q = q.eq("status", filters.status);
+  if (filters?.reportType && filters.reportType !== "All") q = q.eq("report_type", filters.reportType);
+  if (filters?.dateFrom) q = q.gte("created_at", filters.dateFrom);
+  if (filters?.dateTo) q = q.lte("created_at", filters.dateTo + "T23:59:59");
+  const { data } = await q;
+  return (data || []) as CitizenReport[];
+}
+
+export async function fetchCitizenReport(id: string): Promise<CitizenReport | null> {
+  const { data } = await supabase.from("citizen_reports").select("*").eq("id", id).single();
+  return data as CitizenReport | null;
+}
+
+export async function updateCitizenReport(id: string, updates: Partial<CitizenReport>): Promise<CitizenReport> {
+  const { data, error } = await supabase
+    .from("citizen_reports")
+    .update({ ...updates, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as CitizenReport;
+}
+
+export async function countNewCitizenReports(): Promise<number> {
+  const { count } = await supabase
+    .from("citizen_reports")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "New");
+  return count ?? 0;
 }

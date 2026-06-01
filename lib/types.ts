@@ -998,6 +998,44 @@ export interface LostFoundMatch {
   created_at?: string;
 }
 
+export interface CitizenReport {
+  id: string;
+  reference_number: string;
+  report_type: string;
+  location_address?: string;
+  location_city?: string;
+  location_zip?: string;
+  location_details?: string;
+  species?: string;
+  breed?: string;
+  animal_color?: string;
+  animal_count?: number;
+  animal_contained?: boolean;
+  animal_injured?: boolean;
+  animal_aggressive?: boolean;
+  description: string;
+  duration?: string;
+  reported_before?: boolean;
+  reporter_first_name?: string;
+  reporter_last_name?: string;
+  reporter_phone?: string;
+  reporter_email?: string;
+  anonymous: boolean;
+  wants_update: boolean;
+  contact_time?: string;
+  photo_urls?: string[];
+  status: string;
+  priority?: string;
+  assigned_officer?: string;
+  staff_notes?: string;
+  dispatch_call_id?: string;
+  resolved_at?: string;
+  resolution_notes?: string;
+  dismissed_reason?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export type Database = {
   public: {
     Tables: {
