@@ -177,10 +177,11 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
         animal_id: created.id,
         animal_name: created.name,
         type: v.type,
-        description: `${v.description} — Due (intake auto-scheduled)`,
+        description: v.description,
         date: intakeDate,
         next_due: dueDateStr,
-        vet: "Auto-scheduled",
+        vet: "",
+        status: "Scheduled",
       })
     ));
   }

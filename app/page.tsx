@@ -121,6 +121,14 @@ export default function DashboardPage() {
   const pendingCalls = calls.filter((c) => c.status === "Pending").length;
   const activeCalls = calls.filter((c) => ["Dispatched", "En Route", "On Scene"].includes(c.status || "")).length;
 
+  // Unconfirmed (Scheduled) vaccines
+  const scheduledMeds = medical.filter((m) => m.status === "Scheduled");
+  const animalIdsWithScheduled = [...new Set(scheduledMeds.map((m) => m.animal_id))];
+  const animalsWithScheduled = animalIdsWithScheduled
+    .map((id) => animals.find((a) => a.id === id))
+    .filter(Boolean) as Animal[];
+  const [showUnconfirmedList, setShowUnconfirmedList] = useState(false);
+
   // Monthly adoptions (last 6 months)
   const monthlyAdoptions = (() => {
     const now = new Date();
@@ -166,6 +174,43 @@ export default function DashboardPage() {
               <Link href={gdaReminder.link} style={{ fontSize: 12, color: gdaReminder.color, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
                 Generate Report →
               </Link>
+            </div>
+          )}
+
+          {/* Unconfirmed vaccines alert */}
+          {animalsWithScheduled.length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 18px", borderRadius: showUnconfirmedList ? "10px 10px 0 0" : 10, background: "#fef3c7", border: "1px solid #fde68a", cursor: "pointer" }}
+                onClick={() => setShowUnconfirmedList((v) => !v)}
+              >
+                <span style={{ fontSize: 18 }}>🕐</span>
+                <div style={{ flex: 1, fontSize: 13, color: "#b45309", fontWeight: 600 }}>
+                  <strong>{animalsWithScheduled.length} animal{animalsWithScheduled.length !== 1 ? "s" : ""}</strong> have unconfirmed scheduled vaccines — staff must mark each as given
+                </div>
+                <span style={{ fontSize: 12, color: "#92400e", fontWeight: 700 }}>{showUnconfirmedList ? "▲ Hide" : "▼ View List"}</span>
+              </div>
+              {showUnconfirmedList && (
+                <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderTop: "none", borderRadius: "0 0 10px 10px", padding: "8px 18px 12px" }}>
+                  {animalsWithScheduled.map((a) => {
+                    const meds = scheduledMeds.filter((m) => m.animal_id === a.id);
+                    return (
+                      <div key={a.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: "1px solid #fde68a" }}>
+                        <div>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: "#0f2942" }}>{a.name}</span>
+                          <span style={{ fontSize: 12, color: "#64748b", marginLeft: 8 }}>{a.species} · Kennel {a.kennel || "Unassigned"}</span>
+                          <div style={{ fontSize: 11, color: "#92400e", marginTop: 2 }}>
+                            {meds.map((m) => m.description).join(" · ")}
+                          </div>
+                        </div>
+                        <Link href={`/animals/${a.id}`} style={{ fontSize: 12, color: "#1a8a8a", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", marginLeft: 12 }}>
+                          Confirm →
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
 

@@ -15,7 +15,7 @@ import { useKennels } from "@/app/providers";
 import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId } from "@/lib/utils";
 import AgeInput from "@/components/ui/AgeInput";
 import {
-  updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical,
+  updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical, updateMedical,
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
   fetchTransfersByAnimal, safeJsonArray, safeJsonObject, safeArray,
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
@@ -100,6 +100,17 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [medSaved, setMedSaved] = useState(false);
   const [medRecords, setMedRecords] = useState<MedicalRecord[]>(medical);
   const [editMedRecord, setEditMedRecord] = useState<MedicalRecord | null>(null);
+
+  // Vaccine confirmation
+  const [confirmVaccine, setConfirmVaccine] = useState<{ record: MedicalRecord; action: "administered" | "declined" | "skipped" } | null>(null);
+  const [confirmDate, setConfirmDate]           = useState(today());
+  const [confirmLot, setConfirmLot]             = useState("");
+  const [confirmManufacturer, setConfirmMfr]    = useState("");
+  const [confirmRoute, setConfirmRoute]         = useState("");
+  const [confirmDosage, setConfirmDosage]       = useState("");
+  const [confirmNotes, setConfirmNotes]         = useState("");
+  const [confirmSaving, setConfirmSaving]       = useState(false);
+  const [batchConfirming, setBatchConfirming]   = useState(false);
 
   // Euthanasia form
   const [showEuthForm, setShowEuthForm] = useState(false);
@@ -318,6 +329,58 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         setMedRoute(""); setMedDosage(""); setMedNotes(""); setMedResult(""); setMedCost(""); setMedStatus("");
       }, 800);
     } finally { setMedSaving(false); }
+  };
+
+  const openConfirm = (record: MedicalRecord, action: "administered" | "declined" | "skipped") => {
+    setConfirmVaccine({ record, action });
+    setConfirmDate(today());
+    setConfirmLot(""); setConfirmMfr(""); setConfirmRoute(""); setConfirmDosage(""); setConfirmNotes("");
+  };
+
+  const handleConfirmVaccine = async () => {
+    if (!confirmVaccine) return;
+    const { record, action } = confirmVaccine;
+    const staffName = (() => { const u = getCurrentUser(); return u ? `${u.firstName} ${u.lastName}`.trim() : "Staff"; })();
+    setConfirmSaving(true);
+    try {
+      const updates: Partial<MedicalRecord> = {
+        status: action === "administered" ? "Administered" : action === "declined" ? "Declined" : "Skipped",
+        updated_by: staffName,
+        updated_at: new Date().toISOString(),
+        ...(action === "administered" ? {
+          date: confirmDate,
+          vet: staffName,
+          lot_number: confirmLot || undefined,
+          manufacturer: confirmManufacturer || undefined,
+          route: confirmRoute || undefined,
+          dosage: confirmDosage || undefined,
+          notes: confirmNotes || undefined,
+        } : {
+          notes: confirmNotes || undefined,
+        }),
+      };
+      const updated = await updateMedical(record.id, updates);
+      setMedRecords((prev) => prev.map((m) => m.id === updated.id ? updated : m));
+      setConfirmVaccine(null);
+    } finally { setConfirmSaving(false); }
+  };
+
+  const handleBatchConfirmAll = async () => {
+    const scheduled = animalMed.filter((m) => m.status === "Scheduled");
+    if (!scheduled.length) return;
+    const staffName = (() => { const u = getCurrentUser(); return u ? `${u.firstName} ${u.lastName}`.trim() : "Staff"; })();
+    setBatchConfirming(true);
+    try {
+      const now = new Date().toISOString();
+      await Promise.all(scheduled.map((m) =>
+        updateMedical(m.id, { status: "Administered", vet: staffName, date: today(), updated_by: staffName, updated_at: now })
+      ));
+      setMedRecords((prev) => prev.map((m) =>
+        m.animal_id === animal.id && m.status === "Scheduled"
+          ? { ...m, status: "Administered", vet: staffName, date: today() }
+          : m
+      ));
+    } finally { setBatchConfirming(false); }
   };
 
   const handleEuthanize = async () => {
@@ -872,41 +935,151 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 </div>
               </div>
             )}
+            {/* Confirm All banner */}
+            {(() => {
+              const scheduled = animalMed.filter((m) => m.status === "Scheduled");
+              if (!scheduled.length) return null;
+              return (
+                <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 12 }}>
+                  <span style={{ fontSize: 18 }}>🕐</span>
+                  <div style={{ flex: 1, fontSize: 13, color: "#92400e", fontWeight: 600 }}>
+                    {scheduled.length} vaccine{scheduled.length !== 1 ? "s" : ""} scheduled but not yet confirmed as given
+                  </div>
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: "#d97706", color: "#fff", borderColor: "#d97706" }}
+                    onClick={handleBatchConfirmAll}
+                    disabled={batchConfirming}
+                  >
+                    {batchConfirming ? "Confirming…" : "✓ Confirm All Given"}
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* Vaccine confirm card */}
+            {confirmVaccine && (
+              <div style={{ background: confirmVaccine.action === "administered" ? "#f0fdf4" : confirmVaccine.action === "declined" ? "#fee2e2" : "#f1f5f9", border: `1px solid ${confirmVaccine.action === "administered" ? "#86efac" : confirmVaccine.action === "declined" ? "#fca5a5" : "#cbd5e1"}`, borderRadius: 8, padding: "14px 16px", marginBottom: 12 }}>
+                <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10 }}>
+                  {confirmVaccine.action === "administered" ? "✅ Confirm Vaccine Given" : confirmVaccine.action === "declined" ? "❌ Decline Vaccine" : "— Skip Vaccine"}
+                  {" — "}<span style={{ fontWeight: 400 }}>{confirmVaccine.record.description}</span>
+                </div>
+                {confirmVaccine.action === "administered" ? (
+                  <div className="grid-2" style={{ marginBottom: 8 }}>
+                    <div className="form-group">
+                      <label className="form-label">Date Administered</label>
+                      <DateInput className="form-input" value={confirmDate} onChange={(e) => setConfirmDate(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Lot Number</label>
+                      <input className="form-input" value={confirmLot} onChange={(e) => setConfirmLot(e.target.value)} placeholder="e.g. AB12345" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Manufacturer</label>
+                      <input className="form-input" value={confirmManufacturer} onChange={(e) => setConfirmMfr(e.target.value)} placeholder="e.g. Merck" />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Route</label>
+                      <select className="form-select" value={confirmRoute} onChange={(e) => setConfirmRoute(e.target.value)}>
+                        <option value="">— None —</option>
+                        {["Subcutaneous","Intramuscular","Intranasal","Oral","Topical","Other"].map((r) => <option key={r}>{r}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Dosage</label>
+                      <input className="form-input" value={confirmDosage} onChange={(e) => setConfirmDosage(e.target.value)} placeholder="e.g. 1 ml" />
+                    </div>
+                  </div>
+                ) : null}
+                <div className="form-group">
+                  <label className="form-label">{confirmVaccine.action === "administered" ? "Notes (optional)" : "Reason"}</label>
+                  <input className="form-input" value={confirmNotes} onChange={(e) => setConfirmNotes(e.target.value)} placeholder={confirmVaccine.action === "administered" ? "Any notes…" : "Reason for declining/skipping…"} />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    className="btn btn-sm"
+                    style={{ background: confirmVaccine.action === "administered" ? "#16a34a" : confirmVaccine.action === "declined" ? "#dc2626" : "#64748b", color: "#fff" }}
+                    onClick={handleConfirmVaccine}
+                    disabled={confirmSaving}
+                  >
+                    {confirmSaving ? "Saving…" : confirmVaccine.action === "administered" ? "Mark as Administered" : confirmVaccine.action === "declined" ? "Confirm Declined" : "Confirm Skipped"}
+                  </button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => setConfirmVaccine(null)}>Cancel</button>
+                </div>
+              </div>
+            )}
+
             {animalMed.length === 0 ? (
               <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>No medical records</div>
             ) : (
               <table className="data-table">
-                <thead><tr><th>Type</th><th>Description</th><th>Date</th><th>Vet / Staff</th><th>Next Due</th><th></th></tr></thead>
+                <thead><tr><th style={{ width: 28 }}></th><th>Type</th><th>Description</th><th>Date</th><th>Vet / Staff</th><th>Next Due</th><th></th></tr></thead>
                 <tbody>
-                  {animalMed.map((m) => (
-                    <tr key={m.id}>
-                      <td><span className="badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>{m.type}</span></td>
-                      <td style={{ fontWeight: 600 }}>
-                        {m.description}
-                        {m.updated_by
-                          ? <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Edited by {m.updated_by}{m.updated_at ? ` · ${formatDate(m.updated_at.slice(0, 10))}` : ""}</div>
-                          : m.updated_at
-                            ? <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Updated {formatDate(m.updated_at.slice(0, 10))}</div>
-                            : null
-                        }
-                      </td>
-                      <td style={{ fontSize: 12 }}>{formatDate(m.date)}</td>
-                      <td style={{ fontSize: 12 }}>{m.vet || "—"}</td>
-                      <td style={{ fontSize: 12, color: m.next_due && new Date(m.next_due) < new Date() ? "#dc2626" : "var(--text-secondary)" }}>
-                        {m.next_due ? formatDate(m.next_due) : "—"}
-                      </td>
-                      <td>
-                        <button
-                          className="btn btn-ghost btn-sm"
-                          style={{ fontSize: 13, padding: "3px 8px" }}
-                          onClick={() => setEditMedRecord(m)}
-                          title="Edit record"
-                        >
-                          ✏️
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {animalMed.map((m) => {
+                    const isScheduled = m.status === "Scheduled" || m.status === "Pending";
+                    const statusIcon = (() => {
+                      const s = m.status;
+                      if (!s || s === "Administered" || s === "Completed") return <span title="Administered" style={{ color: "#16a34a", fontSize: 14 }}>✅</span>;
+                      if (s === "Scheduled" || s === "Pending") return <span title="Scheduled — not yet given" style={{ color: "#d97706", fontSize: 14 }}>🕐</span>;
+                      if (s === "Declined") return <span title="Declined" style={{ color: "#dc2626", fontSize: 14 }}>❌</span>;
+                      if (s === "Skipped") return <span title="Skipped" style={{ color: "#94a3b8", fontSize: 13 }}>—</span>;
+                      if (s === "Overdue") return <span title="Overdue" style={{ color: "#dc2626", fontSize: 14 }}>⚠️</span>;
+                      return null;
+                    })();
+                    return (
+                      <tr key={m.id} style={{ background: isScheduled ? "#fffbeb" : undefined }}>
+                        <td style={{ textAlign: "center", paddingRight: 4 }}>{statusIcon}</td>
+                        <td><span className="badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>{m.type}</span></td>
+                        <td style={{ fontWeight: isScheduled ? 700 : 600 }}>
+                          {m.description}
+                          {isScheduled && <div style={{ fontSize: 10, color: "#d97706", fontWeight: 600 }}>Not yet confirmed as given</div>}
+                          {m.updated_by && !isScheduled
+                            ? <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Edited by {m.updated_by}{m.updated_at ? ` · ${formatDate(m.updated_at.slice(0, 10))}` : ""}</div>
+                            : m.updated_at && !isScheduled
+                              ? <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Updated {formatDate(m.updated_at.slice(0, 10))}</div>
+                              : null
+                          }
+                        </td>
+                        <td style={{ fontSize: 12 }}>{formatDate(m.date)}</td>
+                        <td style={{ fontSize: 12 }}>{m.vet || "—"}</td>
+                        <td style={{ fontSize: 12, color: m.next_due && new Date(m.next_due) < new Date() ? "#dc2626" : "var(--text-secondary)" }}>
+                          {m.next_due ? formatDate(m.next_due) : "—"}
+                        </td>
+                        <td>
+                          <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                            {isScheduled && (
+                              <>
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ background: "#16a34a", color: "#fff", borderColor: "#16a34a", fontSize: 11, padding: "3px 8px" }}
+                                  onClick={() => openConfirm(m, "administered")}
+                                  title="Confirm vaccine was given"
+                                >✓ Given</button>
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ background: "#fee2e2", color: "#dc2626", borderColor: "#fca5a5", fontSize: 11, padding: "3px 7px" }}
+                                  onClick={() => openConfirm(m, "declined")}
+                                  title="Mark as declined"
+                                >✗</button>
+                                <button
+                                  className="btn btn-sm"
+                                  style={{ background: "#f1f5f9", color: "#64748b", borderColor: "#cbd5e1", fontSize: 11, padding: "3px 7px" }}
+                                  onClick={() => openConfirm(m, "skipped")}
+                                  title="Mark as skipped"
+                                >—</button>
+                              </>
+                            )}
+                            <button
+                              className="btn btn-ghost btn-sm"
+                              style={{ fontSize: 13, padding: "3px 8px" }}
+                              onClick={() => setEditMedRecord(m)}
+                              title="Edit record"
+                            >✏️</button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}
