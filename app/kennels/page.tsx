@@ -6,9 +6,11 @@ import type { Animal, ShelterRoom, MedicalRecord } from "@/lib/types";
 import { DEFAULT_SHELTER_CONFIG, STATUS_COLORS, BEHAVIOR_FLAGS } from "@/lib/constants";
 import { useAuth, useKennels } from "@/app/providers";
 import { useRouter } from "next/navigation";
-import { genId, displayAge, isImported } from "@/lib/utils";
+import { genId, displayAge, isImported, IN_SHELTER_STATUSES, FOSTER_STATUSES } from "@/lib/utils";
 
-const EXCLUDED = ["Adopted", "Foster", "Euthanized"];
+// All statuses that should appear on the floorplan (in shelter + fostered).
+// Whitelist approach: unknown outcome statuses from imports are automatically excluded.
+const FLOORPLAN_STATUSES = new Set([...IN_SHELTER_STATUSES, ...FOSTER_STATUSES]);
 
 function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: MedicalRecord[]): string {
   const todayStr = new Date().toISOString().split("T")[0];
@@ -529,15 +531,22 @@ export default function KennelPage() {
     safeConfig.forEach((room) => { if (room.type === "kennels" && room.labels) allLabels.push(...room.labels); });
     allLabels.forEach((label) => { map[label] = []; });
     animals.forEach((a) => {
-      if (EXCLUDED.includes(a.status)) return;
-      if (isImported(a)) return;           // hide historical records from floorplan
+      if (!FLOORPLAN_STATUSES.has(a.status)) return;   // only active + fostered
+      if (isImported(a)) return;                        // never show historical records
       if (a.kennel && map[a.kennel] !== undefined) map[a.kennel].push(a);
     });
     return map;
   }, [animals, safeConfig]);
 
+  // Unassigned = in the building, no valid kennel, not imported.
+  // Uses IN_SHELTER_STATUSES whitelist — fostered animals are excluded because
+  // they are physically outside the building.
   const unassigned = useMemo(() =>
-    animals.filter((a) => !EXCLUDED.includes(a.status) && !isImported(a) && (!a.kennel || !Object.keys(labelMap).includes(a.kennel))),
+    animals.filter((a) =>
+      IN_SHELTER_STATUSES.has(a.status) &&
+      !isImported(a) &&
+      (!a.kennel || !Object.keys(labelMap).includes(a.kennel))
+    ),
     [animals, labelMap]
   );
 

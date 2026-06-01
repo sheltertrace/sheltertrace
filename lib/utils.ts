@@ -151,18 +151,46 @@ export function hasPermission(permissions: string[], required: string): boolean 
 
 // ── Animal classification helpers ─────────────────────────────────────────────
 
-// Statuses that indicate an animal is physically present in the shelter.
-export const IN_SHELTER_STATUSES = [
-  "Available", "Medical Hold", "Quarantine", "Pending", "Foster", "Boarding", "Confiscated",
-];
+// All statuses — from both native ShelterTrace and ShelterBuddy — that mean
+// "the animal is physically present in the building."
+// Purposely a WHITELIST so unknown outcome statuses from imported data are
+// automatically excluded without needing to enumerate them all.
+export const IN_SHELTER_STATUSES = new Set([
+  // Native ShelterTrace
+  "Available", "Medical Hold", "Quarantine", "Pending", "Boarding", "Confiscated",
+  // ShelterBuddy / legacy import equivalents
+  "Stray Hold", "Hold", "Available For Adoption", "Impounded", "Impound", "Medical",
+  "Hold - Bite", "Hold - Court", "Hold - Cruelty", "Hold - Owner Requested",
+]);
+
+// Statuses that mean the animal is physically outside the building (foster placements).
+// We keep "Foster" separate so the kennel floorplan hides fostered animals but
+// they are still counted as active shelter records.
+export const FOSTER_STATUSES = new Set(["Foster", "In Foster"]);
 
 // Returns true for animals imported from an external system (e.g. ShelterBuddy).
-// These are excluded from active views but kept for historical search.
-export function isImported(animal: { import_source?: string | null }): boolean {
-  return !!animal.import_source;
+// Checks import_source field first; falls back to SB- prefix on id/shelter_tag/bar_code
+// for cases where the add_import_source migration hasn't been run yet.
+export function isImported(animal: {
+  import_source?: string | null;
+  shelter_tag?: string | null;
+  id?: string;
+  bar_code?: string | null;
+}): boolean {
+  if (animal.import_source) return true;
+  if (animal.shelter_tag?.startsWith("SB-")) return true;
+  if (animal.id?.startsWith("SB-")) return true;
+  if (animal.bar_code?.startsWith("SB-")) return true;
+  return false;
 }
 
-// Returns true for animals currently in the shelter (not imported, active status).
-export function isCurrentlySheltered(animal: { import_source?: string | null; status: string }): boolean {
-  return !isImported(animal) && IN_SHELTER_STATUSES.includes(animal.status);
+// Returns true for animals with an active in-shelter status (not imported, not outcome).
+export function isCurrentlySheltered(animal: {
+  import_source?: string | null;
+  shelter_tag?: string | null;
+  id?: string;
+  bar_code?: string | null;
+  status: string;
+}): boolean {
+  return !isImported(animal) && IN_SHELTER_STATUSES.has(animal.status);
 }

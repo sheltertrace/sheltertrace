@@ -46,7 +46,7 @@ export default function AnimalsPage() {
   const tabFiltered = useMemo(() => {
     switch (tab) {
       case "current":
-        return animals.filter((a) => !isImported(a) && IN_SHELTER_STATUSES.includes(a.status));
+        return animals.filter((a) => !isImported(a) && IN_SHELTER_STATUSES.has(a.status));
       case "historical":
         return animals.filter((a) => isImported(a));
       default:
@@ -71,7 +71,7 @@ export default function AnimalsPage() {
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
 
   const counts = useMemo(() => ({
-    current: animals.filter((a) => !isImported(a) && IN_SHELTER_STATUSES.includes(a.status)).length,
+    current: animals.filter((a) => !isImported(a) && IN_SHELTER_STATUSES.has(a.status)).length,
     all: animals.length,
     historical: animals.filter((a) => isImported(a)).length,
   }), [animals]);
