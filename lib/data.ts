@@ -163,7 +163,8 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
   if (error) throw error;
   const created = data as Animal;
 
-  // Auto-create intake vaccination/treatment records
+  // Auto-create intake vaccination/treatment records with status "Scheduled".
+  // Staff must explicitly confirm each one as given before it shows as administered.
   const vaccines = INTAKE_VACCINES[created.species] || [];
   if (vaccines.length > 0) {
     const now = new Date();
@@ -171,7 +172,7 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
     dueDate.setFullYear(dueDate.getFullYear() + 1);
     const dueDateStr = dueDate.toISOString().split("T")[0];
     const intakeDate = created.intake_date || now.toISOString().split("T")[0];
-    await Promise.all(vaccines.map((v) =>
+    const medResults = await Promise.all(vaccines.map((v) =>
       supabase.from("medical_records").insert({
         id: `M-${genId()}`,
         animal_id: created.id,
@@ -182,8 +183,15 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
         next_due: dueDateStr,
         vet: "",
         status: "Scheduled",
-      })
+      }).select().single()
     ));
+    medResults.forEach(({ data, error }, i) => {
+      if (error) {
+        console.error(`[createAnimal] Failed to create intake medical record "${vaccines[i]?.description}":`, error.message, error.hint || "");
+      } else {
+        console.log(`[createAnimal] Created ${data?.status ?? "?"} record: ${data?.description}`);
+      }
+    });
   }
 
   return created;

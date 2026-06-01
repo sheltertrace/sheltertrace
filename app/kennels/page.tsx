@@ -13,8 +13,9 @@ const EXCLUDED = ["Adopted", "Foster", "Euthanized"];
 function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: MedicalRecord[]): string {
   const todayStr = new Date().toISOString().split("T")[0];
   const activeFlags = BEHAVIOR_FLAGS.filter((f) => (animal.behavior_flags || {})[f.id as string]);
-  // Only show records that were actually administered — exclude Scheduled, Declined, Skipped
-  const administered = medRecords.filter((m) => !m.status || m.status === "Administered" || m.status === "Completed");
+  // Only show records that were explicitly confirmed as administered.
+  // NULL status = not yet confirmed, so exclude it just like Scheduled/Declined/Skipped.
+  const administered = medRecords.filter((m) => m.status === "Administered" || m.status === "Completed");
   const overdue = administered.filter((m) => m.next_due && m.next_due < todayStr);
   const upcoming = administered.filter((m) => m.next_due && m.next_due >= todayStr);
   const completed = administered.filter((m) => !m.next_due);

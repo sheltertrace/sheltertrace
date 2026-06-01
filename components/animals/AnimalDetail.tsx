@@ -366,7 +366,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   };
 
   const handleBatchConfirmAll = async () => {
-    const scheduled = animalMed.filter((m) => m.status === "Scheduled");
+    const scheduled = animalMed.filter((m) => !m.status || m.status === "Scheduled" || m.status === "Pending");
     if (!scheduled.length) return;
     const staffName = (() => { const u = getCurrentUser(); return u ? `${u.firstName} ${u.lastName}`.trim() : "Staff"; })();
     setBatchConfirming(true);
@@ -935,9 +935,9 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 </div>
               </div>
             )}
-            {/* Confirm All banner */}
+            {/* Confirm All banner — includes null-status records (also unconfirmed) */}
             {(() => {
-              const scheduled = animalMed.filter((m) => m.status === "Scheduled");
+              const scheduled = animalMed.filter((m) => !m.status || m.status === "Scheduled" || m.status === "Pending");
               if (!scheduled.length) return null;
               return (
                 <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 14px", marginBottom: 12, display: "flex", alignItems: "center", gap: 12 }}>
@@ -1016,11 +1016,14 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <thead><tr><th style={{ width: 28 }}></th><th>Type</th><th>Description</th><th>Date</th><th>Vet / Staff</th><th>Next Due</th><th></th></tr></thead>
                 <tbody>
                   {animalMed.map((m) => {
-                    const isScheduled = m.status === "Scheduled" || m.status === "Pending";
+                    // A record is "scheduled" (unconfirmed) if its status is Scheduled,
+                    // Pending, OR null/empty (null = created before the status feature and
+                    // not yet confirmed — treat as needing confirmation, not as administered).
+                    const isScheduled = !m.status || m.status === "Scheduled" || m.status === "Pending";
                     const statusIcon = (() => {
                       const s = m.status;
-                      if (!s || s === "Administered" || s === "Completed") return <span title="Administered" style={{ color: "#16a34a", fontSize: 14 }}>✅</span>;
-                      if (s === "Scheduled" || s === "Pending") return <span title="Scheduled — not yet given" style={{ color: "#d97706", fontSize: 14 }}>🕐</span>;
+                      if (s === "Administered" || s === "Completed") return <span title="Administered" style={{ color: "#16a34a", fontSize: 14 }}>✅</span>;
+                      if (!s || s === "Scheduled" || s === "Pending") return <span title="Scheduled — not yet confirmed as given" style={{ color: "#d97706", fontSize: 14 }}>🕐</span>;
                       if (s === "Declined") return <span title="Declined" style={{ color: "#dc2626", fontSize: 14 }}>❌</span>;
                       if (s === "Skipped") return <span title="Skipped" style={{ color: "#94a3b8", fontSize: 13 }}>—</span>;
                       if (s === "Overdue") return <span title="Overdue" style={{ color: "#dc2626", fontSize: 14 }}>⚠️</span>;

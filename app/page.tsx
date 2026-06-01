@@ -122,7 +122,7 @@ export default function DashboardPage() {
   const activeCalls = calls.filter((c) => ["Dispatched", "En Route", "On Scene"].includes(c.status || "")).length;
 
   // Unconfirmed (Scheduled) vaccines
-  const scheduledMeds = medical.filter((m) => m.status === "Scheduled");
+  const scheduledMeds = medical.filter((m) => !m.status || m.status === "Scheduled" || m.status === "Pending");
   const animalIdsWithScheduled = [...new Set(scheduledMeds.map((m) => m.animal_id))];
   const animalsWithScheduled = animalIdsWithScheduled
     .map((id) => animals.find((a) => a.id === id))
