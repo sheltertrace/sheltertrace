@@ -47,6 +47,8 @@ export interface Animal {
   transfer_date?: string;
   euthanasia?: EuthanasiaRecord | null;
   notes?: AnimalNote[];
+  // Record provenance
+  import_source?: string | null;  // 'shelterbuddy' | 'import' | null (null = native ShelterTrace record)
   // Public website profile
   show_on_website?: boolean;
   public_bio?: string;

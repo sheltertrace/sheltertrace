@@ -148,3 +148,21 @@ export function currencyFmt(amount: number): string {
 export function hasPermission(permissions: string[], required: string): boolean {
   return permissions.includes("all") || permissions.includes(required);
 }
+
+// ── Animal classification helpers ─────────────────────────────────────────────
+
+// Statuses that indicate an animal is physically present in the shelter.
+export const IN_SHELTER_STATUSES = [
+  "Available", "Medical Hold", "Quarantine", "Pending", "Foster", "Boarding", "Confiscated",
+];
+
+// Returns true for animals imported from an external system (e.g. ShelterBuddy).
+// These are excluded from active views but kept for historical search.
+export function isImported(animal: { import_source?: string | null }): boolean {
+  return !!animal.import_source;
+}
+
+// Returns true for animals currently in the shelter (not imported, active status).
+export function isCurrentlySheltered(animal: { import_source?: string | null; status: string }): boolean {
+  return !isImported(animal) && IN_SHELTER_STATUSES.includes(animal.status);
+}

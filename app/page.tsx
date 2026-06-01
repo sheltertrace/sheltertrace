@@ -9,7 +9,7 @@ import { fetchTodayOnCall } from "@/lib/schedules";
 import { fetchLostFoundReports } from "@/lib/data";
 import type { Animal, DispatchCall, AdoptionRecord, MedicalRecord, OfficerFieldProfile, FieldStatus, ScheduleOverride } from "@/lib/types";
 import { STATUS_COLORS } from "@/lib/constants";
-import { formatDate, currencyFmt } from "@/lib/utils";
+import { formatDate, currencyFmt, isImported } from "@/lib/utils";
 import Link from "next/link";
 
 function StatCard({ icon, value, label, color }: { icon: string; value: number | string; label: string; color: string }) {
@@ -108,16 +108,18 @@ export default function DashboardPage() {
     return null;
   })();
 
-  // Stats
-  const available = animals.filter((a) => a.status === "Available").length;
-  const adopted = animals.filter((a) => a.status === "Adopted").length;
-  const medHold = animals.filter((a) => a.status === "Medical Hold").length;
-  const foster = animals.filter((a) => a.status === "Foster").length;
-  const quarantine = animals.filter((a) => a.status === "Quarantine").length;
-  const pending = animals.filter((a) => a.status === "Pending").length;
-  const imported = animals.filter((a) => a.status === "Imported").length;
-  const redeemed = animals.filter((a) => a.status === "Redeemed").length;
-  const transferred = animals.filter((a) => a.status === "Transferred").length;
+  // Stats — always exclude historical/imported records so counts reflect real shelter population
+  const native = animals.filter((a) => !isImported(a));
+  const historicalCount = animals.length - native.length;
+  const available = native.filter((a) => a.status === "Available").length;
+  const adopted = native.filter((a) => a.status === "Adopted").length;
+  const medHold = native.filter((a) => a.status === "Medical Hold").length;
+  const foster = native.filter((a) => a.status === "Foster").length;
+  const quarantine = native.filter((a) => a.status === "Quarantine").length;
+  const pending = native.filter((a) => a.status === "Pending").length;
+  const imported = native.filter((a) => a.status === "Imported").length;
+  const redeemed = native.filter((a) => a.status === "Redeemed").length;
+  const transferred = native.filter((a) => a.status === "Transferred").length;
   const pendingCalls = calls.filter((c) => c.status === "Pending").length;
   const activeCalls = calls.filter((c) => ["Dispatched", "En Route", "On Scene"].includes(c.status || "")).length;
 
@@ -125,7 +127,7 @@ export default function DashboardPage() {
   const scheduledMeds = medical.filter((m) => !m.status || m.status === "Scheduled" || m.status === "Pending");
   const animalIdsWithScheduled = [...new Set(scheduledMeds.map((m) => m.animal_id))];
   const animalsWithScheduled = animalIdsWithScheduled
-    .map((id) => animals.find((a) => a.id === id))
+    .map((id) => native.find((a) => a.id === id))
     .filter(Boolean) as Animal[];
   const [showUnconfirmedList, setShowUnconfirmedList] = useState(false);
 
@@ -225,16 +227,22 @@ export default function DashboardPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
             {/* Population breakdown */}
             <div className="card">
-              <div className="card-header"><span className="card-title">🐾 Shelter Population</span><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{animals.length} total</span></div>
-              <MiniBar label="Available" count={available} max={animals.length} color="#22c55e" />
-              <MiniBar label="Foster" count={foster} max={animals.length} color="#f59e0b" />
-              <MiniBar label="Med Hold" count={medHold} max={animals.length} color="#ef4444" />
-              <MiniBar label="Quarantine" count={quarantine} max={animals.length} color="#dc2626" />
-              <MiniBar label="Pending" count={pending} max={animals.length} color="#a855f7" />
-              <MiniBar label="Adopted" count={adopted} max={animals.length} color="#6366f1" />
-              {imported > 0 && <MiniBar label="Imported" count={imported} max={animals.length} color="#0ea5e9" />}
-              {transferred > 0 && <MiniBar label="Transferred" count={transferred} max={animals.length} color="#7c3aed" />}
-              {redeemed > 0 && <MiniBar label="Redeemed" count={redeemed} max={animals.length} color="#0891b2" />}
+              <div className="card-header"><span className="card-title">🐾 Shelter Population</span><span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{native.length} animals</span></div>
+              <MiniBar label="Available" count={available} max={native.length} color="#22c55e" />
+              <MiniBar label="Foster" count={foster} max={native.length} color="#f59e0b" />
+              <MiniBar label="Med Hold" count={medHold} max={native.length} color="#ef4444" />
+              <MiniBar label="Quarantine" count={quarantine} max={native.length} color="#dc2626" />
+              <MiniBar label="Pending" count={pending} max={native.length} color="#a855f7" />
+              <MiniBar label="Adopted" count={adopted} max={native.length} color="#6366f1" />
+              {imported > 0 && <MiniBar label="Imported" count={imported} max={native.length} color="#0ea5e9" />}
+              {transferred > 0 && <MiniBar label="Transferred" count={transferred} max={native.length} color="#7c3aed" />}
+              {redeemed > 0 && <MiniBar label="Redeemed" count={redeemed} max={native.length} color="#0891b2" />}
+              {historicalCount > 0 && (
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "5px 0", borderTop: "1px solid var(--border-light)", marginTop: 4, fontSize: 11, color: "var(--text-muted)" }}>
+                  <span>📦 Historical Records</span>
+                  <Link href="/animals" onClick={() => {}} style={{ color: "var(--text-muted)", textDecoration: "none", fontWeight: 600 }}>{historicalCount}</Link>
+                </div>
+              )}
             </div>
 
             {/* Monthly adoptions chart */}

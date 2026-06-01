@@ -6,7 +6,7 @@ import type { Animal, ShelterRoom, MedicalRecord } from "@/lib/types";
 import { DEFAULT_SHELTER_CONFIG, STATUS_COLORS, BEHAVIOR_FLAGS } from "@/lib/constants";
 import { useAuth, useKennels } from "@/app/providers";
 import { useRouter } from "next/navigation";
-import { genId, displayAge } from "@/lib/utils";
+import { genId, displayAge, isImported } from "@/lib/utils";
 
 const EXCLUDED = ["Adopted", "Foster", "Euthanized"];
 
@@ -530,13 +530,14 @@ export default function KennelPage() {
     allLabels.forEach((label) => { map[label] = []; });
     animals.forEach((a) => {
       if (EXCLUDED.includes(a.status)) return;
+      if (isImported(a)) return;           // hide historical records from floorplan
       if (a.kennel && map[a.kennel] !== undefined) map[a.kennel].push(a);
     });
     return map;
   }, [animals, safeConfig]);
 
   const unassigned = useMemo(() =>
-    animals.filter((a) => !EXCLUDED.includes(a.status) && (!a.kennel || !Object.keys(labelMap).includes(a.kennel))),
+    animals.filter((a) => !EXCLUDED.includes(a.status) && !isImported(a) && (!a.kennel || !Object.keys(labelMap).includes(a.kennel))),
     [animals, labelMap]
   );
 

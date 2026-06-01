@@ -12,7 +12,7 @@ import {
 } from "@/lib/constants";
 import StaffSelect from "@/components/ui/StaffSelect";
 import { useKennels } from "@/app/providers";
-import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId } from "@/lib/utils";
+import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId, isImported } from "@/lib/utils";
 import AgeInput from "@/components/ui/AgeInput";
 import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical, updateMedical,
@@ -506,6 +506,15 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
 
   return (
     <div className="animal-detail">
+      {/* Historical record banner */}
+      {isImported(animal) && (
+        <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 16px", marginBottom: 14, fontSize: 13, color: "#92400e", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>📦</span>
+          <div>
+            <strong>Historical Record</strong> — This animal was imported from ShelterBuddy. It is excluded from the active kennel view and dashboard counts but is fully accessible here for history and reporting.
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 16, marginBottom: 20 }}>
         <button className="btn btn-secondary btn-sm" onClick={() => router.push("/animals")}>
