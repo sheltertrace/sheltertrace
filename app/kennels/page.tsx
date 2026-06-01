@@ -13,9 +13,11 @@ const EXCLUDED = ["Adopted", "Foster", "Euthanized"];
 function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: MedicalRecord[]): string {
   const todayStr = new Date().toISOString().split("T")[0];
   const activeFlags = BEHAVIOR_FLAGS.filter((f) => (animal.behavior_flags || {})[f.id as string]);
-  const overdue = medRecords.filter((m) => m.next_due && m.next_due < todayStr);
-  const upcoming = medRecords.filter((m) => m.next_due && m.next_due >= todayStr);
-  const completed = medRecords.filter((m) => !m.next_due);
+  // Only show records that were actually administered — exclude Scheduled, Declined, Skipped
+  const administered = medRecords.filter((m) => !m.status || m.status === "Administered" || m.status === "Completed");
+  const overdue = administered.filter((m) => m.next_due && m.next_due < todayStr);
+  const upcoming = administered.filter((m) => m.next_due && m.next_due >= todayStr);
+  const completed = administered.filter((m) => !m.next_due);
   const daysInCare = animal.intake_date ? Math.floor((Date.now() - new Date(animal.intake_date).getTime()) / 86400000) : 0;
   const age = displayAge(animal.age);
   const speciesIcon = animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾";
@@ -117,11 +119,11 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
     <div style="border:1.5px solid #e2e8f0;border-radius:6px;overflow:hidden;">
       <div style="background:#1e3a5f;color:#fff;padding:7px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:flex;justify-content:space-between;align-items:center;">
         <span>Medical Summary</span>
-        <span style="font-size:10px;font-weight:400;color:#93c5fd;">${medRecords.length} record${medRecords.length !== 1 ? "s" : ""} on file</span>
+        <span style="font-size:10px;font-weight:400;color:#93c5fd;">${administered.length} record${administered.length !== 1 ? "s" : ""} on file</span>
       </div>
       <div style="padding:10px 12px;">
-        ${medRecords.length === 0
-          ? `<div style="color:#94a3b8;font-style:italic;font-size:11px;padding:6px 0;">No medical records on file</div>`
+        ${administered.length === 0
+          ? `<div style="color:#94a3b8;font-style:italic;font-size:11px;padding:6px 0;">No administered records on file</div>`
           : `
           ${overdue.length > 0 ? `
             <div style="font-size:10px;font-weight:800;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px;">⚠ Overdue — Action Required (${overdue.length})</div>
