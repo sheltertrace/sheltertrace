@@ -531,8 +531,9 @@ export default function KennelPage() {
     safeConfig.forEach((room) => { if (room.type === "kennels" && room.labels) allLabels.push(...room.labels); });
     allLabels.forEach((label) => { map[label] = []; });
     animals.forEach((a) => {
-      if (!FLOORPLAN_STATUSES.has(a.status)) return;   // only active + fostered
-      if (isImported(a)) return;                        // never show historical records
+      if (!FLOORPLAN_STATUSES.has(a.status)) return;   // only active + fostered statuses
+      // Show in the floorplan if the animal has a kennel — regardless of import source.
+      // An imported ShelterBuddy animal that still occupies a kennel is a current animal.
       if (a.kennel && map[a.kennel] !== undefined) map[a.kennel].push(a);
     });
     return map;

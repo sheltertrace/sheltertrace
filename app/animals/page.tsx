@@ -46,9 +46,13 @@ export default function AnimalsPage() {
   const tabFiltered = useMemo(() => {
     switch (tab) {
       case "current":
-        return animals.filter((a) => !isImported(a) && IN_SHELTER_STATUSES.has(a.status));
+        // All animals with an active in-shelter status, regardless of import source.
+        // An imported animal with a kennel and active status is a current animal.
+        return animals.filter((a) => IN_SHELTER_STATUSES.has(a.status));
       case "historical":
-        return animals.filter((a) => isImported(a));
+        // Only imported animals that have an outcome status (no longer in shelter).
+        // Imported animals that are still active appear under "Current Animals" instead.
+        return animals.filter((a) => isImported(a) && !IN_SHELTER_STATUSES.has(a.status));
       default:
         return animals;
     }
@@ -71,9 +75,9 @@ export default function AnimalsPage() {
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
 
   const counts = useMemo(() => ({
-    current: animals.filter((a) => !isImported(a) && IN_SHELTER_STATUSES.has(a.status)).length,
-    all: animals.length,
-    historical: animals.filter((a) => isImported(a)).length,
+    current:    animals.filter((a) => IN_SHELTER_STATUSES.has(a.status)).length,
+    all:        animals.length,
+    historical: animals.filter((a) => isImported(a) && !IN_SHELTER_STATUSES.has(a.status)).length,
   }), [animals]);
 
   const handleIntakeComplete = async (animalData: Partial<Animal>) => {
