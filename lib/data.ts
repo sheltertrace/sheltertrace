@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation } from "./types";
 import { genId, genReceiptId, today } from "./utils";
 
 // ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
@@ -1734,4 +1734,50 @@ export async function countNewCitizenReports(): Promise<number> {
     .select("*", { count: "exact", head: true })
     .eq("status", "New");
   return count ?? 0;
+}
+
+// ── Drug Log ──────────────────────────────────────────────────────────────────
+
+export async function fetchDrugInventory(): Promise<DrugInventory[]> {
+  const { data } = await supabase.from("drug_inventory").select("*").order("created_at", { ascending: false });
+  return (data || []) as DrugInventory[];
+}
+
+export async function createDrugInventory(entry: Partial<DrugInventory>): Promise<DrugInventory> {
+  const { data, error } = await supabase.from("drug_inventory").insert(entry).select().single();
+  if (error) throw error;
+  return data as DrugInventory;
+}
+
+export async function updateDrugInventory(id: string, updates: Partial<DrugInventory>): Promise<DrugInventory> {
+  const { data, error } = await supabase.from("drug_inventory").update(updates).eq("id", id).select().single();
+  if (error) throw error;
+  return data as DrugInventory;
+}
+
+export async function fetchEuthanasiaLog(filters?: { dateFrom?: string; dateTo?: string; species?: string; staffId?: string }): Promise<EuthanasiaLog[]> {
+  let q = supabase.from("euthanasia_log").select("*").order("created_at", { ascending: false });
+  if (filters?.dateFrom) q = q.gte("log_date", filters.dateFrom);
+  if (filters?.dateTo)   q = q.lte("log_date", filters.dateTo);
+  if (filters?.species && filters.species !== "All") q = q.eq("species", filters.species);
+  if (filters?.staffId)  q = q.eq("administered_by_id", filters.staffId);
+  const { data } = await q;
+  return (data || []) as EuthanasiaLog[];
+}
+
+export async function createEuthanasiaLogEntry(entry: Partial<EuthanasiaLog>): Promise<EuthanasiaLog> {
+  const { data, error } = await supabase.from("euthanasia_log").insert(entry).select().single();
+  if (error) throw error;
+  return data as EuthanasiaLog;
+}
+
+export async function fetchDrugReconciliations(): Promise<DrugReconciliation[]> {
+  const { data } = await supabase.from("drug_reconciliation").select("*").order("created_at", { ascending: false });
+  return (data || []) as DrugReconciliation[];
+}
+
+export async function createDrugReconciliation(entry: Partial<DrugReconciliation>): Promise<DrugReconciliation> {
+  const { data, error } = await supabase.from("drug_reconciliation").insert(entry).select().single();
+  if (error) throw error;
+  return data as DrugReconciliation;
 }

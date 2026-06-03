@@ -54,6 +54,7 @@ const NAV_GROUPS: NavGroup[] = [
     section: "Operations",
     items: [
       { href: "/messages",           label: "Messages",    perm: "dashboard",  icon: "💬" },
+      { href: "/drug-log",          label: "Drug Log",    perm: "admin",      icon: "💉" },
       { href: "/receipts",          label: "Receipts",    perm: "receipts",   icon: "🧾" },
       { href: "/people",            label: "Search",      perm: "people",     icon: "🔍" },
       { href: "/lost-found-admin",  label: "Lost & Found",  perm: "animals",   icon: "🔎" },

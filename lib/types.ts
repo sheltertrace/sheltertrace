@@ -1038,6 +1038,94 @@ export interface CitizenReport {
   updated_at?: string;
 }
 
+export interface DrugInventory {
+  id: string;
+  drug_name: string;
+  dea_schedule?: string;
+  ndc_number?: string;
+  manufacturer?: string;
+  lot_number?: string;
+  concentration?: string;
+  bottle_size_ml?: number;
+  quantity_remaining_ml?: number;
+  date_received?: string;
+  received_from?: string;
+  distributor_dea_number?: string;
+  dea_form_222_number?: string;
+  received_by?: string;
+  receiver_signature?: string;
+  witness_name?: string;
+  witness_signature?: string;
+  expiration_date?: string;
+  bottle_status?: string;
+  notes?: string;
+  created_at?: string;
+}
+
+export interface EuthanasiaLog {
+  id: string;
+  log_number: string;
+  log_date?: string;
+  log_time?: string;
+  animal_id?: string;
+  animal_name?: string;
+  species?: string;
+  breed?: string;
+  sex?: string;
+  weight?: string;
+  reason?: string;
+  drug_inventory_id?: string;
+  drug_name?: string;
+  lot_number?: string;
+  bottle_id?: string;
+  route?: string;
+  pre_sedation_drug?: string;
+  pre_sedation_dosage?: string;
+  pre_sedation_route?: string;
+  dosage_drawn_ml?: number;
+  dosage_administered_ml?: number;
+  dosage_wasted_ml?: number;
+  running_balance_ml?: number;
+  death_verification?: string;
+  time_of_death?: string;
+  body_disposition?: string;
+  administered_by_id?: string;
+  administered_by_name?: string;
+  administered_by_signature?: string;
+  witness_id?: string;
+  witness_name?: string;
+  witness_signature?: string;
+  owner_present?: boolean;
+  complications?: string;
+  notes?: string;
+  is_correction?: boolean;
+  corrects_log_id?: string;
+  correction_reason?: string;
+  created_at?: string;
+}
+
+export interface DrugReconciliation {
+  id: string;
+  reconciliation_date?: string;
+  period_start?: string;
+  period_end?: string;
+  drug_inventory_id?: string;
+  drug_name?: string;
+  lot_number?: string;
+  starting_quantity_ml?: number;
+  total_used_ml?: number;
+  expected_remaining_ml?: number;
+  actual_remaining_ml?: number;
+  discrepancy_ml?: number;
+  discrepancy_flag?: boolean;
+  performed_by?: string;
+  performer_signature?: string;
+  witnessed_by?: string;
+  witness_signature?: string;
+  notes?: string;
+  created_at?: string;
+}
+
 export type Database = {
   public: {
     Tables: {
