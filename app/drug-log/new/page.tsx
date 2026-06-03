@@ -106,15 +106,24 @@ export default function NewDrugLogPage() {
   const [selectedDrugId, setSelectedDrugId] = useState("");
   const [drugName, setDrugName] = useState("");
   const [lotNumber, setLotNumber] = useState("");
-  const [bottleId, setBottleId] = useState("");
+  const [bottleId, setBottleId] = useState("");          // user-facing bottle number (e.g. FP-003)
   const [currentBottleBalance, setCurrentBottleBalance] = useState<number>(0);
   const [route, setRoute] = useState("");
-  const [usePreSedation, setUsePreSedation] = useState(false);
-  const [preSedationDrug, setPreSedationDrug] = useState("");
-  const [preSedationDosage, setPreSedationDosage] = useState("");
-  const [preSedationRoute, setPreSedationRoute] = useState("");
   const [dosageDrawn, setDosageDrawn] = useState("");
   const [dosageAdministered, setDosageAdministered] = useState("");
+
+  // Pre-sedation
+  const [usePreSedation, setUsePreSedation] = useState(false);
+  const [preSedDrugName, setPreSedDrugName] = useState("");   // free-text or from dropdown
+  const [preSedInvId, setPreSedInvId] = useState("");         // inventory FK
+  const [preSedLot, setPreSedLot] = useState("");
+  const [preSedBottleId, setPreSedBottleId] = useState("");
+  const [preSedConcentration, setPreSedConcentration] = useState("");
+  const [preSedDeaSchedule, setPreSedDeaSchedule] = useState("");
+  const [preSedBalance, setPreSedBalance] = useState<number>(0);
+  const [preSedRoute, setPreSedRoute] = useState("");
+  const [preSedDrawn, setPreSedDrawn] = useState("");
+  const [preSedAdministered, setPreSedAdministered] = useState("");
 
   // Verification
   const [deathVerification, setDeathVerification] = useState("");
@@ -177,10 +186,34 @@ export default function NewDrugLogPage() {
     if (bottle) {
       setDrugName(bottle.drug_name);
       setLotNumber(bottle.lot_number || "");
-      setBottleId(bottle.id);
+      setBottleId(bottle.bottle_number || bottle.lot_number || "");
       setCurrentBottleBalance(bottle.quantity_remaining_ml || 0);
     }
   }
+
+  function handlePreSedDrugSelect(id: string) {
+    setPreSedInvId(id);
+    if (!id) { setPreSedDrugName(""); setPreSedLot(""); setPreSedBottleId(""); setPreSedConcentration(""); setPreSedBalance(0); return; }
+    const bottle = drugInventory.find((b) => b.id === id);
+    if (bottle) {
+      setPreSedDrugName(bottle.drug_name);
+      setPreSedLot(bottle.lot_number || "");
+      setPreSedBottleId(bottle.bottle_number || bottle.lot_number || "");
+      setPreSedConcentration(bottle.concentration || "");
+      setPreSedBalance(bottle.quantity_remaining_ml || 0);
+      setPreSedDeaSchedule(getPreSedDeaSchedule(bottle.drug_name));
+    }
+  }
+
+  function getPreSedDeaSchedule(name: string): string {
+    const n = name.toLowerCase();
+    if (n.includes("ketamine") || n.includes("telazol") || n.includes("tkx")) return "Schedule III";
+    if (n.includes("xylazine") || n.includes("acepromazine") || n.includes("dexmedetomidine")) return "Non-Scheduled";
+    return "";
+  }
+
+  const preSedWasted = (parseFloat(preSedDrawn) || 0) - (parseFloat(preSedAdministered) || 0);
+  const preSedRunning = preSedBalance - (parseFloat(preSedAdministered) || 0);
 
   const dosageWasted = (parseFloat(dosageDrawn) || 0) - (parseFloat(dosageAdministered) || 0);
   const runningBalance = currentBottleBalance - (parseFloat(dosageAdministered) || 0);
@@ -233,9 +266,17 @@ export default function NewDrugLogPage() {
         lot_number: lotNumber || undefined,
         bottle_id: bottleId || undefined,
         route,
-        pre_sedation_drug: usePreSedation ? preSedationDrug : undefined,
-        pre_sedation_dosage: usePreSedation ? preSedationDosage : undefined,
-        pre_sedation_route: usePreSedation ? preSedationRoute : undefined,
+        pre_sedation_drug: usePreSedation ? preSedDrugName : undefined,
+        pre_sedation_route: usePreSedation ? preSedRoute : undefined,
+        pre_sedation_inventory_id: (usePreSedation && preSedInvId) ? preSedInvId : undefined,
+        pre_sedation_lot_number: usePreSedation ? (preSedLot || undefined) : undefined,
+        pre_sedation_bottle_id: usePreSedation ? (preSedBottleId || undefined) : undefined,
+        pre_sedation_concentration: usePreSedation ? (preSedConcentration || undefined) : undefined,
+        pre_sedation_dea_schedule: usePreSedation ? (preSedDeaSchedule || undefined) : undefined,
+        pre_sedation_dosage_drawn_ml: usePreSedation ? (parseFloat(preSedDrawn) || undefined) : undefined,
+        pre_sedation_dosage_administered_ml: usePreSedation ? (parseFloat(preSedAdministered) || undefined) : undefined,
+        pre_sedation_dosage_wasted_ml: (usePreSedation && preSedDrawn && preSedAdministered) ? Math.max(0, preSedWasted) : undefined,
+        pre_sedation_running_balance_ml: (usePreSedation && preSedInvId) ? preSedRunning : undefined,
         dosage_drawn_ml: drawn,
         dosage_administered_ml: administered,
         dosage_wasted_ml: Math.max(0, dosageWasted),
@@ -258,7 +299,12 @@ export default function NewDrugLogPage() {
       };
 
       const result = await createEuthanasiaLogEntry(entry);
+      // Deduct from main euthanasia drug bottle
       await updateDrugInventory(selectedDrugId, { quantity_remaining_ml: runningBalance });
+      // Deduct from pre-sedation bottle if used
+      if (usePreSedation && preSedInvId && parseFloat(preSedAdministered) > 0) {
+        await updateDrugInventory(preSedInvId, { quantity_remaining_ml: preSedRunning });
+      }
       setSaved(result);
     } catch (e: unknown) {
       setErr(e instanceof Error ? e.message : "Failed to save entry.");
@@ -381,16 +427,23 @@ export default function NewDrugLogPage() {
         <Section title="Section 2 — Drug Administration">
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
             <label style={{ gridColumn: "1/-1" }}>
-              <div className="form-label">Drug *</div>
+              <div className="form-label">Euthanasia Drug *</div>
               <select className="form-control" value={selectedDrugId} onChange={(e) => handleDrugSelect(e.target.value)}>
                 <option value="">— Select Drug —</option>
                 {drugInventory.map((b) => (
                   <option key={b.id} value={b.id}>
-                    {b.drug_name} — Lot #{b.lot_number || "?"} ({b.quantity_remaining_ml ?? "?"} mL remaining)
+                    {b.drug_name}{b.bottle_number ? ` — Bottle #${b.bottle_number}` : ""} — Lot #{b.lot_number || "?"} ({b.quantity_remaining_ml ?? "?"} mL remaining)
                   </option>
                 ))}
               </select>
             </label>
+            {selectedDrugId && (
+              <label>
+                <div className="form-label">Bottle Number (auto-filled)</div>
+                <input className="form-control" value={bottleId} onChange={(e) => setBottleId(e.target.value)}
+                  style={{ background: "var(--bg-subtle,#f8fafc)" }} placeholder="e.g. FP-003" />
+              </label>
+            )}
             <label>
               <div className="form-label">Route *</div>
               <select className="form-control" value={route} onChange={(e) => setRoute(e.target.value)}>
@@ -403,29 +456,101 @@ export default function NewDrugLogPage() {
             </label>
             <label>
               <div className="form-label">Current Bottle Balance (mL)</div>
-              <input className="form-control" value={currentBottleBalance} readOnly style={{ background: "var(--bg-subtle,#f8fafc)", cursor: "default" }} />
+              <input className="form-control" value={selectedDrugId ? currentBottleBalance : ""} readOnly
+                style={{ background: "var(--bg-subtle,#f8fafc)", cursor: "default" }} />
             </label>
           </div>
 
+          {/* Pre-sedation */}
           <div style={{ marginTop: 14 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
-              <input type="checkbox" checked={usePreSedation} onChange={(e) => setUsePreSedation(e.target.checked)} />
-              Pre-sedation used
+            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13, fontWeight: 600 }}>
+              <input type="checkbox" checked={usePreSedation} onChange={(e) => { setUsePreSedation(e.target.checked); if (!e.target.checked) setPreSedInvId(""); }} />
+              Pre-sedation drug used
             </label>
             {usePreSedation && (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14, marginTop: 12, padding: "14px", background: "var(--bg-subtle,#f8fafc)", borderRadius: 8, border: "1px solid var(--border,#e2e8f0)" }}>
-                <label>
-                  <div className="form-label">Pre-Sedation Drug</div>
-                  <input className="form-control" value={preSedationDrug} onChange={(e) => setPreSedationDrug(e.target.value)} />
-                </label>
-                <label>
-                  <div className="form-label">Dosage</div>
-                  <input className="form-control" value={preSedationDosage} onChange={(e) => setPreSedationDosage(e.target.value)} />
-                </label>
-                <label>
-                  <div className="form-label">Route</div>
-                  <input className="form-control" value={preSedationRoute} onChange={(e) => setPreSedationRoute(e.target.value)} />
-                </label>
+              <div style={{ marginTop: 12, padding: "16px", background: "#f0f9ff", borderRadius: 8, border: "1px solid #bae6fd" }}>
+                <div style={{ fontWeight: 700, fontSize: 13, color: "#0369a1", marginBottom: 12 }}>Pre-Sedation Drug Details</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+                  <label style={{ gridColumn: "1/-1" }}>
+                    <div className="form-label">Pre-Sedation Drug (from inventory)</div>
+                    <select className="form-control" value={preSedInvId} onChange={(e) => handlePreSedDrugSelect(e.target.value)}>
+                      <option value="">— Select from inventory, or enter manually below —</option>
+                      {drugInventory.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.drug_name}{b.bottle_number ? ` — Bottle #${b.bottle_number}` : ""} — Lot #{b.lot_number || "?"} ({b.quantity_remaining_ml ?? "?"} mL remaining)
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label>
+                    <div className="form-label">Drug Name</div>
+                    <input className="form-control" value={preSedDrugName} onChange={(e) => setPreSedDrugName(e.target.value)}
+                      list="presed-drug-list" placeholder="e.g. Ketamine, Telazol…" />
+                    <datalist id="presed-drug-list">
+                      {["Telazol", "Ketamine", "Xylazine", "Acepromazine", "TKX Combo", "Dexmedetomidine", "Other"].map(d => (
+                        <option key={d} value={d} />
+                      ))}
+                    </datalist>
+                  </label>
+                  <label>
+                    <div className="form-label">DEA Schedule</div>
+                    <input className="form-control" value={preSedDeaSchedule} onChange={(e) => setPreSedDeaSchedule(e.target.value)}
+                      placeholder="Auto-fills from drug name" />
+                  </label>
+                  <label>
+                    <div className="form-label">Bottle Number</div>
+                    <input className="form-control" value={preSedBottleId} onChange={(e) => setPreSedBottleId(e.target.value)}
+                      placeholder="e.g. K-001" />
+                  </label>
+                  <label>
+                    <div className="form-label">Lot Number</div>
+                    <input className="form-control" value={preSedLot} onChange={(e) => setPreSedLot(e.target.value)} />
+                  </label>
+                  <label>
+                    <div className="form-label">Concentration</div>
+                    <input className="form-control" value={preSedConcentration} onChange={(e) => setPreSedConcentration(e.target.value)}
+                      placeholder="e.g. 100 mg/mL" />
+                  </label>
+                  <label>
+                    <div className="form-label">Current Bottle Balance (mL)</div>
+                    <input className="form-control" value={preSedInvId ? preSedBalance : ""} readOnly
+                      style={{ background: "var(--bg-subtle,#f8fafc)", cursor: "default" }} />
+                  </label>
+                  <label>
+                    <div className="form-label">Route</div>
+                    <select className="form-control" value={preSedRoute} onChange={(e) => setPreSedRoute(e.target.value)}>
+                      <option value="">— Select —</option>
+                      <option value="IM — Intramuscular">IM — Intramuscular</option>
+                      <option value="IV — Intravenous">IV — Intravenous</option>
+                      <option value="SQ — Subcutaneous">SQ — Subcutaneous</option>
+                    </select>
+                  </label>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
+                  <label>
+                    <div className="form-label">Dosage Drawn (mL)</div>
+                    <input className="form-control" type="number" step="0.01" min="0"
+                      value={preSedDrawn} onChange={(e) => setPreSedDrawn(e.target.value)} />
+                  </label>
+                  <label>
+                    <div className="form-label">Dosage Administered (mL)</div>
+                    <input className="form-control" type="number" step="0.01" min="0"
+                      value={preSedAdministered} onChange={(e) => setPreSedAdministered(e.target.value)} />
+                  </label>
+                  <div>
+                    <div className="form-label">Dosage Wasted (mL)</div>
+                    <input className="form-control" readOnly
+                      value={preSedDrawn && preSedAdministered ? Math.max(0, preSedWasted).toFixed(2) : ""}
+                      style={{ background: "var(--bg-subtle,#f8fafc)", cursor: "default" }} />
+                  </div>
+                  <div>
+                    <div className="form-label">Running Balance After (mL)</div>
+                    <input className="form-control" readOnly
+                      value={preSedInvId && preSedAdministered ? preSedRunning.toFixed(2) : ""}
+                      style={{ background: "var(--bg-subtle,#f8fafc)", cursor: "default",
+                               color: preSedRunning < 0 ? "#dc2626" : undefined }} />
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -634,10 +759,17 @@ function printSavedEntry(entry: EuthanasiaLog) {
   <h2>Drug Administration</h2>
   <table>
     <tr><td>Drug</td><td>${entry.drug_name || ""}</td><td>Lot #</td><td>${entry.lot_number || ""}</td></tr>
-    <tr><td>Route</td><td>${entry.route || ""}</td><td>Bottle ID</td><td>${entry.bottle_id || ""}</td></tr>
-    ${entry.pre_sedation_drug ? `<tr><td>Pre-Sedation Drug</td><td>${entry.pre_sedation_drug}</td><td>Dosage / Route</td><td>${entry.pre_sedation_dosage || ""} / ${entry.pre_sedation_route || ""}</td></tr>` : ""}
+    <tr><td>Route</td><td>${entry.route || ""}</td><td>Bottle #</td><td>${entry.bottle_id || ""}</td></tr>
     <tr><td>Dosage Drawn (mL)</td><td>${entry.dosage_drawn_ml ?? ""}</td><td>Dosage Administered (mL)</td><td>${entry.dosage_administered_ml ?? ""}</td></tr>
     <tr><td>Dosage Wasted (mL)</td><td>${entry.dosage_wasted_ml ?? ""}</td><td>Running Balance (mL)</td><td>${entry.running_balance_ml ?? ""}</td></tr>
+    ${entry.pre_sedation_drug ? `
+    <tr style="background:#f0f9ff;"><td colspan="4" style="font-weight:700;color:#0369a1;padding-top:8px;">Pre-Sedation Drug</td></tr>
+    <tr><td>Drug</td><td>${entry.pre_sedation_drug}</td><td>DEA Schedule</td><td>${entry.pre_sedation_dea_schedule || ""}</td></tr>
+    <tr><td>Lot #</td><td>${entry.pre_sedation_lot_number || ""}</td><td>Bottle #</td><td>${entry.pre_sedation_bottle_id || ""}</td></tr>
+    <tr><td>Concentration</td><td>${entry.pre_sedation_concentration || ""}</td><td>Route</td><td>${entry.pre_sedation_route || ""}</td></tr>
+    <tr><td>Drawn (mL)</td><td>${entry.pre_sedation_dosage_drawn_ml ?? ""}</td><td>Administered (mL)</td><td>${entry.pre_sedation_dosage_administered_ml ?? ""}</td></tr>
+    <tr><td>Wasted (mL)</td><td>${entry.pre_sedation_dosage_wasted_ml ?? ""}</td><td>Running Balance (mL)</td><td>${entry.pre_sedation_running_balance_ml ?? ""}</td></tr>
+    ` : ""}
   </table>
   <h2>Verification</h2>
   <table>

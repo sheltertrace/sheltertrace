@@ -94,10 +94,17 @@ function printLogEntry(entry: EuthanasiaLog) {
   <h2>Drug Administration</h2>
   <table>
     <tr><td>Drug</td><td>${entry.drug_name || ""}</td><td>Lot #</td><td>${entry.lot_number || ""}</td></tr>
-    <tr><td>Route</td><td>${entry.route || ""}</td><td>Bottle ID</td><td>${entry.bottle_id || ""}</td></tr>
-    ${entry.pre_sedation_drug ? `<tr><td>Pre-Sedation Drug</td><td>${entry.pre_sedation_drug}</td><td>Dosage / Route</td><td>${entry.pre_sedation_dosage || ""} / ${entry.pre_sedation_route || ""}</td></tr>` : ""}
+    <tr><td>Bottle #</td><td style="font-weight:bold">${entry.bottle_id || ""}</td><td>Route</td><td>${entry.route || ""}</td></tr>
     <tr><td>Dosage Drawn (mL)</td><td>${entry.dosage_drawn_ml ?? ""}</td><td>Dosage Administered (mL)</td><td>${entry.dosage_administered_ml ?? ""}</td></tr>
     <tr><td>Dosage Wasted (mL)</td><td>${entry.dosage_wasted_ml ?? ""}</td><td>Running Balance (mL)</td><td>${entry.running_balance_ml ?? ""}</td></tr>
+    ${entry.pre_sedation_drug ? `
+    <tr style="background:#f0f9ff"><td colspan="4" style="font-weight:800;color:#0369a1;padding-top:8px;">PRE-SEDATION DRUG</td></tr>
+    <tr><td>Drug</td><td>${entry.pre_sedation_drug}</td><td>DEA Schedule</td><td>${entry.pre_sedation_dea_schedule || ""}</td></tr>
+    <tr><td>Lot #</td><td>${entry.pre_sedation_lot_number || ""}</td><td>Bottle #</td><td style="font-weight:bold">${entry.pre_sedation_bottle_id || ""}</td></tr>
+    <tr><td>Concentration</td><td>${entry.pre_sedation_concentration || ""}</td><td>Route</td><td>${entry.pre_sedation_route || ""}</td></tr>
+    <tr><td>Drawn (mL)</td><td>${entry.pre_sedation_dosage_drawn_ml ?? ""}</td><td>Administered (mL)</td><td>${entry.pre_sedation_dosage_administered_ml ?? ""}</td></tr>
+    <tr><td>Wasted (mL)</td><td>${entry.pre_sedation_dosage_wasted_ml ?? ""}</td><td>Running Balance (mL)</td><td>${entry.pre_sedation_running_balance_ml ?? ""}</td></tr>
+    ` : ""}
   </table>
   <h2>Verification</h2>
   <table>
@@ -191,9 +198,15 @@ function BottleModal({ onClose, onSave }: BottleModalProps) {
         </div>
         <div style={{ padding: "20px 24px" }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <label style={{ gridColumn: "1/-1" }}>
+            <label>
               <div className="form-label">Drug Name *</div>
               <input className="form-control" value={form.drug_name || ""} onChange={(e) => f("drug_name", e.target.value)} />
+            </label>
+            <label>
+              <div className="form-label">Bottle Number *</div>
+              <input className="form-control" value={form.bottle_number || ""} onChange={(e) => f("bottle_number", e.target.value)}
+                placeholder="e.g. FP-003, K-001" />
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Staff-assigned identifier for this physical bottle</div>
             </label>
             <label>
               <div className="form-label">DEA Schedule</div>
@@ -805,7 +818,7 @@ export default function DrugLogPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
               <thead>
                 <tr style={{ background: "#0f2942", color: "#fff" }}>
-                  {["Log #","Date","Time","Animal","Species","Wt","Drug","Drawn","Admin","Wasted","Balance","By","Witness","Print"].map((h) => (
+                  {["Log #","Date","Time","Animal","Species","Wt","Drug","Bottle #","Drawn","Admin","Wasted","Balance","Pre-Sed","By","Witness","Print"].map((h) => (
                     <th key={h} style={{ padding: "8px 10px", textAlign: "left", fontWeight: 600, fontSize: 11, whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
@@ -820,10 +833,18 @@ export default function DrugLogPage() {
                     <td style={{ padding: "7px 10px" }}>{l.species}</td>
                     <td style={{ padding: "7px 10px" }}>{l.weight}</td>
                     <td style={{ padding: "7px 10px", whiteSpace: "nowrap" }}>{l.drug_name}</td>
+                    <td style={{ padding: "7px 10px", fontWeight: 600, color: "#0369a1" }}>{l.bottle_id || "—"}</td>
                     <td style={{ padding: "7px 10px" }}>{l.dosage_drawn_ml}</td>
                     <td style={{ padding: "7px 10px" }}>{l.dosage_administered_ml}</td>
                     <td style={{ padding: "7px 10px" }}>{l.dosage_wasted_ml}</td>
                     <td style={{ padding: "7px 10px" }}>{l.running_balance_ml}</td>
+                    <td style={{ padding: "7px 10px", fontSize: 11 }}>
+                      {l.pre_sedation_drug
+                        ? <span title={`${l.pre_sedation_drug} — Bottle ${l.pre_sedation_bottle_id || "?"} — ${l.pre_sedation_dosage_administered_ml ?? "?"} mL`} style={{ cursor: "help", borderBottom: "1px dashed var(--text-muted)" }}>
+                            {l.pre_sedation_drug.split(" ")[0]}
+                          </span>
+                        : "—"}
+                    </td>
                     <td style={{ padding: "7px 10px", whiteSpace: "nowrap" }}>{l.administered_by_name}</td>
                     <td style={{ padding: "7px 10px", whiteSpace: "nowrap" }}>{l.witness_name}</td>
                     <td style={{ padding: "7px 10px" }}>
@@ -857,7 +878,7 @@ export default function DrugLogPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "#0f2942", color: "#fff" }}>
-                  {["Drug Name","NDC","Lot #","Received","Size (mL)","Remaining (mL)","Expires","Status",""].map((h) => (
+                  {["Drug Name","Bottle #","NDC","Lot #","Received","Size (mL)","Remaining (mL)","Expires","Status",""].map((h) => (
                     <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontWeight: 600, fontSize: 12 }}>{h}</th>
                   ))}
                 </tr>
@@ -868,6 +889,7 @@ export default function DrugLogPage() {
                   return (
                     <tr key={b.id} style={{ borderBottom: "1px solid var(--border,#e2e8f0)", background: isExpiring ? "#fffbeb" : undefined }}>
                       <td style={{ padding: "8px 12px", fontWeight: 600 }}>{b.drug_name}</td>
+                      <td style={{ padding: "8px 12px", fontWeight: 700, color: "#0369a1" }}>{b.bottle_number || "—"}</td>
                       <td style={{ padding: "8px 12px" }}>{b.ndc_number}</td>
                       <td style={{ padding: "8px 12px" }}>{b.lot_number}</td>
                       <td style={{ padding: "8px 12px" }}>{b.date_received}</td>

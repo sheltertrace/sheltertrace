@@ -1057,6 +1057,7 @@ export interface DrugInventory {
   witness_name?: string;
   witness_signature?: string;
   expiration_date?: string;
+  bottle_number?: string;
   bottle_status?: string;
   notes?: string;
   created_at?: string;
@@ -1082,6 +1083,15 @@ export interface EuthanasiaLog {
   pre_sedation_drug?: string;
   pre_sedation_dosage?: string;
   pre_sedation_route?: string;
+  pre_sedation_inventory_id?: string;
+  pre_sedation_lot_number?: string;
+  pre_sedation_bottle_id?: string;
+  pre_sedation_concentration?: string;
+  pre_sedation_dosage_drawn_ml?: number;
+  pre_sedation_dosage_administered_ml?: number;
+  pre_sedation_dosage_wasted_ml?: number;
+  pre_sedation_running_balance_ml?: number;
+  pre_sedation_dea_schedule?: string;
   dosage_drawn_ml?: number;
   dosage_administered_ml?: number;
   dosage_wasted_ml?: number;
