@@ -79,8 +79,7 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
         <div style="flex-shrink:0;width:200px;">
           ${photoHtml}
           <div style="margin-top:8px;text-align:center;padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
-            <div style="font-size:32px;font-weight:900;color:#0f2942;line-height:1.1;">${animal.name}</div>
-            <div style="font-family:monospace;font-size:16px;color:#475569;margin-top:4px;font-weight:700;">${animal.id}</div>
+            <div style="font-family:monospace;font-size:14px;color:#475569;font-weight:700;">${animal.id}</div>
           </div>
           <div style="margin-top:8px;padding:7px;background:${statusBg};border:1px solid ${statusColor}40;border-radius:5px;text-align:center;">
             <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
@@ -106,6 +105,9 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
           ${fld("Fixed / Altered", animal.fixed ? "Yes" : "No")}
           ${fld("Intake Date", animal.intake_date || "")}
           ${fld("Intake Type", animal.intake_type || "")}
+          <div style="grid-column:1/-1;text-align:center;padding:14px 0 10px;border-top:2px solid #0f2942;margin-top:6px;">
+            <div style="font-size:52px;font-weight:900;color:#0f2942;line-height:1;letter-spacing:-1px;">${animal.name}</div>
+          </div>
           ${animal.markings ? `<div style="grid-column:1/-1;margin-bottom:7px;padding-top:4px;border-top:1px solid #f1f5f9;"><div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">Markings / Distinguishing Features</div><div style="font-size:11px;color:#0f172a;margin-top:2px;font-style:italic;">${animal.markings}</div></div>` : ""}
           ${activeFlags.length > 0 ? `
           <div style="grid-column:1/-1;padding-top:6px;border-top:1px solid #f1f5f9;">
