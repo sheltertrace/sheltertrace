@@ -142,7 +142,7 @@ export default function VolunteersPage() {
       `<tr><td>${v.name}</td><td style="text-align:center">${v.shifts}</td><td style="text-align:right;font-weight:700">${v.hours.toFixed(2)}</td></tr>`
     ).join("");
     const html = `<!DOCTYPE html><html><head><title>Volunteer Hours Report</title>
-<style>body{font-family:Arial,sans-serif;padding:1in;font-size:11pt}h1{font-size:16pt;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:14px}th{background:#f1f5f9;padding:7px 10px;text-align:left;font-size:10pt}td{padding:6px 10px;border-bottom:1px solid #e2e8f0}tfoot td{font-weight:700;border-top:2px solid #333}.meta{color:#64748b;font-size:10pt;margin-bottom:20px}</style></head>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;padding:1in;font-size:11pt}h1{font-size:16pt;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:14px}th{background:#f1f5f9;padding:7px 10px;text-align:left;font-size:10pt}td{padding:6px 10px;border-bottom:1px solid #e2e8f0}tfoot td{font-weight:700;border-top:2px solid #333}.meta{color:#64748b;font-size:10pt;margin-bottom:20px}</style></head>
 <body><h1>Volunteer Hours Report</h1>
 <div class="meta">Morgan County Animal Services · ${filterFrom} to ${filterTo}</div>
 <table><thead><tr><th>Volunteer</th><th style="text-align:center">Shifts</th><th style="text-align:right">Total Hours</th></tr></thead>
@@ -473,7 +473,7 @@ export default function VolunteersPage() {
 
         const printQR = () => {
           const html = `<!DOCTYPE html><html><head><title>Volunteer QR Codes</title>
-<style>body{font-family:Arial,sans-serif;padding:40px;text-align:center}h1{font-size:20pt;margin-bottom:6px}.pair{display:flex;justify-content:center;gap:60px;margin-top:30px}.box{text-align:center}.box img{display:block;margin:0 auto 12px}.url{font-size:9pt;color:#666;word-break:break-all;max-width:220px}.title{font-size:14pt;font-weight:bold;margin-bottom:4px}</style></head>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;padding:40px;text-align:center}h1{font-size:20pt;margin-bottom:6px}.pair{display:flex;justify-content:center;gap:60px;margin-top:30px}.box{text-align:center}.box img{display:block;margin:0 auto 12px}.url{font-size:9pt;color:#666;word-break:break-all;max-width:220px}.title{font-size:14pt;font-weight:bold;margin-bottom:4px}</style></head>
 <body><h1>Morgan County Animal Services — Volunteer Access</h1>
 <p style="color:#666;font-size:10pt">Scan a QR code with your phone to get started</p>
 <div class="pair">
@@ -927,7 +927,7 @@ export default function VolunteersPage() {
 
         const printQR = () => {
           const html = `<!DOCTYPE html><html><head><title>Volunteer QR Codes — Morgan County Animal Services</title>
-<style>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
   @page { size: letter; margin: 0.75in; }
   body { font-family: Arial, sans-serif; text-align: center; color: #111; }
   h1 { font-size: 20pt; margin: 0 0 4px; }

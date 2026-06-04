@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -59,7 +59,7 @@ function printLogEntry(entry: EuthanasiaLog) {
   const w = window.open("", "_blank", "width=900,height=700");
   if (!w) return;
   w.document.write(`<!DOCTYPE html><html><head><title>Drug Log Entry ${entry.log_number}</title>
-  <style>
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
     body { font-family: Arial, sans-serif; font-size: 12px; margin: 30px; color: #000; }
     h1 { font-size: 18px; margin: 0; }
     h2 { font-size: 14px; margin: 16px 0 6px; border-bottom: 1px solid #000; padding-bottom: 3px; }
@@ -137,7 +137,7 @@ function printReport(title: string, html: string) {
   const w = window.open("", "_blank", "width=1000,height=700");
   if (!w) return;
   w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
-  <style>
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
     body { font-family: Arial, sans-serif; font-size: 12px; margin: 30px; }
     h1 { font-size: 18px; margin: 0 0 4px; }
     h2 { font-size: 13px; margin: 16px 0 6px; border-bottom: 1px solid #000; }

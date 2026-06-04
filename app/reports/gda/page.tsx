@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Link from "next/link";
@@ -348,7 +348,7 @@ function printMatrix(rows: RowDef[], startDate: string, endDate: string) {
   const w = window.open("", "_blank", "width=1100,height=900");
   if (!w) return;
   w.document.write(`<html><head><title>GDA Basic Animal Data Matrix</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;padding:18px;background:#fff;}
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;padding:18px;background:#fff;}
   @media print{@page{size:letter landscape;margin:0.5in}}</style>
   </head><body>
   <div style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:0;">

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect } from "react";
 import { createPerson, updatePerson, addPersonNote, genNextPid } from "@/lib/data";
 import type { Person } from "@/lib/types";
@@ -19,7 +19,7 @@ function printBadge(person: Person) {
   const qrUrl = `https://quickchart.io/qr?text=${encodeURIComponent("https://sheltertrace.com/volunteer-clock")}&size=90&margin=1`;
 
   const html = `<!DOCTYPE html><html><head><title>Volunteer Badge — ${name}</title>
-<style>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
   @page { size: 3.375in 2.125in; margin: 0; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { width: 3.375in; height: 2.125in; font-family: Arial, sans-serif; overflow: hidden; }

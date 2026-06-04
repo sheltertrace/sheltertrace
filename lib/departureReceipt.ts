@@ -1,4 +1,4 @@
-import type { Animal, DepartureReceipt, Person } from "./types";
+﻿import type { Animal, DepartureReceipt, Person } from "./types";
 
 const MCAS_NAME    = "Morgan County Animal Services";
 const MCAS_ADDR    = "2392 Athens Hwy, Madison, GA 30650";
@@ -106,7 +106,7 @@ export function buildAdoptionReceiptHTML(receipt: DepartureReceipt): string {
 
   return `<!DOCTYPE html><html>
   <head><title>Adoption Receipt ${receipt.receipt_number}</title>
-  <style>
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
     body{font-family:Arial,sans-serif;font-size:10.5px;padding:24px;margin:0;line-height:1.55;color:#111}
     h1{font-size:16px;font-weight:900;color:${MCAS_BLUE};margin:0 0 1px;text-transform:uppercase;letter-spacing:.5px}
     h2{font-size:11.5px;color:${MCAS_BLUE};margin:0 0 10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
@@ -274,7 +274,7 @@ export function printDepartureReceipt(receipt: DepartureReceipt): void {
     </div>`;
 
   w.document.write(`<!DOCTYPE html><html><head><title>Departure Receipt ${receipt.receipt_number}</title>
-  <style>
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
     body{font-family:Arial,sans-serif;font-size:10px;padding:22px;margin:0;line-height:1.5;color:#111}
     h1{font-size:15px;font-weight:900;color:${MCAS_BLUE};margin:0 0 1px;text-transform:uppercase}
     h2{font-size:11px;color:${MCAS_BLUE};margin:0 0 10px;font-weight:600;letter-spacing:.3px}

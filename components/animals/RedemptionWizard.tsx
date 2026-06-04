@@ -92,7 +92,7 @@ function printRedemptionReceipt(
   const total = calcTotal(fees);
   const ownerName = [owner.first_name, owner.last_name].filter(Boolean).join(" ");
   const html = `<!DOCTYPE html><html><head><title>Redemption Receipt — ${animal.name}</title>
-<style>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
   @page { size: letter; margin: 0.75in; @top-left { content: "Morgan County Animal Services"; font-size: 9pt; } @top-right { content: "Page " counter(page); font-size: 9pt; } }
   body { font-family: Arial, sans-serif; font-size: 10pt; color: #111; }
   h1 { font-size: 18pt; margin: 0 0 2px; }

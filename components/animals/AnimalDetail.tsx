@@ -451,7 +451,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       `<tr><td style="padding:3px 6px;border:1px solid #e2e8f0;font-size:10px;">${m.type}</td><td style="padding:3px 6px;border:1px solid #e2e8f0;font-size:10px;">${m.description}</td><td style="padding:3px 6px;border:1px solid #e2e8f0;font-size:10px;">${m.next_due || m.date || "—"}</td><td style="padding:3px 6px;border:1px solid #e2e8f0;font-size:10px;">${m.vet || "—"}</td></tr>`;
     const statusColor = ({ Available: "#15803d", "Medical Hold": "#b45309", Quarantine: "#dc2626" } as Record<string, string>)[animal.status] || "#475569";
     w.document.write(`<html><head><title>Kennel Card — ${animal.name}</title>
-    <style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:Arial,Helvetica,sans-serif;}@media print{@page{size:letter;margin:0}}</style>
+    <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:Arial,Helvetica,sans-serif;}@media print{@page{size:letter;margin:0}}</style>
     </head><body>
     <div style="width:7.5in;padding:0.2in;">
       <div style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;">

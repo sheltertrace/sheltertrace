@@ -45,7 +45,7 @@ export function printVolunteerApplication(d: Record<string, unknown>) {
     </div>`;
   const prefs = (d.animal_preference as string[] | undefined) || [];
   w.document.write(`<html><head><title>Volunteer Application</title>
-  <style>body{font-family:Arial,sans-serif;font-size:10px;padding:22px;margin:0;line-height:1.5}
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;font-size:10px;padding:22px;margin:0;line-height:1.5}
   h1{font-size:15px;font-weight:900;color:${blue};margin:0 0 2px;text-transform:uppercase}
   .sub{font-size:9px;color:#444;margin-bottom:12px}
   @media print{body{padding:14px}}</style></head><body>

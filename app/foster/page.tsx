@@ -31,7 +31,7 @@ function printFosterAgreement(placement: FosterPlacement, animal?: Animal, paren
   const w = window.open("", "_blank", "width=800,height=900");
   if (!w) return;
   w.document.write(`<!DOCTYPE html><html><head><title>Foster Agreement</title>
-<style>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
   body{font-family:Arial,sans-serif;max-width:720px;margin:40px auto;font-size:11pt;color:#111}
   h1{font-size:16pt;text-align:center;margin-bottom:4px}
   .sub{font-size:9pt;color:#555;text-align:center;margin-bottom:20px}

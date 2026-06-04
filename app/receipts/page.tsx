@@ -20,7 +20,7 @@ function printReceipt(receipt: Receipt): void {
   const total = receipt.line_items.reduce((s, i) => s + (i.price * i.qty), 0);
   w.document.write(`
     <html><head><title>Receipt ${receipt.id}</title>
-    <style>body{font-family:sans-serif;padding:24px;max-width:420px;margin:0 auto}
+    <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:sans-serif;padding:24px;max-width:420px;margin:0 auto}
     h2{font-size:18px;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin:12px 0}
     th,td{padding:5px 8px;border:1px solid #ccc;font-size:12px}th{background:#f1f5f9}
     .total{font-size:16px;font-weight:bold;text-align:right;margin-top:8px}</style></head>

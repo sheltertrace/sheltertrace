@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { fetchAnimals, updateAnimal, fetchShelterConfig, saveShelterConfig, fetchMedical } from "@/lib/data";
@@ -30,7 +30,7 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
     : `<div style="width:200px;height:200px;border-radius:6px;border:2px dashed #cbd5e1;background:#f1f5f9;display:flex;align-items:center;justify-content:center;font-size:72px;">${speciesIcon}</div>`;
 
   const fld = (label: string, value: string) =>
-    `<div style="margin-bottom:7px;"><div style="font-size:9px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">${label}</div><div style="font-size:12px;font-weight:600;color:#0f172a;margin-top:1px;">${value || "—"}</div></div>`;
+    `<div style="margin-bottom:7px;"><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.4px;">${label}</div><div style="font-size:14px;font-weight:600;color:#0f172a;margin-top:1px;">${value || "—"}</div></div>`;
 
   const medRow = (m: MedicalRecord, color: string, bg: string, border: string) =>
     `<tr style="background:${bg};"><td style="padding:3px 6px;border:1px solid ${border};font-size:10px;color:${color};">${m.type}</td><td style="padding:3px 6px;border:1px solid ${border};font-size:10px;color:${color};">${m.description}</td><td style="padding:3px 6px;border:1px solid ${border};font-size:10px;color:${color};font-weight:${m.next_due ? "700" : "400"};">${m.next_due || m.date || "—"}</td><td style="padding:3px 6px;border:1px solid ${border};font-size:10px;color:${color};">${m.vet || "—"}</td></tr>`;
@@ -79,14 +79,14 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
         <div style="flex-shrink:0;width:200px;">
           ${photoHtml}
           <div style="margin-top:8px;text-align:center;padding-bottom:8px;border-bottom:1px solid #e2e8f0;">
-            <div style="font-size:20px;font-weight:800;color:#0f2942;">${animal.name}</div>
-            <div style="font-family:monospace;font-size:11px;color:#64748b;background:#f1f5f9;padding:2px 8px;border-radius:4px;display:inline-block;margin-top:3px;">${animal.id}</div>
+            <div style="font-size:32px;font-weight:900;color:#0f2942;line-height:1.1;">${animal.name}</div>
+            <div style="font-family:monospace;font-size:16px;color:#475569;margin-top:4px;font-weight:700;">${animal.id}</div>
           </div>
           <div style="margin-top:8px;padding:7px;background:${statusBg};border:1px solid ${statusColor}40;border-radius:5px;text-align:center;">
-            <div style="font-size:9px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
-            <div style="font-size:14px;font-weight:800;color:${statusColor};margin-top:1px;">${animal.status}</div>
-            ${animal.sub_status ? `<div style="font-size:10px;color:${statusColor};font-weight:600;">${animal.sub_status}</div>` : ""}
-            <div style="font-size:10px;color:#64748b;margin-top:3px;">${daysInCare} day${daysInCare !== 1 ? "s" : ""} in care</div>
+            <div style="font-size:10px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Status</div>
+            <div style="font-size:16px;font-weight:800;color:${statusColor};margin-top:1px;">${animal.status}</div>
+            ${animal.sub_status ? `<div style="font-size:12px;color:${statusColor};font-weight:600;">${animal.sub_status}</div>` : ""}
+            <div style="font-size:12px;color:#64748b;margin-top:3px;">${daysInCare} day${daysInCare !== 1 ? "s" : ""} in care</div>
           </div>
           ${animal.microchip ? `<div style="margin-top:6px;padding:4px 6px;background:#eff6ff;border-radius:4px;font-size:10px;color:#1d4ed8;text-align:center;">🔬 Chip: <strong>${animal.microchip}</strong></div>` : ""}
           ${animal.rabies_tag ? `<div style="margin-top:4px;padding:4px 6px;background:#f5f3ff;border-radius:4px;font-size:10px;color:#6d28d9;text-align:center;">💉 Rabies Tag: <strong>${animal.rabies_tag}</strong></div>` : ""}
@@ -152,7 +152,7 @@ function printKennelCard(animal: Animal, kennel: string, medRecords: MedicalReco
   const w = window.open("", "_blank", "width=820,height=1060");
   if (!w) return;
   w.document.write(`<html><head><title>Kennel Card — ${animal.name}</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}@media print{@page{size:letter;margin:0}}</style>
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}@media print{@page{size:letter;margin:0}}</style>
   </head><body>${buildKennelCardHTML(animal, kennel, medRecords)}</body></html>`);
   w.document.close();
   w.onload = () => w.print();
@@ -164,7 +164,7 @@ function printMultipleKennelCards(items: Array<{ animal: Animal; kennel: string;
   if (!w) return;
   const body = items.map((i) => buildKennelCardHTML(i.animal, i.kennel, i.medRecords)).join("");
   w.document.write(`<html><head><title>Kennel Cards (${items.length})</title>
-  <style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}@media print{@page{size:letter;margin:0}}</style>
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;box-sizing:border-box;margin:0;padding:0;}body{background:#fff;}@media print{@page{size:letter;margin:0}}</style>
   </head><body>${body}</body></html>`);
   w.document.close();
   w.onload = () => w.print();

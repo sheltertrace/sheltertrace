@@ -85,7 +85,7 @@ export function fmtDateUS(d?: string | null): string {
 // ── Shared print window ────────────────────────────────────────────────────────
 
 const PRINT_CSS = `
-  * { box-sizing: border-box; }
+  * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111; margin: 0.5in; }
   h1 { font-size: 14pt; margin: 0 0 2px; }
   h2 { font-size: 12pt; margin: 0 0 4px; }

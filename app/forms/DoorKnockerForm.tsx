@@ -36,7 +36,7 @@ export function printDoorKnocker(data: Record<string, unknown>, logo: string) {
       <div style="font-size:11px;line-height:1.4">${label}</div>
     </div>`;
   w.document.write(`<html><head><title>Door Knocker</title>
-  <style>body{font-family:Arial,sans-serif;font-size:11px;padding:24px;margin:0}
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;font-size:11px;padding:24px;margin:0}
   .line{border-bottom:1px solid #000;display:inline-block;min-width:120px;}
   @media print{body{padding:14px}}</style></head><body>
   <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:14px">

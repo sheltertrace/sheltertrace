@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useCallback } from "react";
 import DateInput from "@/components/ui/DateInput";
 import { downloadCsv } from "@/lib/reportUtils";
@@ -88,7 +88,7 @@ export default function ReportBuilder({ config }: { config: ReportConfig }) {
       ? `<tr class="summary-row">${visibleFields.map((f) => `<td>${fmtCell(summaryData[f.key], f, summaryData)}</td>`).join("")}</tr>`
       : "";
     w.document.write(`<!DOCTYPE html><html><head><title>${config.title}</title>
-<style>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
 @page { size: letter landscape; margin: 0.5in; }
 * { box-sizing: border-box; }
 body { font-family: Arial, sans-serif; font-size: 9pt; color: #111; margin: 0; }

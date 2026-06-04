@@ -1045,7 +1045,7 @@ function CallDetailPageInner() {
     w.document.write(`<!DOCTYPE html><html><head>
 <title>Call Review — ${call.id}</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
   body { font-family: Arial, Helvetica, sans-serif; background: #fff; color: #0f172a; }
   @page {
     size: letter;

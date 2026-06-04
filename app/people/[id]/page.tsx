@@ -162,7 +162,7 @@ export default function PersonDetailPage() {
     const section = (title: string, color: string, content: string) =>
       `<div style="margin-bottom:10px;border:1px solid ${color}40;border-radius:6px;overflow:hidden;"><div style="background:${color}18;padding:6px 12px;font-size:10px;font-weight:700;color:${color};text-transform:uppercase;">${title}</div><div style="padding:10px 12px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px 16px;">${content}</div></div>`;
     w.document.write(`<html><head><title>Contact Profile — ${fullName}</title>
-    <style>*{box-sizing:border-box;margin:0;padding:0;}body{background:#fff;font-family:Arial,sans-serif;}@media print{@page{size:letter;margin:0}}</style>
+    <style>*{box-sizing:border-box;margin:0;padding:0;-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{background:#fff;font-family:Arial,sans-serif;}@media print{@page{size:letter;margin:0}}</style>
     </head><body>
     <div style="width:7.5in;padding:0.25in;">
       <div style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">

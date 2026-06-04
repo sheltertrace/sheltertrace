@@ -31,7 +31,7 @@ export function printRabiesQuarantine(data: Record<string, unknown>, logo: strin
     ? `<img src="${data.signature}" style="width:200px;height:50px;object-fit:contain;display:block;margin-bottom:4px"/>`
     : `<div style="width:200px;height:50px;border-bottom:1px solid #000"></div>`;
   w.document.write(`<html><head><title>Home Rabies Quarantine Acknowledgement</title>
-  <style>body{font-family:Arial,sans-serif;font-size:10.5px;padding:22px;margin:0;line-height:1.45}
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;font-size:10.5px;padding:22px;margin:0;line-height:1.45}
   ol li{margin-bottom:7px}
   @media print{body{padding:14px}}</style></head><body>
   <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:12px">

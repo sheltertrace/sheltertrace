@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -68,7 +68,7 @@ export default function CourtPage() {
     if (!w) return;
     const photoUrl = (cit as any).photo_id_url as string | undefined;
     w.document.write(`<!DOCTYPE html><html><head><title>Bench Warrant — ${cit.citation_number}</title>
-    <style>
+    <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
       body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 24px; }
       h2 { font-size: 13px; font-weight: 900; text-transform: uppercase; background: #000; color: #fff; padding: 4px 10px; margin: 16px 0 8px; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
@@ -232,7 +232,7 @@ export default function CourtPage() {
     if (!w) return;
     const vios = Array.isArray(cit.violations) ? cit.violations : [];
     w.document.write(`<!DOCTYPE html><html><head><title>Citation #${cit.citation_number}</title>
-    <style>
+    <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
       body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 20px; }
       table { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
       td, th { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
@@ -385,7 +385,7 @@ export default function CourtPage() {
     if (!w) return;
 
     w.document.write(`<!DOCTYPE html><html><head><title>Case Packet — ${cit.citation_number}</title>
-    <style>
+    <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
       * { box-sizing: border-box; }
       body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 0; }
       .page { padding: 24px; }

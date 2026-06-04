@@ -50,7 +50,7 @@ export function printInspection(d: Record<string, unknown>, items: typeof INSPEC
     return `<td ${style(val === "pass", "#dcfce7")}>P</td><td ${style(val === "fail", "#fee2e2")}>F</td><td ${style(val === "n/a", "#f1f5f9")}>N/A</td>`;
   };
   w.document.write(`<html><head><title>GDA Foster Inspection Report</title>
-  <style>body{font-family:Arial,sans-serif;font-size:10.5px;padding:22px;margin:0;line-height:1.45}
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;font-size:10.5px;padding:22px;margin:0;line-height:1.45}
   h2{font-size:12.5px;text-transform:uppercase;font-weight:900;margin:0 0 2px}
   .sub{font-size:10px;color:#444;margin-bottom:10px}
   table{border-collapse:collapse;width:100%}

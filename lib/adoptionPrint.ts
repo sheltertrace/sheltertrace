@@ -1,4 +1,4 @@
-import type { AdoptionApplication } from "./types";
+﻿import type { AdoptionApplication } from "./types";
 
 const AGENCY  = "Morgan County Animal Services";
 const ADDRESS = "Morgan County, Georgia";
@@ -42,7 +42,7 @@ export function buildAdoptionFormHTML(data?: FormData): string {
 <head>
 <meta charset="utf-8">
 <title>Pet Adoption Application — ${AGENCY}</title>
-<style>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
   @page { size: letter; margin: 0.55in 0.5in; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 9.5pt; color: #111; }

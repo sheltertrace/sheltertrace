@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
@@ -27,7 +27,7 @@ function printCitation(cit: Citation) {
   const signedLine = cit.signed_at ? `<div style="font-size:10px;color:#555">Signed: ${cit.signed_at}</div>` : "";
   w.document.write(`
     <html><head><title>Citation ${cit.citation_number}</title>
-    <style>
+    <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
       body{font-family:serif;font-size:11px;padding:20px;margin:0}
       table{width:100%;border-collapse:collapse}
       td,th{border:1px solid #000;padding:4px 6px}

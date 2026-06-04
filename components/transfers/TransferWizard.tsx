@@ -121,7 +121,7 @@ export function printTransferReceipt(
   }).join("");
 
   w.document.write(`<!DOCTYPE html><html><head><title>Transfer Receipt — ${transfer.transfer_number}</title>
-<style>
+<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
 *{box-sizing:border-box;margin:0;padding:0;}
 body{background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:11px;}
 @page{size:letter;margin:0.5in;}

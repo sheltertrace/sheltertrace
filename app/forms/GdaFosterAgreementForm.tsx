@@ -38,7 +38,7 @@ export function printAgreement(d: Record<string, unknown>) {
       <div style="font-size:9px;color:#666">${label}</div>
     </div>`;
   w.document.write(`<html><head><title>GDA Foster Home Agreement</title>
-  <style>body{font-family:Arial,sans-serif;font-size:10.5px;padding:22px;margin:0;line-height:1.5}
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;font-size:10.5px;padding:22px;margin:0;line-height:1.5}
   h2{font-size:13px;text-transform:uppercase;font-weight:900;margin:0 0 2px}
   .sub{font-size:10px;color:#444;margin-bottom:10px}
   ol li{margin-bottom:6px}

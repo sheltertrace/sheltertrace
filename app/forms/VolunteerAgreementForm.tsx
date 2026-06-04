@@ -70,7 +70,7 @@ export function printVolunteerAgreement(d: Record<string, unknown>) {
   const sh = (title: string) =>
     `<div style="background:${blue};color:#fff;padding:4px 10px;font-size:10px;font-weight:700;text-transform:uppercase;margin:12px 0 7px;letter-spacing:.5px">${title}</div>`;
   w.document.write(`<html><head><title>Volunteer Agreement & Release</title>
-  <style>body{font-family:Arial,sans-serif;font-size:10px;padding:22px;margin:0;line-height:1.5}
+  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;font-size:10px;padding:22px;margin:0;line-height:1.5}
   h1{font-size:15px;font-weight:900;color:${blue};margin:0 0 2px;text-transform:uppercase}
   .sub{font-size:9px;color:#444;margin-bottom:12px}
   .agreement{font-size:9px;line-height:1.6;white-space:pre-wrap;border:1px solid #ccc;padding:10px 12px;background:#fafafa;margin-bottom:12px}
