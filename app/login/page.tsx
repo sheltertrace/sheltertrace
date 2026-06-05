@@ -10,7 +10,7 @@ export default function LoginPage() {
 
   // If already logged in, go straight to dashboard
   useEffect(() => {
-    if (!authLoading && user) router.replace("/");
+    if (!authLoading && user) router.replace("/dashboard");
   }, [user, authLoading, router]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setLoading(true);
     const account = await login(username.trim(), password);
     if (account) {
-      router.replace("/");
+      router.replace("/dashboard");
     } else {
       setError("Invalid username or password. Please try again.");
       setShake(true);
