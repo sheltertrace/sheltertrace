@@ -62,7 +62,21 @@ export const CLINIC_SERVICES: ClinicService[] = [
 ];
 
 
-export const MEDICAL_TYPES = ["Vaccination","Spay/Neuter","Dental","Checkup","Surgery","Treatment","Microchip"];
+export const MEDICAL_TYPES = [
+  "Vaccination","Spay/Neuter","Dental","Checkup","Surgery","Treatment","Microchip",
+  // Diagnostic Tests
+  "Heartworm Test","Parvo Test","FIV Test","FeLV Test","FIV/FeLV Combo Test","Fecal Test","Urinalysis",
+];
+
+export const DIAGNOSTIC_TEST_TYPES = new Set([
+  "Heartworm Test","Parvo Test","FIV Test","FeLV Test","FIV/FeLV Combo Test","Fecal Test","Urinalysis",
+]);
+
+export function isDiagnosticTest(type: string): boolean {
+  return DIAGNOSTIC_TEST_TYPES.has(type);
+}
+
+export const TEST_RESULT_OPTIONS = ["Pending","Negative","Positive","Inconclusive"] as const;
 
 export const MEDICAL_DESC_MAP: Record<string, string[]> = {
   Vaccination: ["Rabies","DHPP","Bordetella","FVRCP","FeLV","Canine Influenza","Leptospirosis","Lyme","DAPP","Distemper"],
@@ -72,6 +86,13 @@ export const MEDICAL_DESC_MAP: Record<string, string[]> = {
   Surgery: ["Mass Removal","Orthopedic","Laceration Repair","Enucleation","Amputation","Exploratory","Other Surgery"],
   Treatment: ["Antibiotics","Anti-inflammatory","Wound Care","Ear Treatment","Eye Treatment","Skin Treatment","Fluid Therapy","Strongid / Dewormer","Flea/Tick Treatment","Heartworm Treatment","Pain Management"],
   Microchip: ["Microchip Implant","Microchip Scan","Microchip Registration"],
+  "Heartworm Test": ["Heartworm Antigen Test (4Dx)","Heartworm Antigen Test (SNAP)","Heartworm Test"],
+  "Parvo Test": ["Parvovirus Antigen Test","Parvo SNAP Test"],
+  "FIV Test": ["FIV Antibody Test","FIV SNAP Test"],
+  "FeLV Test": ["FeLV Antigen Test","FeLV SNAP Test"],
+  "FIV/FeLV Combo Test": ["FIV/FeLV Combo (SNAP)","FIV/FeLV Combo (4Dx Plus)"],
+  "Fecal Test": ["Fecal Float","Fecal Direct Smear","Fecal Culture","Giardia Snap Test"],
+  "Urinalysis": ["Urinalysis","Urine Culture","Urine Specific Gravity"],
 };
 
 

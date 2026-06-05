@@ -1,7 +1,7 @@
 ﻿"use client";
 import { useState } from "react";
 import type { MedicalRecord } from "@/lib/types";
-import { MEDICAL_TYPES, MEDICAL_DESC_MAP } from "@/lib/constants";
+import { MEDICAL_TYPES, MEDICAL_DESC_MAP, isDiagnosticTest, TEST_RESULT_OPTIONS } from "@/lib/constants";
 import StaffSelect from "@/components/ui/StaffSelect";
 import { updateMedical, deleteMedical } from "@/lib/data";
 import { useAuth } from "@/app/providers";
@@ -35,6 +35,8 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
   const [dosage, setDosage]         = useState(record.dosage || "");
   const [notes, setNotes]           = useState(record.notes || "");
   const [result, setResult]         = useState(record.result || "");
+  const [testResult, setTestResult] = useState(record.test_result || "Pending");
+  const [testedBy, setTestedBy]     = useState(record.tested_by || "");
 
   const [saving, setSaving]         = useState(false);
   const [deleting, setDeleting]     = useState(false);
@@ -64,6 +66,8 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
         dosage: dosage || undefined,
         notes: notes || undefined,
         result: result || undefined,
+        test_result: isDiagnosticTest(type) ? (testResult || "Pending") : undefined,
+        tested_by: isDiagnosticTest(type) ? (testedBy || undefined) : undefined,
         updated_at: new Date().toISOString(),
         updated_by: updatedByName,
       };
@@ -202,6 +206,28 @@ export default function MedicalEditModal({ record, onSave, onDelete, onClose }: 
                 <input className="form-input" type="number" min="0" step="0.01" value={cost} onChange={(e) => setCost(e.target.value)} placeholder="0.00" />
               </div>
             </div>
+
+            {/* Diagnostic test fields — only shown when type is a diagnostic test */}
+            {isDiagnosticTest(type) && (
+              <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "12px 14px", marginTop: 8 }}>
+                <div style={{ fontWeight: 700, fontSize: 12, color: "#15803d", marginBottom: 10, textTransform: "uppercase", letterSpacing: 0.4 }}>
+                  🔬 Diagnostic Test Result
+                </div>
+                <div className="grid-2">
+                  <div className="form-group">
+                    <label className="form-label">Test Result *</label>
+                    <select className="form-select" value={testResult} onChange={(e) => setTestResult(e.target.value)}>
+                      {TEST_RESULT_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Tested By</label>
+                    <StaffSelect value={testedBy} onChange={setTestedBy} placeholder="— None —" />
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="form-group">
               <label className="form-label">Notes</label>
               <textarea className="form-textarea" rows={2} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Any additional notes about this record…" />

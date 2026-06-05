@@ -8,7 +8,7 @@ import {
   STATUSES, SUB_STATUSES, BEHAVIOR_FLAGS, EUTH_DRUGS, EUTH_REASONS,
   CIRCUMSTANCE_TYPES, COAT_TYPES, EAR_TYPES, EYE_COLORS, SIZE_OPTIONS,
   ALL_BREEDS_DOG, ALL_BREEDS_CAT, ALL_COLORS,
-  MEDICAL_TYPES, MEDICAL_DESC_MAP,
+  MEDICAL_TYPES, MEDICAL_DESC_MAP, isDiagnosticTest, TEST_RESULT_OPTIONS,
 } from "@/lib/constants";
 import StaffSelect from "@/components/ui/StaffSelect";
 import { useKennels } from "@/app/providers";
@@ -95,7 +95,9 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [medNotes, setMedNotes] = useState("");
   const [medResult, setMedResult] = useState("");
   const [medCost, setMedCost] = useState("");
-  const [medStatus, setMedStatus] = useState("");
+  const [medStatus, setMedStatus]       = useState("");
+  const [medTestResult, setMedTestResult] = useState("Pending");
+  const [medTestedBy, setMedTestedBy]   = useState("");
   const [medSaving, setMedSaving] = useState(false);
   const [medSaved, setMedSaved] = useState(false);
   const [medRecords, setMedRecords] = useState<MedicalRecord[]>(medical);
@@ -319,6 +321,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         result: medResult || undefined,
         cost: medCost !== "" ? parseFloat(medCost) : null,
         status: medStatus || undefined,
+        test_result: isDiagnosticTest(medType) ? medTestResult : undefined,
+        tested_by: (isDiagnosticTest(medType) && medTestedBy) ? medTestedBy : undefined,
       });
       setMedRecords((prev) => [rec, ...prev]);
       setMedSaved(true);
@@ -327,6 +331,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         setMedSaved(false);
         setMedDesc(""); setMedNextDue(""); setMedLotNumber(""); setMedManufacturer("");
         setMedRoute(""); setMedDosage(""); setMedNotes(""); setMedResult(""); setMedCost(""); setMedStatus("");
+        setMedTestResult("Pending"); setMedTestedBy("");
       }, 800);
     } finally { setMedSaving(false); }
   };
@@ -897,6 +902,24 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     </select>
                   </div>
                 </div>
+                {/* Diagnostic test result fields */}
+                {isDiagnosticTest(medType) && (
+                  <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 7, padding: "10px 12px", marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#15803d", marginBottom: 8, letterSpacing: 0.5 }}>🔬 Test Result</div>
+                    <div className="grid-2">
+                      <div className="form-group">
+                        <label className="form-label">Result</label>
+                        <select className="form-select" value={medTestResult} onChange={(e) => setMedTestResult(e.target.value)}>
+                          {TEST_RESULT_OPTIONS.map((r) => <option key={r}>{r}</option>)}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Tested By</label>
+                        <StaffSelect value={medTestedBy} onChange={setMedTestedBy} placeholder="— None —" />
+                      </div>
+                    </div>
+                  </div>
+                )}
                 <div style={{ borderTop: "1px solid #bae6fd", margin: "8px 0 10px", paddingTop: 10 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: "uppercase", color: "#0369a1", marginBottom: 8, letterSpacing: 0.5 }}>Additional Details</div>
                   <div className="grid-2">
@@ -1025,11 +1048,12 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <thead><tr><th style={{ width: 28 }}></th><th>Type</th><th>Description</th><th>Date</th><th>Vet / Staff</th><th>Next Due</th><th></th></tr></thead>
                 <tbody>
                   {animalMed.map((m) => {
-                    // A record is "scheduled" (unconfirmed) if its status is Scheduled,
-                    // Pending, OR null/empty (null = created before the status feature and
-                    // not yet confirmed — treat as needing confirmation, not as administered).
-                    const isScheduled = !m.status || m.status === "Scheduled" || m.status === "Pending";
-                    const statusIcon = (() => {
+                    const isDiag = isDiagnosticTest(m.type);
+                    // Diagnostic tests use test_result; vaccines use the status/confirmation workflow.
+                    const isScheduled = !isDiag && (!m.status || m.status === "Scheduled" || m.status === "Pending");
+
+                    // Status icon — only for non-diagnostic records
+                    const statusIcon = isDiag ? null : (() => {
                       const s = m.status;
                       if (s === "Administered" || s === "Completed") return <span title="Administered" style={{ color: "#16a34a", fontSize: 14 }}>✅</span>;
                       if (!s || s === "Scheduled" || s === "Pending") return <span title="Scheduled — not yet confirmed as given" style={{ color: "#d97706", fontSize: 14 }}>🕐</span>;
@@ -1038,12 +1062,38 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                       if (s === "Overdue") return <span title="Overdue" style={{ color: "#dc2626", fontSize: 14 }}>⚠️</span>;
                       return null;
                     })();
+
+                    // Test result badge — only for diagnostic records
+                    const testResultBadge = isDiag ? (() => {
+                      const r = m.test_result || "Pending";
+                      const cfg: Record<string, { bg: string; color: string; border: string }> = {
+                        Negative:     { bg: "#dcfce7", color: "#15803d", border: "#86efac" },
+                        Positive:     { bg: "#fee2e2", color: "#dc2626", border: "#fca5a5" },
+                        Inconclusive: { bg: "#fef3c7", color: "#b45309", border: "#fde68a" },
+                        Pending:      { bg: "#f1f5f9", color: "#64748b", border: "#cbd5e1" },
+                      };
+                      const c = cfg[r] || cfg.Pending;
+                      return (
+                        <span style={{ background: c.bg, color: c.color, border: `1px solid ${c.border}`, borderRadius: 10, padding: "2px 8px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>
+                          {r === "Positive" ? "🔴 " : r === "Negative" ? "🟢 " : r === "Inconclusive" ? "🟡 " : "⬜ "}{r}
+                        </span>
+                      );
+                    })() : null;
+
+                    const rowBg = isDiag
+                      ? (m.test_result === "Positive" ? "#fff0f0" : m.test_result === "Pending" ? "#f8fafc" : undefined)
+                      : (isScheduled ? "#fffbeb" : undefined);
+
                     return (
-                      <tr key={m.id} style={{ background: isScheduled ? "#fffbeb" : undefined }}>
-                        <td style={{ textAlign: "center", paddingRight: 4 }}>{statusIcon}</td>
-                        <td><span className="badge" style={{ background: "#e0f2fe", color: "#0369a1" }}>{m.type}</span></td>
+                      <tr key={m.id} style={{ background: rowBg }}>
+                        <td style={{ textAlign: "center", paddingRight: 4 }}>
+                          {isDiag ? <span title="Diagnostic Test" style={{ fontSize: 14 }}>🔬</span> : statusIcon}
+                        </td>
+                        <td><span className="badge" style={{ background: isDiag ? "#f3e8ff" : "#e0f2fe", color: isDiag ? "#7c3aed" : "#0369a1" }}>{m.type}</span></td>
                         <td style={{ fontWeight: isScheduled ? 700 : 600 }}>
-                          {m.description}
+                          <div>{m.description}</div>
+                          {isDiag && <div style={{ marginTop: 3 }}>{testResultBadge}</div>}
+                          {isDiag && m.tested_by && <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Tested by {m.tested_by}</div>}
                           {isScheduled && <div style={{ fontSize: 10, color: "#d97706", fontWeight: 600 }}>Not yet confirmed as given</div>}
                           {m.updated_by && !isScheduled
                             ? <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Edited by {m.updated_by}{m.updated_at ? ` · ${formatDate(m.updated_at.slice(0, 10))}` : ""}</div>
@@ -1053,13 +1103,13 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                           }
                         </td>
                         <td style={{ fontSize: 12 }}>{formatDate(m.date)}</td>
-                        <td style={{ fontSize: 12 }}>{m.vet || "—"}</td>
+                        <td style={{ fontSize: 12 }}>{m.vet || (isDiag ? m.tested_by : undefined) || "—"}</td>
                         <td style={{ fontSize: 12, color: m.next_due && new Date(m.next_due) < new Date() ? "#dc2626" : "var(--text-secondary)" }}>
                           {m.next_due ? formatDate(m.next_due) : "—"}
                         </td>
                         <td>
                           <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                            {isScheduled && (
+                            {isScheduled && !isDiag && (
                               <>
                                 <button
                                   className="btn btn-sm"

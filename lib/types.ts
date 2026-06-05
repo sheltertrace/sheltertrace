@@ -141,6 +141,8 @@ export interface MedicalRecord {
   dosage?: string;
   notes?: string;
   result?: string;
+  test_result?: string;    // Positive | Negative | Inconclusive | Pending — for diagnostic test types
+  tested_by?: string;
   updated_at?: string;
   updated_by?: string;
   created_at?: string;

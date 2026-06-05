@@ -141,15 +141,17 @@ async function genAnimalId(): Promise<string> {
   return `${prefix}${String(seq).padStart(3, "0")}`;
 }
 
-const INTAKE_VACCINES: Record<string, Array<{ type: string; description: string }>> = {
+const INTAKE_VACCINES: Record<string, Array<{ type: string; description: string; test_result?: string }>> = {
   Dog: [
     { type: "Vaccination", description: "DHPP (Distemper/Parvo)" },
     { type: "Vaccination", description: "Bordetella" },
     { type: "Treatment", description: "Strongid / Dewormer" },
+    { type: "Heartworm Test", description: "Heartworm Antigen Test", test_result: "Pending" },
   ],
   Cat: [
     { type: "Vaccination", description: "FVRCP" },
     { type: "Treatment", description: "Strongid / Dewormer" },
+    { type: "FIV/FeLV Combo Test", description: "FIV/FeLV Combo Test", test_result: "Pending" },
   ],
 };
 
@@ -180,9 +182,10 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
         type: v.type,
         description: v.description,
         date: intakeDate,
-        next_due: dueDateStr,
+        next_due: v.test_result ? undefined : dueDateStr,
         vet: "",
         status: "Scheduled",
+        ...(v.test_result ? { test_result: v.test_result } : {}),
       }).select().single()
     ));
     medResults.forEach(({ data, error }, i) => {

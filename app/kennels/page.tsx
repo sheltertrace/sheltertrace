@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { fetchAnimals, updateAnimal, fetchShelterConfig, saveShelterConfig, fetchMedical } from "@/lib/data";
 import type { Animal, ShelterRoom, MedicalRecord } from "@/lib/types";
-import { DEFAULT_SHELTER_CONFIG, STATUS_COLORS, BEHAVIOR_FLAGS } from "@/lib/constants";
+import { DEFAULT_SHELTER_CONFIG, STATUS_COLORS, BEHAVIOR_FLAGS, DIAGNOSTIC_TEST_TYPES } from "@/lib/constants";
 import { useAuth, useKennels } from "@/app/providers";
 import { useRouter } from "next/navigation";
 import { genId, displayAge, isImported, IN_SHELTER_STATUSES, FOSTER_STATUSES } from "@/lib/utils";
@@ -46,9 +46,11 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
       <tbody>${rows.map((m, i) => medRow(m, i % 2 === 0 ? "#0f172a" : "#334155", i % 2 === 0 ? rowBg : altBg, border)).join("")}</tbody>
     </table>`;
 
+  const positiveTests = medRecords.filter((m) => DIAGNOSTIC_TEST_TYPES.has(m.type) && m.test_result === "Positive");
   const alertsHtml = [
     animal.is_dangerous ? `<div style="background:#fee2e2;border:2px solid #dc2626;border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;margin-bottom:6px;">🚨 DANGEROUS ANIMAL — HANDLE WITH EXTREME CAUTION</div>` : "",
     animal.is_cruelty_case ? `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;color:#b45309;margin-bottom:6px;">⚠️ CRUELTY CASE — EVIDENCE HOLD — DO NOT RELEASE WITHOUT AUTHORIZATION</div>` : "",
+    positiveTests.length > 0 ? `<div style="background:#fee2e2;border:2px solid #dc2626;border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;margin-bottom:6px;">⚠️ POSITIVE TEST: ${positiveTests.map((m) => m.type).join(", ")} — INFORM VETERINARIAN BEFORE HANDLING</div>` : "",
   ].filter(Boolean).join("");
 
   const statusColor = { Available: "#15803d", Adopted: "#6366f1", "Medical Hold": "#b45309", Quarantine: "#dc2626", Foster: "#0369a1", Pending: "#0369a1", Euthanized: "#dc2626" }[animal.status] || "#475569";
