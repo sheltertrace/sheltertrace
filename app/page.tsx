@@ -37,6 +37,7 @@ const FEATURES = [
   { icon: "💊", title: "Medical Records & Diagnostics", desc: "Vaccine scheduling, diagnostic test tracking (Heartworm, FIV/FeLV), and DEA-compliant drug logs.", extra: "Staff must confirm each vaccine as administered — Scheduled vs. Administered clearly distinguished." },
   { icon: "📋", title: "Citations & Court Portal", desc: "Full citation management with digital signatures, court scheduling, and judge-specific portals.", extra: "Matches physical citation forms with digital capture, electronic service, and automatic court notification." },
   { icon: "❤️", title: "Foster Care Management", desc: "Foster placements, check-ins, supply requests, and foster parent portals — all in one place.", extra: "Public foster application portal, placement tracking, and GDA-required foster agreement documentation." },
+  { icon: "🏥", title: "Clinic & Veterinary Management", desc: "Schedule and track clinic appointments, spay/neuter surgeries, and veterinary visits.", extra: "Log procedure outcomes, manage clinic capacity, and tie medical records directly to each animal's profile. Supports both in-house clinic operations and external veterinary partnerships." },
   { icon: "🙋", title: "Volunteer Kiosk & Portal", desc: "Self-service clock-in kiosk, hour tracking, announcements, and printable volunteer badges.", extra: "Confidentiality forms, volunteer agreements, and task assignment from a single clean interface." },
   { icon: "📊", title: "GDA Compliance Reporting", desc: "One-click state monthly reports, live-release rates, and customizable export formats.", extra: "Automated Basic Animal Data Matrix with species × age breakdown — meets all state reporting requirements." },
   { icon: "🔐", title: "Role-Based Staff Access", desc: "Granular permissions for Admins, Officers, Dispatchers, Vet Techs, Volunteers, and Court staff.", extra: "Each role sees only the screens they need — protecting sensitive data while enabling efficient workflows." },
@@ -261,11 +262,53 @@ function MedicalMockup() {
   );
 }
 
+function ClinicMockup() {
+  const appointments = [
+    { name: "Buddy",  procedure: "Spay",          time: "9:00 AM",  vet: "Dr. Smith",  status: "Scheduled",   sBg: "#fef3c7", sColor: "#b45309" },
+    { name: "Luna",   procedure: "Wellness Exam",  time: "10:30 AM", vet: "Dr. Garcia", status: "Completed",   sBg: "#dcfce7", sColor: "#15803d" },
+    { name: "Rex",    procedure: "Dental",          time: "1:00 PM",  vet: "Dr. Smith",  status: "In Progress", sBg: "#dbeafe", sColor: "#1d4ed8" },
+    { name: "Daisy",  procedure: "Neuter",          time: "2:30 PM",  vet: "Dr. Garcia", status: "Scheduled",   sBg: "#fef3c7", sColor: "#b45309" },
+  ];
+  return (
+    <div style={{ background: "#fff", fontFamily: "system-ui, sans-serif" }}>
+      <div style={{ background: "#0f2942", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>🏥 Clinic — June 7</span>
+        <span style={{ color: "#93c5fd", fontSize: 10 }}>4 appointments</span>
+      </div>
+      <div style={{ padding: "6px 10px" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+          <thead>
+            <tr style={{ background: "#f1f5f9" }}>
+              {["Name", "Procedure", "Time", "Vet", "Status"].map(h => (
+                <th key={h} style={{ padding: "4px 8px", textAlign: "left", color: "#475569", fontWeight: 700, fontSize: 10, textTransform: "uppercase" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {appointments.map(a => (
+              <tr key={a.name + a.time} style={{ borderBottom: "1px solid #f1f5f9" }}>
+                <td style={{ padding: "5px 8px", fontWeight: 700, color: "#0f2942" }}>{a.name}</td>
+                <td style={{ padding: "5px 8px", color: "#374151" }}>{a.procedure}</td>
+                <td style={{ padding: "5px 8px", color: "#64748b" }}>{a.time}</td>
+                <td style={{ padding: "5px 8px", color: "#64748b" }}>{a.vet}</td>
+                <td style={{ padding: "5px 8px" }}>
+                  <span style={{ background: a.sBg, color: a.sColor, padding: "2px 6px", borderRadius: 8, fontSize: 10, fontWeight: 700 }}>{a.status}</span>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 const MOCKUPS = [
   { title: "Animal Records", caption: "Complete animal profiles with intake wizard, photo upload, and behavior tracking.", content: <AnimalListMockup /> },
   { title: "Virtual Kennel", caption: "Real-time kennel occupancy map with color-coded status and one-click animal moves. Fully customizable to match any facility layout.", content: <KennelMockup /> },
   { title: "Dispatch Dashboard", caption: "Live call management with officer assignment, GPS tracking, and narrative logging.", content: <DispatchMockup /> },
   { title: "Medical Records", caption: "Vaccine scheduling, diagnostic tests, and DEA-compliant controlled substance logs.", content: <MedicalMockup /> },
+  { title: "Clinic Management", caption: "Appointment scheduling, surgery tracking, and procedure logs tied to each animal's medical record.", content: <ClinicMockup /> },
 ];
 
 // ── Nav ───────────────────────────────────────────────────────────────────────
@@ -305,6 +348,9 @@ function Nav() {
               onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
             >{label}</a>
           ))}
+          <Link href="/pricing" style={{ color: "rgba(255,255,255,0.7)", textDecoration: "none", fontSize: 14, fontWeight: 500, transition: "color 0.15s" }}
+            onMouseEnter={e => (e.currentTarget.style.color = "#fff")} onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+          >Pricing</Link>
         </nav>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
@@ -326,6 +372,10 @@ function Nav() {
               onClick={close}
             >{label}</a>
           ))}
+          <Link href="/pricing"
+            style={{ display: "block", color: "rgba(255,255,255,0.8)", textDecoration: "none", padding: "12px 0", fontSize: 16, fontWeight: 500, borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+            onClick={close}
+          >Pricing</Link>
           <Link href="/login" style={{ display: "block", background: "#1a8a8a", color: "#fff", padding: "12px 0", borderRadius: 8, textDecoration: "none", fontSize: 16, fontWeight: 700, textAlign: "center", marginTop: 16 }} onClick={close}>
             Staff Login
           </Link>
@@ -434,6 +484,52 @@ function ContactForm() {
   );
 }
 
+// ── FAQ ───────────────────────────────────────────────────────────────────────
+
+function FAQ() {
+  const [open, setOpen] = useState<number | null>(null);
+  const faqs = [
+    { q: "Is ShelterTrace cloud-based?", a: "Yes. ShelterTrace runs entirely in the browser — no software to install, no servers to maintain. All you need is an internet connection and a device." },
+    { q: "What if we lose internet access?", a: "Core functions remain accessible during brief outages through our Progressive Web App (PWA). Full sync resumes automatically when connectivity is restored." },
+    { q: "How long does setup take?", a: "Most shelters are up and running within a few days. Our onboarding team works with you directly to configure your facility layout, staff accounts, and settings before you go live." },
+    { q: "Can we customize it for our facility?", a: "Absolutely. The virtual kennel floorplan, module selection, fee schedules, species lists, and many other settings are fully configurable to match how your organization operates." },
+    { q: "Does it work on mobile?", a: "Yes. ShelterTrace is fully responsive and includes a Progressive Web App for field officers that works on any smartphone or tablet." },
+    { q: "What kind of support is included?", a: "All plans include email support and access to documentation. Enterprise plans include priority support with faster response times." },
+    { q: "Is our data secure?", a: "Yes. All data is hosted on enterprise-grade cloud infrastructure with encrypted connections, regular backups, and role-based access controls to protect sensitive information." },
+    { q: "Do you offer a trial or demo?", a: "Yes — we offer live guided demos and are currently accepting applications for our pilot program. Use the form below or email info@sheltertrace.com to get started." },
+  ];
+  return (
+    <section id="faq" style={{ background: "#fff", padding: "96px 28px" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        <Reveal style={{ textAlign: "center", marginBottom: 52 }}>
+          <h2 style={{ fontSize: "clamp(24px, 3vw, 40px)", fontWeight: 900, color: "#0f2942", margin: "0 0 12px", letterSpacing: -0.5 }}>
+            Frequently Asked Questions
+          </h2>
+          <p style={{ fontSize: 16, color: "#64748b", lineHeight: 1.65 }}>
+            Everything you need to know before getting started.
+          </p>
+        </Reveal>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          {faqs.map((faq, i) => (
+            <div key={i} style={{ border: "1px solid #e2e8f0", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+              <button
+                onClick={() => setOpen(open === i ? null : i)}
+                style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "18px 22px", background: "none", border: "none", cursor: "pointer", textAlign: "left", gap: 16 }}
+              >
+                <span style={{ fontSize: 15, fontWeight: 700, color: "#0f2942", lineHeight: 1.4 }}>{faq.q}</span>
+                <span style={{ fontSize: 18, color: "#1a8a8a", flexShrink: 0, transition: "transform 0.2s", transform: open === i ? "rotate(45deg)" : "none" }}>+</span>
+              </button>
+              {open === i && (
+                <div style={{ padding: "0 22px 18px", fontSize: 15, color: "#475569", lineHeight: 1.75 }}>{faq.a}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function MarketingPage() {
@@ -458,6 +554,8 @@ export default function MarketingPage() {
           .st-mockups-grid { grid-template-columns: 1fr !important; }
           .st-quotes-grid { grid-template-columns: 1fr !important; }
           .st-modular-grid { grid-template-columns: 1fr !important; }
+          .st-trust-grid { grid-template-columns: 1fr !important; }
+          .st-roadmap-grid { grid-template-columns: 1fr !important; }
         }
         .st-feature-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.10) !important; border-color: #1a8a8a !important; }
       `}</style>
@@ -526,6 +624,25 @@ export default function MarketingPage() {
         </div>
       </div>
 
+      {/* ── TRUST BADGES ── */}
+      <div style={{ background: "#f8fafc", borderTop: "1px solid #e2e8f0", padding: "40px 28px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div className="st-trust-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 32, textAlign: "center" }}>
+            {[
+              { icon: "🔒", title: "Enterprise-Grade Security", desc: "Encrypted connections, role-based access controls, and regular automated backups protect your data." },
+              { icon: "☁️", title: "Always Up to Date", desc: "Automatic updates mean you always have the latest features with zero IT involvement or downtime." },
+              { icon: "📱", title: "Works on Any Device", desc: "Browser-based and mobile-ready. Use ShelterTrace on desktop, tablet, or smartphone." },
+            ].map(b => (
+              <div key={b.title} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+                <div style={{ fontSize: 32 }}>{b.icon}</div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: "#0f2942" }}>{b.title}</div>
+                <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.65, maxWidth: 280 }}>{b.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* ── SCREENSHOTS ── */}
       <section id="screenshots" style={{ background: "#0f1c2e", padding: "100px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -550,6 +667,37 @@ export default function MarketingPage() {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── VIDEO DEMO ── */}
+      <section style={{ background: "#fff", padding: "80px 28px" }}>
+        <div style={{ maxWidth: 900, margin: "0 auto", textAlign: "center" }}>
+          <Reveal>
+            <h2 style={{ fontSize: "clamp(24px, 3vw, 38px)", fontWeight: 900, color: "#0f2942", margin: "0 0 12px", letterSpacing: -0.5 }}>
+              Watch ShelterTrace in Action
+            </h2>
+            <p style={{ fontSize: 16, color: "#64748b", marginBottom: 32, lineHeight: 1.65 }}>
+              See how ShelterTrace handles a full day at the shelter — intake, kennel management, dispatch, and reporting.
+            </p>
+            {/* 16:9 video placeholder */}
+            <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", boxShadow: "0 20px 60px rgba(0,0,0,0.15)", background: "#0f1c2e", aspectRatio: "16/9", display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 28 }}>
+              <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, #0a1e33 0%, #0f2942 100%)", opacity: 0.9 }} />
+              <div style={{ position: "relative", zIndex: 1, textAlign: "center" }}>
+                <div style={{ width: 72, height: 72, borderRadius: "50%", background: "rgba(26,138,138,0.9)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", boxShadow: "0 0 0 8px rgba(26,138,138,0.2)" }}>
+                  <div style={{ width: 0, height: 0, borderTop: "14px solid transparent", borderBottom: "14px solid transparent", borderLeft: "24px solid #fff", marginLeft: 5 }} />
+                </div>
+                <div style={{ color: "#fff", fontWeight: 700, fontSize: 18, marginBottom: 6 }}>Full Demo Coming Soon</div>
+                <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 13 }}>A complete walkthrough of daily shelter operations</div>
+              </div>
+            </div>
+            <p style={{ fontSize: 15, color: "#64748b", marginBottom: 20 }}>
+              Want a live walkthrough? Request a personalized demo and we{"'"}ll show you everything.
+            </p>
+            <a href="#contact" style={{ background: "#1a8a8a", color: "#fff", padding: "13px 28px", borderRadius: 9, textDecoration: "none", fontSize: 15, fontWeight: 700, display: "inline-block" }}>
+              Request a Live Demo →
+            </a>
+          </Reveal>
         </div>
       </section>
 
@@ -632,7 +780,7 @@ export default function MarketingPage() {
             <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "24px 28px" }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Shared Core — Included for Every Organization</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
-                {["Animal Records & Intake Wizard","Virtual Kennel Floorplan","Medical Records & Diagnostics","Staff Roles & Permissions","Report Builder & CSV Export"].map(item => (
+                {["Animal Records & Intake Wizard","Virtual Kennel Floorplan","Medical Records & Diagnostics","Clinic & Veterinary Management","Staff Roles & Permissions","Report Builder & CSV Export"].map(item => (
                   <div key={item} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ color: "#1a8a8a", fontWeight: 700, fontSize: 12 }}>✓</span>
                     <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 13 }}>{item}</span>
@@ -681,8 +829,47 @@ export default function MarketingPage() {
         </div>
       </section>
 
-      {/* ── TESTIMONIALS ── */}
+      {/* ── ROADMAP ── */}
       <section style={{ background: "#f8fafc", padding: "96px 28px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
+            <div style={{ display: "inline-block", background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 20, padding: "5px 16px", fontSize: 12, fontWeight: 700, color: "#0d9488", letterSpacing: 1, textTransform: "uppercase", marginBottom: 18 }}>Roadmap</div>
+            <h2 style={{ fontSize: "clamp(26px, 3.5vw, 42px)", fontWeight: 900, color: "#0f2942", margin: "0 0 14px", letterSpacing: -0.5 }}>Always Improving</h2>
+            <p style={{ fontSize: 17, color: "#475569", maxWidth: 560, margin: "0 auto", lineHeight: 1.65 }}>
+              ShelterTrace is actively developed based on real shelter feedback. Here{"'"}s what{"'"}s coming next.
+            </p>
+          </Reveal>
+          <div className="st-roadmap-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 18 }}>
+            {[
+              { icon: "🐾", title: "Petfinder Sync", desc: "Automatically push available animals to Petfinder listings — no double-entry required." },
+              { icon: "🌐", title: "Public Adoption Portal", desc: "A public-facing page where your community can browse adoptable animals and submit applications." },
+              { icon: "💝", title: "Donor & Fundraising Tracking", desc: "Tools built for humane society development teams — donor records, campaigns, and giving history." },
+              { icon: "📲", title: "Mobile App (iOS & Android)", desc: "Native mobile apps for staff and field officers with offline support and push notifications." },
+              { icon: "🏢", title: "Multi-Shelter Support", desc: "Manage multiple locations under one account — ideal for regional animal control authorities." },
+            ].map((item, i) => (
+              <Reveal key={item.title} delay={i * 80}>
+                <div style={{ background: "#fff", borderRadius: 14, padding: "26px 22px", border: "1px solid #e2e8f0", height: "100%" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                    <span style={{ fontSize: 28 }}>{item.icon}</span>
+                    <span style={{ background: "#f0fdfa", color: "#0d9488", border: "1px solid #99f6e4", borderRadius: 10, padding: "2px 8px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>Coming Soon</span>
+                  </div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: "#0f2942", marginBottom: 8 }}>{item.title}</div>
+                  <div style={{ fontSize: 13, color: "#64748b", lineHeight: 1.65 }}>{item.desc}</div>
+                </div>
+              </Reveal>
+            ))}
+          </div>
+          <Reveal>
+            <div style={{ textAlign: "center", marginTop: 36, fontSize: 14, color: "#94a3b8" }}>
+              Have a feature request?{" "}
+              <a href="#contact" style={{ color: "#1a8a8a", textDecoration: "none", fontWeight: 600 }}>Let us know →</a>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS ── */}
+      <section style={{ background: "#fff", padding: "96px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
             <h2 style={{ fontSize: "clamp(24px, 3vw, 38px)", fontWeight: 900, color: "#0f2942", margin: "0 0 12px", letterSpacing: -0.5 }}>
@@ -720,6 +907,8 @@ export default function MarketingPage() {
           </div>
         </div>
       </section>
+
+      <FAQ />
 
       {/* ── CONTACT ── */}
       <section id="contact" style={{ background: "#0f2942", padding: "108px 28px" }}>
