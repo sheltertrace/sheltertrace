@@ -467,25 +467,26 @@ export default function MarketingPage() {
         <div style={{ position: "absolute", left: "-60px", top: "15%", fontSize: 300, opacity: 0.02, userSelect: "none", pointerEvents: "none", transform: "rotate(-15deg)" }}>🐾</div>
 
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 28px 100px", position: "relative", zIndex: 1, textAlign: "center" }}>
-          {/* Hero logo — sole branding centerpiece. The image already contains
-              the ShelterTrace name and tagline, so no extra text is needed. */}
+          {/* Hero logo — sole branding centerpiece, horizontal rectangle.
+              No background box — the logo renders directly on the navy hero.
+              border-radius clips JPEG corners to navy, matching the hero. */}
           <div style={{ marginBottom: 44, display: "flex", justifyContent: "center" }}>
             <Image
               src="/logo.jpg"
               alt="ShelterTrace"
-              width={480}
-              height={480}
+              width={640}
+              height={280}
               quality={100}
               priority
               style={{
-                borderRadius: 48,
-                background: "#ececec",
+                borderRadius: 24,
+                background: "transparent",
                 padding: 0,
                 objectFit: "contain",
-                boxShadow: "0 0 0 7px rgba(26,138,138,0.45), 0 40px 120px rgba(0,0,0,0.6)",
+                boxShadow: "0 32px 100px rgba(0,0,0,0.55)",
                 display: "block",
-                width: "min(480px, 80vw)",
-                height: "min(480px, 80vw)",
+                width: "min(640px, 92vw)",
+                height: "auto",
               }}
             />
           </div>
