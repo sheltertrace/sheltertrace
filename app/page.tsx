@@ -485,7 +485,7 @@ export default function MarketingPage() {
                 objectFit: "contain",
                 boxShadow: "0 32px 100px rgba(0,0,0,0.55)",
                 display: "block",
-                width: "min(640px, 92vw)",
+                width: "min(520px, 88vw)",
                 height: "auto",
               }}
             />
