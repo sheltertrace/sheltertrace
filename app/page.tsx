@@ -473,17 +473,19 @@ export default function MarketingPage() {
             <Image
               src="/logo.jpg"
               alt="ShelterTrace"
-              width={300}
-              height={300}
+              width={480}
+              height={480}
               quality={100}
               priority
               style={{
-                borderRadius: 36,
+                borderRadius: 48,
                 background: "#ececec",
                 padding: 0,
                 objectFit: "contain",
-                boxShadow: "0 0 0 6px rgba(26,138,138,0.4), 0 32px 100px rgba(0,0,0,0.55)",
+                boxShadow: "0 0 0 7px rgba(26,138,138,0.45), 0 40px 120px rgba(0,0,0,0.6)",
                 display: "block",
+                width: "min(480px, 80vw)",
+                height: "min(480px, 80vw)",
               }}
             />
           </div>
