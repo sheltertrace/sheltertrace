@@ -6,6 +6,9 @@ import Sidebar from "./Sidebar";
 import { supabase } from "@/lib/supabase";
 import { playNotificationSound, showBrowserNotification, isSoundMuted } from "@/lib/notificationUtils";
 import type { Message } from "@/lib/types";
+import { IS_DEMO, resetDemoData } from "@/lib/demo";
+import DemoBanner from "@/components/demo/DemoBanner";
+import DemoIdleTimer from "@/components/demo/DemoIdleTimer";
 
 // ── Message toast ─────────────────────────────────────────────────────────────
 
@@ -84,10 +87,20 @@ interface AppShellProps {
 }
 
 export default function AppShell({ children, title, action }: AppShellProps) {
-  const { user, loading } = useAuth();
+  const { user, loading, logout } = useAuth();
   const router   = useRouter();
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [resetting, setResetting] = useState(false);
+
+  const handleLogout = useCallback(async () => {
+    if (IS_DEMO) {
+      setResetting(true);
+      try { await resetDemoData(supabase); } catch (e) { console.error("Demo reset error:", e); }
+      setResetting(false);
+    }
+    logout();
+  }, [logout]);
 
   // ── Message toasts ──────────────────────────────────────────────────────────
   const [toasts, setToasts] = useState<MsgToast[]>([]);
@@ -221,6 +234,8 @@ export default function AppShell({ children, title, action }: AppShellProps) {
 
   return (
     <div className="app-shell">
+      {IS_DEMO && <DemoBanner />}
+
       {mobileOpen && (
         <div className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-hidden="true" />
       )}
@@ -240,6 +255,16 @@ export default function AppShell({ children, title, action }: AppShellProps) {
       {/* Global message toast stack — shown on every page except /messages */}
       {!pathname.startsWith("/messages") && (
         <ToastStack toasts={toasts} onClose={dismissToast} />
+      )}
+
+      {IS_DEMO && <DemoIdleTimer logout={handleLogout} />}
+
+      {resetting && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,41,66,0.95)", zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+          <div style={{ fontSize: 40 }}>🔄</div>
+          <div style={{ color: "#fff", fontSize: 18, fontWeight: 700 }}>Resetting demo environment…</div>
+          <div style={{ color: "#93c5fd", fontSize: 14 }}>Please wait a moment.</div>
+        </div>
       )}
     </div>
   );

@@ -1,12 +1,14 @@
 "use client";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth, useTheme } from "@/app/providers";
 import { hasPermission } from "@/lib/auth";
 import { fetchUnreadCount } from "@/lib/messages";
 import { countNewCitizenReports } from "@/lib/data";
+import { IS_DEMO, resetDemoData } from "@/lib/demo";
+import { supabase } from "@/lib/supabase";
 
 interface NavItem {
   href: string;
@@ -74,8 +76,20 @@ interface SidebarProps {
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [sidebarResetting, setSidebarResetting] = useState(false);
+
+  const handleLogout = useCallback(async () => {
+    if (IS_DEMO) {
+      setSidebarResetting(true);
+      try { await resetDemoData(supabase); } catch (e) { console.error("Demo reset error:", e); }
+      setSidebarResetting(false);
+    }
+    logout();
+    if (IS_DEMO) router.replace("/login");
+  }, [logout, router]);
 
   if (!user) return null;
 
@@ -178,14 +192,23 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           {theme === "dark" ? "☀️" : "🌙"}
         </button>
         <button
-          onClick={logout}
+          onClick={handleLogout}
           className="btn btn-ghost btn-sm"
           style={{ color: "rgba(255,255,255,0.5)", padding: "4px", fontSize: 16 }}
           title="Sign out"
+          disabled={sidebarResetting}
         >
           ⏻
         </button>
       </div>
+
+      {sidebarResetting && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(15,41,66,0.95)", zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+          <div style={{ fontSize: 40 }}>🔄</div>
+          <div style={{ color: "#fff", fontSize: 18, fontWeight: 700 }}>Resetting demo environment…</div>
+          <div style={{ color: "#93c5fd", fontSize: 14 }}>Please wait a moment.</div>
+        </div>
+      )}
     </nav>
   );
 }

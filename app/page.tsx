@@ -356,6 +356,10 @@ function Nav() {
         </nav>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginLeft: "auto" }}>
+          <a href="https://demo.sheltertrace.com" target="_blank" rel="noopener"
+            style={{ color: "rgba(255,255,255,0.8)", border: "1px solid rgba(255,255,255,0.2)", padding: "8px 16px", borderRadius: 7, textDecoration: "none", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>
+            Try Demo
+          </a>
           <Link href="/login" style={{ background: "#1a8a8a", color: "#fff", padding: "9px 22px", borderRadius: 8, textDecoration: "none", fontSize: 14, fontWeight: 700, letterSpacing: 0.2, whiteSpace: "nowrap", transition: "background 0.15s" }}>
             Staff Login
           </Link>
@@ -378,7 +382,13 @@ function Nav() {
             style={{ display: "block", color: "rgba(255,255,255,0.8)", textDecoration: "none", padding: "12px 0", fontSize: 16, fontWeight: 500, borderBottom: "1px solid rgba(255,255,255,0.06)" }}
             onClick={close}
           >Pricing</Link>
-          <Link href="/login" style={{ display: "block", background: "#1a8a8a", color: "#fff", padding: "12px 0", borderRadius: 8, textDecoration: "none", fontSize: 16, fontWeight: 700, textAlign: "center", marginTop: 16 }} onClick={close}>
+          <a href="https://demo.sheltertrace.com" target="_blank" rel="noopener"
+            style={{ display: "block", background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.85)", padding: "12px 0", borderRadius: 8, textDecoration: "none", fontSize: 16, fontWeight: 600, textAlign: "center", marginTop: 12 }}
+            onClick={close}
+          >
+            Try Live Demo ↗
+          </a>
+          <Link href="/login" style={{ display: "block", background: "#1a8a8a", color: "#fff", padding: "12px 0", borderRadius: 8, textDecoration: "none", fontSize: 16, fontWeight: 700, textAlign: "center", marginTop: 10 }} onClick={close}>
             Staff Login
           </Link>
         </div>
@@ -608,6 +618,10 @@ export default function MarketingPage() {
             </a>
             <a href="#screenshots" style={{ background: "rgba(255,255,255,0.07)", color: "#fff", border: "1px solid rgba(255,255,255,0.18)", padding: "16px 36px", borderRadius: 10, textDecoration: "none", fontSize: 16, fontWeight: 600, display: "inline-block" }}>
               See it in Action ↓
+            </a>
+            <a href="https://demo.sheltertrace.com" target="_blank" rel="noopener"
+              style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.15)", padding: "16px 36px", borderRadius: 10, textDecoration: "none", fontSize: 16, fontWeight: 600, display: "inline-block" }}>
+              Try Live Demo ↗
             </a>
           </div>
         </div>
