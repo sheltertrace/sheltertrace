@@ -68,7 +68,9 @@ function BrowserFrame({ title, children }: { title: string; children: React.Reac
           app.sheltertrace.com/{title.toLowerCase().replace(/\s/g, "-")}
         </div>
       </div>
-      {children}
+      <div style={{ minHeight: 260, overflow: "hidden" }}>
+        {children}
+      </div>
     </div>
   );
 }
@@ -552,6 +554,20 @@ export default function MarketingPage() {
           .st-form-grid { grid-template-columns: 1fr !important; }
           .st-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .st-mockups-grid { grid-template-columns: 1fr !important; }
+          /* Center last item when it's alone in its row (odd-numbered last child) */
+          .st-mockups-grid > div:last-child:nth-child(odd) {
+            grid-column: 1 / -1;
+            max-width: calc(50% - 14px);
+            margin-left: auto;
+            margin-right: auto;
+            width: 100%;
+          }
+          @media (max-width: 768px) {
+            .st-mockups-grid > div:last-child:nth-child(odd) {
+              grid-column: auto;
+              max-width: 100%;
+            }
+          }
           .st-quotes-grid { grid-template-columns: 1fr !important; }
           .st-modular-grid { grid-template-columns: 1fr !important; }
           .st-trust-grid { grid-template-columns: 1fr !important; }
