@@ -467,12 +467,26 @@ export default function MarketingPage() {
         <div style={{ position: "absolute", left: "-60px", top: "15%", fontSize: 300, opacity: 0.02, userSelect: "none", pointerEvents: "none", transform: "rotate(-15deg)" }}>🐾</div>
 
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 28px 100px", position: "relative", zIndex: 1, textAlign: "center" }}>
-          {/* Hero logo — dominant visual element */}
-          <div style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
-            <Image src="/logo.jpg" alt="ShelterTrace" width={140} height={140} style={{ borderRadius: 28, background: "#ececec", padding: 10, objectFit: "contain", boxShadow: "0 0 0 5px rgba(26,138,138,0.35), 0 24px 80px rgba(0,0,0,0.5)" }} />
+          {/* Hero logo — sole branding centerpiece. The image already contains
+              the ShelterTrace name and tagline, so no extra text is needed. */}
+          <div style={{ marginBottom: 44, display: "flex", justifyContent: "center" }}>
+            <Image
+              src="/logo.jpg"
+              alt="ShelterTrace"
+              width={300}
+              height={300}
+              quality={100}
+              priority
+              style={{
+                borderRadius: 36,
+                background: "#ececec",
+                padding: 0,
+                objectFit: "contain",
+                boxShadow: "0 0 0 6px rgba(26,138,138,0.4), 0 32px 100px rgba(0,0,0,0.55)",
+                display: "block",
+              }}
+            />
           </div>
-          <div style={{ fontSize: "clamp(52px, 8vw, 88px)", fontWeight: 900, color: "#fff", letterSpacing: -2, lineHeight: 1, marginBottom: 10 }}>ShelterTrace</div>
-          <div style={{ fontSize: "clamp(13px, 1.6vw, 16px)", color: "#1a8a8a", fontWeight: 600, letterSpacing: 2.5, textTransform: "uppercase", marginBottom: 36 }}>Modern Shelter Management Software</div>
 
           <h1 style={{ fontSize: "clamp(22px, 3vw, 44px)", fontWeight: 800, color: "rgba(255,255,255,0.88)", margin: "0 0 18px", lineHeight: 1.2, letterSpacing: -0.3, maxWidth: 740, marginLeft: "auto", marginRight: "auto" }}>
             Built by Shelter Staff.<br />
