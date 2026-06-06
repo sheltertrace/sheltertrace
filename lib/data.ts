@@ -2,6 +2,16 @@
 import { supabase } from "./supabase";
 import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation } from "./types";
 import { genId, genReceiptId, today } from "./utils";
+import { IS_DEMO, getDemoSessionId } from "./demo";
+
+// Helper: in demo mode, return { demo_session_id } so that newly-created
+// records are tagged with the current session and can be cleaned up on reset.
+// Returns {} in production so no extra fields are ever sent.
+function demoTag(): Record<string, string> {
+  if (!IS_DEMO) return {};
+  const id = getDemoSessionId();
+  return id ? { demo_session_id: id } : {};
+}
 
 // ── Safe field parsers (Supabase may return TEXT instead of array/JSON) ───────
 
@@ -159,7 +169,7 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
   const id = await genAnimalId();
   const { data, error } = await supabase
     .from("animals")
-    .insert({ ...animal, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .insert({ ...animal, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...demoTag() })
     .select()
     .single();
   if (error) throw error;
@@ -324,7 +334,7 @@ export async function fetchMedical(animalId?: string): Promise<MedicalRecord[]> 
 
 export async function createMedical(record: Partial<MedicalRecord>): Promise<MedicalRecord> {
   const id = `M-${genId()}`;
-  const { data, error } = await supabase.from("medical_records").insert({ ...record, id }).select().single();
+  const { data, error } = await supabase.from("medical_records").insert({ ...record, id, ...demoTag() }).select().single();
   if (error) throw error;
   return data as MedicalRecord;
 }
@@ -396,7 +406,7 @@ async function genCallId(): Promise<string> {
 
 export async function createCall(call: Partial<DispatchCall>): Promise<DispatchCall> {
   const id = await genCallId();
-  const insertData = { ...call, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  const insertData = { ...call, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...demoTag() };
   console.log("[dispatch save data]", JSON.stringify(insertData, null, 2));
   const { data, error } = await supabase
     .from("dispatch_calls")
@@ -438,7 +448,7 @@ export async function fetchCitations(): Promise<Citation[]> {
 }
 
 export async function createCitation(cit: Partial<Citation>): Promise<Citation> {
-  const { data, error } = await supabase.from("citations").insert(cit).select().single();
+  const { data, error } = await supabase.from("citations").insert({ ...cit, ...demoTag() }).select().single();
   if (error) throw error;
   return data as Citation;
 }

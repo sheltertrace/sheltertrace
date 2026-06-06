@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { resetDemoData } from "@/lib/demo";
+import { resetDemoSession } from "@/lib/demo";
 
 const IDLE_TIMEOUT = 300; // 5 minutes in seconds
 const WARNING_AT = 60;    // show warning when 60 seconds remain
@@ -34,7 +34,7 @@ export default function DemoIdleTimer({ logout }: DemoIdleTimerProps) {
     setShowWarning(false);
     setResetting(true);
     try {
-      await resetDemoData(supabase);
+      await resetDemoSession(supabase);
     } catch (e) {
       console.error("Demo idle reset error:", e);
     }
@@ -79,7 +79,7 @@ export default function DemoIdleTimer({ logout }: DemoIdleTimerProps) {
     setShowWarning(false);
     setResetting(true);
     try {
-      await resetDemoData(supabase);
+      await resetDemoSession(supabase);
     } catch (e) {
       console.error("Demo sign-out reset error:", e);
     }

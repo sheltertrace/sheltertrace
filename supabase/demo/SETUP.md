@@ -18,9 +18,14 @@
   node -e "const bcrypt=require('bcryptjs'); console.log(bcrypt.hashSync('Demo@Admin2026', 10))"
   (run for each demo password and replace PLACEHOLDER values in seed.sql)
 
-### 4. Create reset function
-- Run: supabase/demo/reset_function.sql
-- Then paste the INSERT sections from seed.sql into the function body
+### 4. Add session columns
+- Run: supabase/demo/add_session_columns.sql
+- This adds demo_session_id TEXT to key tables so user-created data can be scoped and cleaned up per session
+
+### 5. Create session-scoped reset function
+- Run: supabase/demo/reset_session_function.sql
+- This creates the reset_demo_session(p_session_id) RPC called by the frontend on sign out and idle timeout
+- Seed data (demo_session_id IS NULL) is preserved; only session-tagged records are deleted
 
 ### 5. Create Vercel Deployment
 - In Vercel: Add New Project → Import from same GitHub repo

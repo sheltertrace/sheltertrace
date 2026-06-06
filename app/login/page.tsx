@@ -3,7 +3,7 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "../providers";
-import { IS_DEMO, DEMO_USERS } from "@/lib/demo";
+import { IS_DEMO, DEMO_USERS, getLastResetTime } from "@/lib/demo";
 
 export default function LoginPage() {
   const { login, user, loading: authLoading } = useAuth();
@@ -21,11 +21,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [shake, setShake] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [lastReset, setLastReset] = useState<string | null>(null);
 
-  // Check for ?expired=1 query param on mount
+  // Check for ?expired=1 query param and last reset time on mount
   useEffect(() => {
-    if (typeof window !== "undefined" && window.location.search.includes("expired=1")) {
-      setSessionExpired(true);
+    if (typeof window !== "undefined") {
+      if (window.location.search.includes("expired=1")) setSessionExpired(true);
+      setLastReset(getLastResetTime());
     }
   }, []);
 
@@ -128,6 +130,11 @@ export default function LoginPage() {
           <div style={{ marginTop: 24, fontSize: 12, color: "rgba(255,255,255,0.3)" }}>
             No password required · Data resets on sign out
           </div>
+          {lastReset && (
+            <div style={{ marginTop: 8, fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
+              Last session reset: {new Date(lastReset).toLocaleString()}
+            </div>
+          )}
         </div>
       </div>
     );

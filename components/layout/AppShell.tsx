@@ -6,7 +6,7 @@ import Sidebar from "./Sidebar";
 import { supabase } from "@/lib/supabase";
 import { playNotificationSound, showBrowserNotification, isSoundMuted } from "@/lib/notificationUtils";
 import type { Message } from "@/lib/types";
-import { IS_DEMO, resetDemoData } from "@/lib/demo";
+import { IS_DEMO, resetDemoSession } from "@/lib/demo";
 import DemoBanner from "@/components/demo/DemoBanner";
 import DemoIdleTimer from "@/components/demo/DemoIdleTimer";
 
@@ -96,7 +96,7 @@ export default function AppShell({ children, title, action }: AppShellProps) {
   const handleLogout = useCallback(async () => {
     if (IS_DEMO) {
       setResetting(true);
-      try { await resetDemoData(supabase); } catch (e) { console.error("Demo reset error:", e); }
+      try { await resetDemoSession(supabase); } catch (e) { console.error("Demo reset error:", e); }
       setResetting(false);
     }
     logout();
