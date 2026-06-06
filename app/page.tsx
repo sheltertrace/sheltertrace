@@ -32,7 +32,7 @@ function Reveal({ children, delay = 0, style = {} }: { children: React.ReactNode
 
 const FEATURES = [
   { icon: "🐾", title: "Animal Records & Intake Wizard", desc: "Multi-step intake wizard with auto-generated vaccines, kennel assignment, and complete animal profiles.", extra: "Supports Dogs, Cats, Wildlife, and Other species with species-specific intake protocols." },
-  { icon: "🏠", title: "Virtual Kennel Floorplan", desc: "Visual shelter layout showing real-time occupancy, kennel cards, and rapid animal moves.", extra: "Fully customizable room and kennel layout using a drag-and-drop designer built for your facility." },
+  { icon: "🏠", title: "Virtual Kennel Floorplan", desc: "Visual shelter layout showing real-time occupancy, kennel cards, and rapid animal moves.", extra: "Fully customizable to match your facility — add, remove, and arrange kennel runs, rooms, and sections to mirror your exact floor layout." },
   { icon: "📡", title: "Officer Dispatch & GPS Tracking", desc: "Live call management, officer GPS tracking, narrative logging, and automated field reporting.", extra: "Real-time map view of all active officers with status updates from the field mobile app." },
   { icon: "💊", title: "Medical Records & Diagnostics", desc: "Vaccine scheduling, diagnostic test tracking (Heartworm, FIV/FeLV), and DEA-compliant drug logs.", extra: "Staff must confirm each vaccine as administered — Scheduled vs. Administered clearly distinguished." },
   { icon: "📋", title: "Citations & Court Portal", desc: "Full citation management with digital signatures, court scheduling, and judge-specific portals.", extra: "Matches physical citation forms with digital capture, electronic service, and automatic court notification." },
@@ -145,7 +145,10 @@ function KennelMockup() {
     <div style={{ background: "#f8fafc", fontFamily: "system-ui, sans-serif" }}>
       <div style={{ background: "#0f2942", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <span style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>🏠 Virtual Shelter Floorplan</span>
-        <span style={{ color: "#93c5fd", fontSize: 10 }}>8/12 occupied</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ background: "#1a8a8a", color: "#fff", fontSize: 9, fontWeight: 700, padding: "2px 6px", borderRadius: 4, letterSpacing: 0.3 }}>✦ Fully Customizable</span>
+          <span style={{ color: "#93c5fd", fontSize: 10 }}>8/12 occupied</span>
+        </div>
       </div>
       <div style={{ padding: "10px 12px" }}>
         {["Wing A","Wing B"].map((wing, wi) => (
@@ -260,7 +263,7 @@ function MedicalMockup() {
 
 const MOCKUPS = [
   { title: "Animal Records", caption: "Complete animal profiles with intake wizard, photo upload, and behavior tracking.", content: <AnimalListMockup /> },
-  { title: "Virtual Kennel", caption: "Real-time kennel occupancy map with color-coded status and one-click animal moves.", content: <KennelMockup /> },
+  { title: "Virtual Kennel", caption: "Real-time kennel occupancy map with color-coded status and one-click animal moves. Fully customizable to match any facility layout.", content: <KennelMockup /> },
   { title: "Dispatch Dashboard", caption: "Live call management with officer assignment, GPS tracking, and narrative logging.", content: <DispatchMockup /> },
   { title: "Medical Records", caption: "Vaccine scheduling, diagnostic tests, and DEA-compliant controlled substance logs.", content: <MedicalMockup /> },
 ];
