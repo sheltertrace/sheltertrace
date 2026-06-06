@@ -554,20 +554,7 @@ export default function MarketingPage() {
           .st-form-grid { grid-template-columns: 1fr !important; }
           .st-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .st-mockups-grid { grid-template-columns: 1fr !important; }
-          /* Center last item when it's alone in its row (odd-numbered last child) */
-          .st-mockups-grid > div:last-child:nth-child(odd) {
-            grid-column: 1 / -1;
-            max-width: calc(50% - 14px);
-            margin-left: auto;
-            margin-right: auto;
-            width: 100%;
-          }
-          @media (max-width: 768px) {
-            .st-mockups-grid > div:last-child:nth-child(odd) {
-              grid-column: auto;
-              max-width: 100%;
-            }
-          }
+          @media (max-width: 768px) { .st-mockups-last { width: 100% !important; } }
           .st-quotes-grid { grid-template-columns: 1fr !important; }
           .st-modular-grid { grid-template-columns: 1fr !important; }
           .st-trust-grid { grid-template-columns: 1fr !important; }
@@ -670,8 +657,9 @@ export default function MarketingPage() {
               Every screen is purpose-built for daily shelter operations — fast, focused, and built to reduce the time staff spend on paperwork.
             </p>
           </Reveal>
-          <div className="st-mockups-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 28 }}>
-            {MOCKUPS.map((m, i) => (
+          {/* First 4 mockups — 2×2 grid */}
+          <div className="st-mockups-grid" style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 28, marginBottom: 28 }}>
+            {MOCKUPS.slice(0, 4).map((m, i) => (
               <Reveal key={m.title} delay={i * 100}>
                 <BrowserFrame title={m.title}>
                   {m.content}
@@ -683,6 +671,20 @@ export default function MarketingPage() {
               </Reveal>
             ))}
           </div>
+          {/* 5th mockup — centered on its own row */}
+          {MOCKUPS[4] && (
+            <Reveal delay={400} style={{ display: "flex", justifyContent: "center" }}>
+              <div style={{ width: "calc(50% - 14px)" }} className="st-mockups-last">
+                <BrowserFrame title={MOCKUPS[4].title}>
+                  {MOCKUPS[4].content}
+                </BrowserFrame>
+                <div style={{ marginTop: 12, textAlign: "center" }}>
+                  <div style={{ fontWeight: 700, color: "#fff", fontSize: 14, marginBottom: 4 }}>{MOCKUPS[4].title}</div>
+                  <div style={{ fontSize: 13, color: "rgba(255,255,255,0.5)", lineHeight: 1.5 }}>{MOCKUPS[4].caption}</div>
+                </div>
+              </div>
+            </Reveal>
+          )}
         </div>
       </section>
 
