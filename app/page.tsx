@@ -120,36 +120,60 @@ function AnimalListMockup() {
 }
 
 function KennelMockup() {
-  const kennels = [
-    { id: "A-1", name: "Buddy", color: "#dbeafe" }, { id: "A-2", name: "", color: "#dcfce7" },
-    { id: "A-3", name: "Max", color: "#bfdbfe" },   { id: "A-4", name: "", color: "#dcfce7" },
-    { id: "A-5", name: "Rex", color: "#fee2e2" },   { id: "A-6", name: "Bear", color: "#dbeafe" },
-    { id: "B-1", name: "", color: "#dcfce7" },      { id: "B-2", name: "Daisy", color: "#dbeafe" },
-    { id: "B-3", name: "Luna", color: "#fef3c7" },  { id: "B-4", name: "", color: "#dcfce7" },
-    { id: "B-5", name: "Coco", color: "#dbeafe" },  { id: "B-6", name: "", color: "#dcfce7" },
+  type KStatus = "available" | "hold" | "medical" | "empty";
+  const runs: { id: string; name: string; icon: string; status: KStatus }[] = [
+    { id: "A-1", name: "Buddy",  icon: "🐕", status: "available" },
+    { id: "A-2", name: "",       icon: "",   status: "empty"     },
+    { id: "A-3", name: "Max",    icon: "🐕", status: "available" },
+    { id: "A-4", name: "Rex",    icon: "🐕", status: "medical"   },
+    { id: "A-5", name: "",       icon: "",   status: "empty"     },
+    { id: "A-6", name: "Bear",   icon: "🐕", status: "hold"      },
+    { id: "B-1", name: "Luna",   icon: "🐈", status: "available" },
+    { id: "B-2", name: "",       icon: "",   status: "empty"     },
+    { id: "B-3", name: "Daisy",  icon: "🐈", status: "hold"      },
+    { id: "B-4", name: "Coco",   icon: "🐈", status: "available" },
+    { id: "B-5", name: "",       icon: "",   status: "empty"     },
+    { id: "B-6", name: "Milo",   icon: "🐕", status: "medical"   },
   ];
+  const cfg: Record<KStatus, { bg: string; border: string; labelBg: string; labelColor: string; label: string }> = {
+    available: { bg: "#f0fdf4", border: "#86efac", labelBg: "#dcfce7", labelColor: "#15803d", label: "Available" },
+    hold:      { bg: "#fffbeb", border: "#fde68a", labelBg: "#fef3c7", labelColor: "#b45309", label: "Hold" },
+    medical:   { bg: "#fff1f2", border: "#fda4af", labelBg: "#fee2e2", labelColor: "#dc2626", label: "Medical" },
+    empty:     { bg: "#f8fafc", border: "#e2e8f0", labelBg: "#f1f5f9", labelColor: "#94a3b8", label: "Empty" },
+  };
   return (
     <div style={{ background: "#f8fafc", fontFamily: "system-ui, sans-serif" }}>
       <div style={{ background: "#0f2942", padding: "10px 16px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <span style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>🏠 Virtual Shelter</span>
-        <span style={{ color: "#93c5fd", fontSize: 10 }}>6/12 occupied</span>
+        <span style={{ color: "#fff", fontWeight: 700, fontSize: 13 }}>🏠 Virtual Shelter Floorplan</span>
+        <span style={{ color: "#93c5fd", fontSize: 10 }}>8/12 occupied</span>
       </div>
-      <div style={{ padding: 10 }}>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Wing A</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 4, marginBottom: 10 }}>
-          {kennels.slice(0, 6).map(k => (
-            <div key={k.id} style={{ background: k.color, borderRadius: 4, padding: "6px 4px", textAlign: "center", border: "1px solid rgba(0,0,0,0.08)" }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#374151" }}>{k.id}</div>
-              <div style={{ fontSize: 8, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{k.name || "Empty"}</div>
+      <div style={{ padding: "10px 12px" }}>
+        {["Wing A","Wing B"].map((wing, wi) => (
+          <div key={wing} style={{ marginBottom: wi === 0 ? 12 : 0 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, color: "#475569", marginBottom: 5, textTransform: "uppercase", letterSpacing: 0.8 }}>{wing}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 5 }}>
+              {runs.slice(wi * 6, wi * 6 + 6).map(k => {
+                const c = cfg[k.status];
+                return (
+                  <div key={k.id} style={{ background: c.bg, borderRadius: 6, border: `1.5px solid ${c.border}`, padding: "7px 4px 5px", textAlign: "center" }}>
+                    <div style={{ fontSize: 8, fontWeight: 700, color: "#64748b", marginBottom: 2 }}>{k.id}</div>
+                    {k.icon && <div style={{ fontSize: 14, lineHeight: 1, marginBottom: 2 }}>{k.icon}</div>}
+                    <div style={{ fontSize: 8, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 3 }}>
+                      {k.name || "—"}
+                    </div>
+                    <div style={{ background: c.labelBg, color: c.labelColor, fontSize: 7, fontWeight: 800, borderRadius: 3, padding: "1px 3px" }}>{c.label}</div>
+                  </div>
+                );
+              })}
             </div>
-          ))}
-        </div>
-        <div style={{ fontSize: 10, fontWeight: 700, color: "#475569", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.5 }}>Wing B</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 4 }}>
-          {kennels.slice(6).map(k => (
-            <div key={k.id} style={{ background: k.color, borderRadius: 4, padding: "6px 4px", textAlign: "center", border: "1px solid rgba(0,0,0,0.08)" }}>
-              <div style={{ fontSize: 9, fontWeight: 700, color: "#374151" }}>{k.id}</div>
-              <div style={{ fontSize: 8, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{k.name || "Empty"}</div>
+          </div>
+        ))}
+        {/* Legend */}
+        <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap" }}>
+          {(Object.entries(cfg) as [KStatus, typeof cfg[KStatus]][]).map(([key, c]) => (
+            <div key={key} style={{ display: "flex", alignItems: "center", gap: 3 }}>
+              <div style={{ width: 8, height: 8, borderRadius: 2, background: c.labelBg, border: `1px solid ${c.border}` }} />
+              <span style={{ fontSize: 8, color: "#64748b", fontWeight: 600 }}>{c.label}</span>
             </div>
           ))}
         </div>
@@ -311,7 +335,7 @@ function Nav() {
 // ── Contact form ──────────────────────────────────────────────────────────────
 
 function ContactForm() {
-  const [form, setForm] = useState({ name: "", shelter_name: "", county_state: "", email: "", phone: "", message: "" });
+  const [form, setForm] = useState({ name: "", shelter_name: "", county_state: "", email: "", phone: "", message: "", org_type: "" });
   const [status, setStatus] = useState<"idle" | "saving" | "done" | "error">("idle");
   const f = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -324,6 +348,7 @@ function ContactForm() {
         name: form.name.trim(), shelter_name: form.shelter_name.trim(),
         county_state: form.county_state.trim() || null, email: form.email.trim(),
         phone: form.phone.trim() || null, message: form.message.trim() || null,
+        org_type: form.org_type || null,
       });
       if (error) throw error;
       setStatus("done");
@@ -349,9 +374,9 @@ function ContactForm() {
       <div className="st-form-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
         {[
           { key: "name", label: "Your Name", placeholder: "Jane Smith", required: true, type: "text" },
-          { key: "shelter_name", label: "Shelter Name", placeholder: "County Animal Services", required: true, type: "text" },
+          { key: "shelter_name", label: "Organization Name", placeholder: "County Animal Services", required: true, type: "text" },
           { key: "county_state", label: "County & State", placeholder: "Jefferson County, GA", required: false, type: "text" },
-          { key: "email", label: "Email Address", placeholder: "you@county.gov", required: true, type: "email" },
+          { key: "email", label: "Email Address", placeholder: "you@organization.org", required: true, type: "email" },
           { key: "phone", label: "Phone (optional)", placeholder: "(555) 000-0000", required: false, type: "tel" },
         ].map(field => (
           <div key={field.key}>
@@ -365,6 +390,20 @@ function ContactForm() {
             />
           </div>
         ))}
+        <div style={{ gridColumn: "1/-1" }}>
+          <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.6 }}>
+            Organization Type
+          </label>
+          <select style={{ ...inp, cursor: "pointer" }} value={form.org_type} onChange={e => f("org_type", e.target.value)}
+            onFocus={e => e.currentTarget.style.borderColor = "rgba(26,138,138,0.6)"}
+            onBlur={e => e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"}
+          >
+            <option value="" style={{ background: "#0f2942" }}>— Select your organization type —</option>
+            {["Municipal / County Animal Control","Humane Society / Nonprofit","Regional / Multi-Shelter Organization","Other"].map(o => (
+              <option key={o} value={o} style={{ background: "#0f2942" }}>{o}</option>
+            ))}
+          </select>
+        </div>
       </div>
       <div>
         <label style={{ display: "block", fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.6 }}>
@@ -415,6 +454,7 @@ export default function MarketingPage() {
           .st-stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
           .st-mockups-grid { grid-template-columns: 1fr !important; }
           .st-quotes-grid { grid-template-columns: 1fr !important; }
+          .st-modular-grid { grid-template-columns: 1fr !important; }
         }
         .st-feature-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.10) !important; border-color: #1a8a8a !important; }
       `}</style>
@@ -427,19 +467,19 @@ export default function MarketingPage() {
         <div style={{ position: "absolute", left: "-60px", top: "15%", fontSize: 300, opacity: 0.02, userSelect: "none", pointerEvents: "none", transform: "rotate(-15deg)" }}>🐾</div>
 
         <div style={{ maxWidth: 1200, margin: "0 auto", padding: "80px 28px 100px", position: "relative", zIndex: 1, textAlign: "center" }}>
-          {/* Large hero logo */}
-          <div style={{ marginBottom: 28, display: "flex", justifyContent: "center" }}>
-            <Image src="/logo.jpg" alt="ShelterTrace" width={96} height={96} style={{ borderRadius: 20, background: "#ececec", padding: 8, objectFit: "contain", boxShadow: "0 0 0 4px rgba(26,138,138,0.3), 0 20px 60px rgba(0,0,0,0.4)" }} />
+          {/* Hero logo — dominant visual element */}
+          <div style={{ marginBottom: 24, display: "flex", justifyContent: "center" }}>
+            <Image src="/logo.jpg" alt="ShelterTrace" width={140} height={140} style={{ borderRadius: 28, background: "#ececec", padding: 10, objectFit: "contain", boxShadow: "0 0 0 5px rgba(26,138,138,0.35), 0 24px 80px rgba(0,0,0,0.5)" }} />
           </div>
-          <div style={{ fontSize: "clamp(36px, 6vw, 58px)", fontWeight: 900, color: "#fff", letterSpacing: -0.5, lineHeight: 1, marginBottom: 8 }}>ShelterTrace</div>
-          <div style={{ fontSize: "clamp(14px, 1.8vw, 18px)", color: "#1a8a8a", fontWeight: 600, letterSpacing: 2, textTransform: "uppercase", marginBottom: 32 }}>Modern Shelter Management Software</div>
+          <div style={{ fontSize: "clamp(52px, 8vw, 88px)", fontWeight: 900, color: "#fff", letterSpacing: -2, lineHeight: 1, marginBottom: 10 }}>ShelterTrace</div>
+          <div style={{ fontSize: "clamp(13px, 1.6vw, 16px)", color: "#1a8a8a", fontWeight: 600, letterSpacing: 2.5, textTransform: "uppercase", marginBottom: 36 }}>Modern Shelter Management Software</div>
 
-          <h1 style={{ fontSize: "clamp(26px, 4vw, 52px)", fontWeight: 900, color: "#fff", margin: "0 0 20px", lineHeight: 1.12, letterSpacing: -0.5, maxWidth: 820, marginLeft: "auto", marginRight: "auto" }}>
+          <h1 style={{ fontSize: "clamp(22px, 3vw, 44px)", fontWeight: 800, color: "rgba(255,255,255,0.88)", margin: "0 0 18px", lineHeight: 1.2, letterSpacing: -0.3, maxWidth: 740, marginLeft: "auto", marginRight: "auto" }}>
             Built by Shelter Staff.<br />
             <span style={{ color: "#1a8a8a" }}>For Shelter Staff.</span>
           </h1>
-          <p style={{ fontSize: "clamp(16px, 1.8vw, 20px)", color: "rgba(255,255,255,0.68)", maxWidth: 620, lineHeight: 1.7, margin: "0 auto 44px" }}>
-            ShelterTrace gives small and mid-size county animal shelters the tools they need — without the complexity, cost, or compromises of legacy platforms.
+          <p style={{ fontSize: "clamp(15px, 1.6vw, 18px)", color: "rgba(255,255,255,0.6)", maxWidth: 580, lineHeight: 1.75, margin: "0 auto 44px" }}>
+            ShelterTrace gives animal shelters and humane societies the tools they need — without the complexity, cost, or compromises of legacy platforms.
           </p>
           <div className="st-hero-btns" style={{ display: "flex", gap: 14, justifyContent: "center" }}>
             <a href="#contact" style={{ background: "#1a8a8a", color: "#fff", padding: "16px 36px", borderRadius: 10, textDecoration: "none", fontSize: 16, fontWeight: 700, letterSpacing: 0.2, display: "inline-block", transition: "background 0.15s" }}>
@@ -503,8 +543,8 @@ export default function MarketingPage() {
             <h2 style={{ fontSize: "clamp(28px, 4vw, 46px)", fontWeight: 900, color: "#0f2942", margin: "0 0 16px", letterSpacing: -0.5 }}>
               Everything Your Shelter Needs
             </h2>
-            <p style={{ fontSize: 18, color: "#475569", maxWidth: 560, margin: "0 auto", lineHeight: 1.65 }}>
-              Every feature was built to solve a real operational problem — nothing is theoretical, nothing is unnecessary.
+            <p style={{ fontSize: 18, color: "#475569", maxWidth: 620, margin: "0 auto", lineHeight: 1.65 }}>
+              Every feature was built to solve a real operational problem faced by municipal animal control agencies and humane societies — nothing is theoretical, nothing is unnecessary.
             </p>
           </Reveal>
           <div className="st-features-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 22 }}>
@@ -522,6 +562,68 @@ export default function MarketingPage() {
         </div>
       </section>
 
+      {/* ── MODULAR ── */}
+      <section style={{ background: "#0f2942", padding: "96px 28px" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
+            <h2 style={{ fontSize: "clamp(26px, 3.5vw, 42px)", fontWeight: 900, color: "#fff", margin: "0 0 16px", letterSpacing: -0.5 }}>
+              Built to Fit Your Organization
+            </h2>
+            <p style={{ fontSize: 17, color: "rgba(255,255,255,0.62)", maxWidth: 700, margin: "0 auto", lineHeight: 1.75 }}>
+              Every shelter operates differently. ShelterTrace is modular and configurable — include only the modules your organization actually needs.
+            </p>
+          </Reveal>
+
+          <div className="st-modular-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginBottom: 32 }}>
+            {[
+              {
+                icon: "🏛️",
+                label: "Municipal & County Agencies",
+                color: "#0369a1",
+                bg: "rgba(3,105,161,0.12)",
+                border: "rgba(3,105,161,0.3)",
+                items: ["Field Dispatch & GPS Tracking","Citations & Court Portal","Officer PWA Mobile App","GDA / State Compliance Reporting","Animal Control Ordinance Library","Citizen Concern Reporting Portal"],
+              },
+              {
+                icon: "❤️",
+                label: "Humane Societies",
+                color: "#1a8a8a",
+                bg: "rgba(26,138,138,0.12)",
+                border: "rgba(26,138,138,0.3)",
+                items: ["Public Adoption Listings Portal","Foster Care Management","Volunteer Kiosk & Hour Tracking","Donor & Fundraising Tracking (soon)","Public Online Surrender Request","Lost & Found Community Board"],
+              },
+            ].map(col => (
+              <Reveal key={col.label} delay={80}>
+                <div style={{ background: col.bg, border: `1px solid ${col.border}`, borderRadius: 14, padding: "28px 24px", height: "100%" }}>
+                  <div style={{ fontSize: 28, marginBottom: 10 }}>{col.icon}</div>
+                  <div style={{ fontSize: 15, fontWeight: 800, color: col.color, marginBottom: 16, letterSpacing: 0.2 }}>{col.label}</div>
+                  {col.items.map(item => (
+                    <div key={item} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 9 }}>
+                      <span style={{ color: col.color, fontWeight: 700, fontSize: 12, flexShrink: 0 }}>✓</span>
+                      <span style={{ color: "rgba(255,255,255,0.78)", fontSize: 14 }}>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </Reveal>
+            ))}
+          </div>
+
+          <Reveal>
+            <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.09)", borderRadius: 14, padding: "24px 28px" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(255,255,255,0.45)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Shared Core — Included for Every Organization</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+                {["Animal Records & Intake Wizard","Virtual Kennel Floorplan","Medical Records & Diagnostics","Staff Roles & Permissions","Report Builder & CSV Export"].map(item => (
+                  <div key={item} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ color: "#1a8a8a", fontWeight: 700, fontSize: 12 }}>✓</span>
+                    <span style={{ color: "rgba(255,255,255,0.65)", fontSize: 13 }}>{item}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
       {/* ── ABOUT ── */}
       <section id="about" style={{ background: "#fff", padding: "108px 28px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -534,16 +636,16 @@ export default function MarketingPage() {
                 Built in the Shelter.<br />Built for the Shelter.
               </h2>
               <div style={{ fontSize: 16, color: "#374151", lineHeight: 1.85, display: "flex", flexDirection: "column", gap: 18 }}>
-                <p>ShelterTrace was developed by an active animal shelter director who grew frustrated with the limitations of existing software. The tools that dominated the market were built for large metro facilities — expensive, overly complex, and still missing the features that small county shelters actually need every day.</p>
-                <p>Rather than settle, they built something better — from the ground up, informed by real daily operations. Every module, every workflow, every report exists because it solved a real problem at a real shelter.</p>
-                <p>The result is a platform that fits the way shelter staff actually work: fast intake, clear kennel visibility, DEA-compliant drug logs, GDA-ready reporting, and a public citizen portal — all without requiring a dedicated IT team to maintain it.</p>
+                <p>ShelterTrace was developed by an active animal shelter director who grew frustrated with the limitations of existing software. The tools that dominated the market were built for large metro facilities — expensive, overly complex, and still missing the features that small county shelters and humane societies actually need every day.</p>
+                <p>Rather than settle, they built something better — from the ground up, informed by real daily operations at both a municipal animal control agency and conversations with humane society directors facing the same challenges. Every module exists because it solved a real problem at a real organization.</p>
+                <p>The result is a platform that fits the way shelter staff actually work: fast intake, clear kennel visibility, DEA-compliant drug logs, state-ready reporting, and public-facing portals — all without requiring a dedicated IT team to maintain it.</p>
               </div>
             </Reveal>
             <Reveal delay={120}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 {[
-                  { icon: "🏛️", label: "Built for County Government", sub: "Designed for small teams, limited budgets, and real public accountability." },
-                  { icon: "📋", label: "GDA & DEA Compliant", sub: "Meets Georgia reporting requirements and federal controlled substance regulations." },
+                  { icon: "🏛️", label: "Municipal & Nonprofit Ready", sub: "Serves both government animal control agencies and nonprofit humane society organizations." },
+                  { icon: "📋", label: "GDA & DEA Compliant", sub: "Meets state reporting requirements and federal controlled substance regulations out of the box." },
                   { icon: "📱", label: "Works in the Field", sub: "Mobile PWA for officers — GPS tracking, dispatch, and on-duty status from any phone." },
                   { icon: "☁️", label: "No IT Required", sub: "Cloud-hosted, zero infrastructure to maintain, automatic updates included." },
                 ].map(item => (
@@ -564,7 +666,7 @@ export default function MarketingPage() {
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <Reveal style={{ textAlign: "center", marginBottom: 56 }}>
             <h2 style={{ fontSize: "clamp(24px, 3vw, 38px)", fontWeight: 900, color: "#0f2942", margin: "0 0 12px", letterSpacing: -0.5 }}>
-              What Shelter Directors Are Saying
+              What Agencies Are Saying
             </h2>
             <p style={{ fontSize: 16, color: "#64748b" }}>Early feedback from our pilot program partners.</p>
           </Reveal>
@@ -572,13 +674,13 @@ export default function MarketingPage() {
             {[
               {
                 quote: "We went from spending hours on monthly state reports to clicking one button. The GDA reporting alone was worth switching. Everything else is a bonus.",
-                name: "[Shelter Director]",
-                org: "County Animal Services, Georgia",
+                name: "[Agency Name], Animal Services",
+                org: "County Animal Control — Pilot Partner",
               },
               {
-                quote: "Our officers were managing dispatch calls on paper and updating a spreadsheet when they got back. Now they log everything from their phones in real time. It's a completely different operation.",
-                name: "[Field Operations Supervisor]",
-                org: "Regional Animal Control",
+                quote: "We needed something that handled both our adoption workflow and our volunteer management without paying for two separate systems. ShelterTrace covers both. The foster care module alone saved us countless hours.",
+                name: "[Agency Name], Humane Society",
+                org: "Nonprofit Humane Society — Pilot Partner",
               },
             ].map(t => (
               <Reveal key={t.name}>
@@ -611,7 +713,7 @@ export default function MarketingPage() {
                 Interested in Bringing ShelterTrace to Your Shelter?
               </h2>
               <p style={{ fontSize: 16, color: "rgba(255,255,255,0.64)", lineHeight: 1.8, margin: "0 0 32px" }}>
-                We're working with a small number of county animal services departments as pilot partners. If your shelter runs on limited resources and outdated tools, we'd love to talk.
+                We're working with a small number of animal shelters and humane societies as pilot partners. If your organization runs on limited resources and outdated tools, we'd love to talk.
               </p>
               {[
                 "Free during the pilot program",
