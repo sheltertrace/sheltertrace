@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { useAuth } from "@/app/providers";
+import { IS_DEMO } from "@/lib/demo";
 import DateInput from "@/components/ui/DateInput";
 import SignaturePad from "@/components/ui/SignaturePad";
 import {
@@ -315,6 +316,10 @@ export default function NewDrugLogPage() {
   }
 
   if (!canAccess) {
+    if (IS_DEMO) {
+      if (typeof window !== "undefined") window.location.replace("/dashboard");
+      return null;
+    }
     return (
       <AppShell title="New Drug Log Entry">
         <div style={{ padding: 40, textAlign: "center" }}>
