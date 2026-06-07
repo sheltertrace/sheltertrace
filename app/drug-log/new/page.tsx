@@ -76,7 +76,8 @@ export default function NewDrugLogPage() {
   const { user } = useAuth();
   const router = useRouter();
 
-  const canAccess = user?.permissions?.includes("all") || user?.permissions?.includes("admin");
+  const isDemoAccess = IS_DEMO && (user?.id ?? "").startsWith("demo-");
+  const canAccess = isDemoAccess || user?.permissions?.includes("all") || user?.permissions?.includes("admin");
 
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [drugInventory, setDrugInventory] = useState<DrugInventory[]>([]);

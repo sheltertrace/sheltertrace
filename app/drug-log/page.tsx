@@ -543,7 +543,9 @@ export default function DrugLogPage() {
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterSpecies, setFilterSpecies] = useState("All");
 
-  const canAccess = user?.permissions?.includes("all") || user?.permissions?.includes("admin");
+  // Demo bypass: demo-* accounts always have full access regardless of DB permissions
+  const isDemoAccess = IS_DEMO && (user?.id ?? "").startsWith("demo-");
+  const canAccess = isDemoAccess || user?.permissions?.includes("all") || user?.permissions?.includes("admin");
 
   const loadAll = useCallback(async () => {
     setLoading(true);
