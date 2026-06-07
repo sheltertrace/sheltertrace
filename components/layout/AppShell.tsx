@@ -98,9 +98,12 @@ export default function AppShell({ children, title, action }: AppShellProps) {
       setResetting(true);
       try { await resetDemoSession(supabase); } catch (e) { console.error("Demo reset error:", e); }
       setResetting(false);
+      logout();
+      router.replace("/?reset=1");  // redirect to welcome page with reset confirmation
+      return;
     }
     logout();
-  }, [logout]);
+  }, [logout, router]);
 
   // ── Message toasts ──────────────────────────────────────────────────────────
   const [toasts, setToasts] = useState<MsgToast[]>([]);

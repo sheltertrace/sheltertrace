@@ -5,9 +5,11 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const IS_DEMO = process.env.NEXT_PUBLIC_IS_DEMO === "true";
 
-// Features that are silently disabled in demo mode
+// Features that are silently disabled in demo mode.
+// drugLog is intentionally ENABLED so visitors can explore the UI —
+// the tables just need to exist in the demo Supabase project.
 export const DEMO_DISABLED = {
-  drugLog:              true,
+  drugLog:              false,   // show drug log UI in demo (run create_drug_log_for_demo.sql)
   emailNotifications:   true,
   paymentProcessing:    true,
   gdaSubmit:            true,
@@ -66,13 +68,16 @@ export function getLastResetTime(): string | null {
   return localStorage.getItem("demo_last_reset");
 }
 
-// Call the session-scoped Supabase RPC, then clear local session state.
-// Non-fatal: if the RPC fails (e.g. network issue), we still sign the user out.
+// Full demo reset — truncates all data tables and reseeds the demo state.
+// Called on every sign-out and idle timeout so the next visitor starts fresh.
+// Non-fatal: if the RPC fails we still sign the user out and stamp the reset time.
 export async function resetDemoSession(supabase: SupabaseClient): Promise<void> {
-  const sessionId = typeof window !== "undefined" ? localStorage.getItem("demo_session_id") : null;
-  if (sessionId) {
-    const { error } = await supabase.rpc("reset_demo_session", { p_session_id: sessionId });
-    if (error) console.error("[demo] reset_demo_session RPC error:", error.message);
+  console.log("[demo] starting full_demo_reset...");
+  const { error } = await supabase.rpc("full_demo_reset");
+  if (error) {
+    console.error("[demo] full_demo_reset RPC error:", error.message, error.hint || "");
+  } else {
+    console.log("[demo] full_demo_reset completed successfully");
   }
   if (typeof window !== "undefined") {
     localStorage.removeItem("demo_session_id");

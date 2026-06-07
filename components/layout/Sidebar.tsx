@@ -86,9 +86,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       setSidebarResetting(true);
       try { await resetDemoData(supabase); } catch (e) { console.error("Demo reset error:", e); }
       setSidebarResetting(false);
+      logout();
+      router.replace("/?reset=1");
+      return;
     }
     logout();
-    if (IS_DEMO) router.replace("/login");
   }, [logout, router]);
 
   if (!user) return null;
