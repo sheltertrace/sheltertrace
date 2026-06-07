@@ -233,29 +233,34 @@ export default function AppShell({ children, title, action }: AppShellProps) {
   }
 
   return (
-    <div className="app-shell">
+    <>
+      {/* Banner is position:fixed so it must live outside the flex app-shell */}
       {IS_DEMO && <DemoBanner />}
 
-      {mobileOpen && (
-        <div className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-hidden="true" />
-      )}
+      {/* Push the entire shell down by banner height so nothing is hidden behind it */}
+      <div className="app-shell" style={IS_DEMO ? { marginTop: 36 } : undefined}>
+        {mobileOpen && (
+          <div className="sidebar-overlay" onClick={() => setMobileOpen(false)} aria-hidden="true" />
+        )}
 
-      <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+        <Sidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
 
-      <div className="main-content">
-        <div className="top-bar">
-          <button className="hamburger-btn" onClick={() => setMobileOpen((v) => !v)} aria-label="Open navigation menu">☰</button>
-          <h1 className="top-bar-title">{title}</h1>
-          {action && <div className="top-bar-action">{action}</div>}
+        <div className="main-content">
+          <div className="top-bar">
+            <button className="hamburger-btn" onClick={() => setMobileOpen((v) => !v)} aria-label="Open navigation menu">☰</button>
+            <h1 className="top-bar-title">{title}</h1>
+            {action && <div className="top-bar-action">{action}</div>}
+          </div>
+          <div className="page-content">{children}</div>
+          <div className="app-footer">ShelterTrace v1.0 · Shelter Data Systems · © 2026</div>
         </div>
-        <div className="page-content">{children}</div>
-        <div className="app-footer">ShelterTrace v1.0 · Shelter Data Systems · © 2026</div>
-      </div>
 
       {/* Global message toast stack — shown on every page except /messages */}
       {!pathname.startsWith("/messages") && (
         <ToastStack toasts={toasts} onClose={dismissToast} />
       )}
+
+      </div>  {/* close app-shell */}
 
       {IS_DEMO && <DemoIdleTimer logout={handleLogout} />}
 
@@ -266,6 +271,6 @@ export default function AppShell({ children, title, action }: AppShellProps) {
           <div style={{ color: "#93c5fd", fontSize: 14 }}>Please wait a moment.</div>
         </div>
       )}
-    </div>
+    </>
   );
 }
