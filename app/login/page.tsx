@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "../providers";
 import { IS_DEMO, DEMO_USERS, getLastResetTime } from "@/lib/demo";
+// Note: in demo mode this page redirects to / (DemoWelcomePage handles login)
 
 export default function LoginPage() {
-  const { login, user, loading: authLoading } = useAuth();
+  const { login, demoLogin, user, loading: authLoading } = useAuth();
   const router = useRouter();
 
   // If already logged in, go straight to dashboard
@@ -58,17 +59,17 @@ export default function LoginPage() {
     }
   }, [username, password, login, router]);
 
-  const handleDemoLogin = useCallback(async (demoUsername: string, demoPassword: string) => {
+  const handleDemoLogin = useCallback(async (accountId: string) => {
     setError("");
     setLoading(true);
-    const account = await login(demoUsername, demoPassword);
+    const account = await demoLogin(accountId);
     if (account) {
       router.replace("/dashboard");
     } else {
-      setError("Demo login failed. Please try again.");
+      setError("Could not find the demo account. The demo database may still be initializing — please try again.");
       setLoading(false);
     }
-  }, [login, router]);
+  }, [demoLogin, router]);
 
   if (IS_DEMO) {
     return (
@@ -103,7 +104,7 @@ export default function LoginPage() {
           {DEMO_USERS.map((u) => (
             <button
               key={u.role}
-              onClick={() => handleDemoLogin(u.username, u.password)}
+              onClick={() => handleDemoLogin(u.id)}
               disabled={loading}
               style={{
                 display: "flex",

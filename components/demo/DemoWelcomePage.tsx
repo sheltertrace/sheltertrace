@@ -6,7 +6,7 @@ import { useAuth } from "@/app/providers";
 import { DEMO_USERS, getLastResetTime } from "@/lib/demo";
 
 export default function DemoWelcomePage() {
-  const { login, user, loading: authLoading } = useAuth();
+  const { demoLogin, user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -27,17 +27,22 @@ export default function DemoWelcomePage() {
     }
   }, []);
 
-  const handleDemoLogin = useCallback(async (username: string, password: string) => {
+  const handleDemoLogin = useCallback(async (accountId: string) => {
     setError("");
     setLoading(true);
-    const account = await login(username, password);
-    if (account) {
-      router.replace("/dashboard");
-    } else {
+    try {
+      const account = await demoLogin(accountId);
+      if (account) {
+        router.replace("/dashboard");
+      } else {
+        setError("Could not find the demo account. The demo database may still be initializing — please try again in a moment.");
+        setLoading(false);
+      }
+    } catch {
       setError("Demo login failed — please try again or refresh the page.");
       setLoading(false);
     }
-  }, [login, router]);
+  }, [demoLogin, router]);
 
   return (
     <div style={{ minHeight: "100vh", background: "#0f2942", display: "flex", flexDirection: "column" }}>
@@ -84,7 +89,7 @@ export default function DemoWelcomePage() {
             {DEMO_USERS.map(u => (
               <button
                 key={u.role}
-                onClick={() => handleDemoLogin(u.username, u.password)}
+                onClick={() => handleDemoLogin(u.id)}
                 disabled={loading}
                 style={{
                   display: "flex", alignItems: "center", gap: 16,

@@ -14,26 +14,24 @@ export const DEMO_DISABLED = {
   passwordChange:       true,
 } as const;
 
-// Pre-configured demo role buttons (credentials live in the demo seed SQL)
+// Pre-configured demo role buttons.
+// id must match the id column in the demo staff_accounts table.
 export const DEMO_USERS = [
   {
     role: "Administrator",
-    username: "demo-admin",
-    password: "Demo@Admin2026",
+    id: "demo-admin",
     icon: "⚙️",
     desc: "Full access to all shelter modules",
   },
   {
     role: "Animal Control Officer",
-    username: "demo-officer",
-    password: "Demo@Officer2026",
+    id: "demo-officer1",
     icon: "🚓",
     desc: "Dispatch, field ops, citations, and animal intake",
   },
   {
     role: "Front Desk Staff",
-    username: "demo-frontdesk",
-    password: "Demo@FrontDesk2026",
+    id: "demo-staff",
     icon: "🖥️",
     desc: "Animal records, adoptions, and public inquiries",
   },

@@ -79,6 +79,28 @@ export async function login(username: string, password: string): Promise<StaffAc
   return null;
 }
 
+// Demo-only: fetch a staff account directly by id (no password check).
+// Only called when NEXT_PUBLIC_IS_DEMO=true.
+export async function demoLoginById(id: string): Promise<StaffAccount | null> {
+  try {
+    const { data, error } = await supabase
+      .from("staff_accounts")
+      .select("*")
+      .eq("id", id)
+      .limit(1);
+    if (error) throw error;
+    if (!data || data.length === 0) return null;
+    const account = normalizeAccount(data[0] as Record<string, unknown>);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(account));
+    }
+    return account;
+  } catch (err) {
+    console.error("[demo] demoLoginById error:", err);
+    return null;
+  }
+}
+
 export function logout(): void {
   if (typeof window !== "undefined") {
     sessionStorage.removeItem(CURRENT_USER_KEY);

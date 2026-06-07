@@ -1,7 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { StaffAccount } from "@/lib/types";
-import { getCurrentUser, login as authLogin, logout as authLogout } from "@/lib/auth";
+import { getCurrentUser, login as authLogin, logout as authLogout, demoLoginById } from "@/lib/auth";
 import { updateStaffTheme, fetchShelterConfig, kennelLabelsFromConfig, fetchStaffOptions } from "@/lib/data";
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -27,6 +27,7 @@ export function useTheme() {
 interface AuthContextType {
   user: StaffAccount | null;
   login: (username: string, password: string) => Promise<StaffAccount | null>;
+  demoLogin: (accountId: string) => Promise<StaffAccount | null>;
   logout: () => void;
   loading: boolean;
 }
@@ -34,6 +35,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   user: null,
   login: async () => null,
+  demoLogin: async () => null,
   logout: () => {},
   loading: true,
 });
@@ -159,6 +161,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return account;
   }, [applyTheme]);
 
+  const demoLogin = useCallback(async (accountId: string): Promise<StaffAccount | null> => {
+    const account = await demoLoginById(accountId);
+    if (account) {
+      setUser(account);
+      const t = account.theme_preference || (localStorage.getItem("sheltertrace_theme") as Theme) || "light";
+      setThemeState(t);
+      applyTheme(t);
+      localStorage.setItem("sheltertrace_theme", t);
+    }
+    return account;
+  }, [applyTheme]);
+
   const logout = useCallback(() => {
     authLogout();
     setUser(null);
@@ -167,7 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme, setTheme }}>
-      <AuthContext.Provider value={{ user, login, logout, loading }}>
+      <AuthContext.Provider value={{ user, login, demoLogin, logout, loading }}>
         <KennelContext.Provider value={{ kennelLabels, refreshKennels }}>
           <StaffContext.Provider value={{ staffOptions, refreshStaff }}>
             {children}
