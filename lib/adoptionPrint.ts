@@ -4,7 +4,7 @@ import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "./shelterInfo";
 const AGENCY  = AGENCY_NAME;
 const ADDRESS = AGENCY_ADDRESS;
 const PHONE   = AGENCY_PHONE;
-const FOOTER  = `${AGENCY} • ${ADDRESS} • Thank you for choosing to adopt!`;
+const FOOTER  = `${AGENCY} â€¢ ${ADDRESS} â€¢ Thank you for choosing to adopt!`;
 
 type FormData = Partial<AdoptionApplication>;
 
@@ -42,7 +42,7 @@ export function buildAdoptionFormHTML(data?: FormData): string {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Pet Adoption Application — ${AGENCY}</title>
+<title>Pet Adoption Application â€” ${AGENCY}</title>
 <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
   @page { size: letter; margin: 0.55in 0.5in; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -89,7 +89,7 @@ export function buildAdoptionFormHTML(data?: FormData): string {
 <div class="header">
   <div>
     <div class="header-title">${AGENCY}</div>
-    <div class="header-sub">${ADDRESS} &nbsp;·&nbsp; ${PHONE}</div>
+    <div class="header-sub">${ADDRESS} &nbsp;&middot;&nbsp; ${PHONE}</div>
   </div>
   <div class="header-right">
     Date: ${v(d.date, "_____ / _____ / _______")}<br>
