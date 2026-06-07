@@ -112,7 +112,21 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     return () => clearInterval(id);
   }, []);
 
+  // Demo bypass: when running as a demo-* account, skip permission checks
+  // entirely rather than relying on the DB's permissions JSONB being correct.
+  const isDemoUser = IS_DEMO && (user?.id ?? "").startsWith("demo-");
+  const demoOfficerPerms = new Set<string>(["dashboard","dispatch","animals","citations","medical","kennels","reports","people","court","foster","volunteers"]);
+  const demoStaffPerms   = new Set<string>(["dashboard","animals","adoptions","receipts","medical","kennels","reports","people","court","foster","volunteers"]);
+
+  function demoPerm(perm: string): boolean {
+    if (!isDemoUser || !user) return false;
+    if (user.id === "demo-admin") return true; // full access — show everything
+    const allowed = user.id === "demo-officer1" ? demoOfficerPerms : demoStaffPerms;
+    return perm === "admin" ? false : allowed.has(perm);
+  }
+
   function canSee(item: NavItem): boolean {
+    if (isDemoUser) return demoPerm(item.perm);
     if (item.perm === "admin") return isAdmin;
     if (item.perm === "dashboard") return true;
     return hasPermission(user, item.perm);
