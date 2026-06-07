@@ -5,6 +5,7 @@ import {
   clockInVolunteer, clockOutVolunteer, fetchVolunteerAnnouncements,
 } from "@/lib/data";
 import type { Person, VolunteerLog } from "@/lib/types";
+import { AGENCY_NAME, AGENCY_SHORT } from "@/lib/shelterInfo";
 
 const TASKS = [
   "Dog Walking", "Cat Socialization", "Kennel Cleaning",
@@ -221,7 +222,7 @@ export default function VolunteerPortalPage() {
           <div style={{ textAlign: "center", marginBottom: 32 }}>
             <div style={{ fontSize: 48, marginBottom: 8 }}>🐾</div>
             <div style={{ fontSize: 26, fontWeight: 900, color: "#14532d" }}>Volunteer Portal</div>
-            <div style={{ fontSize: 14, color: "#4ade80", marginTop: 4 }}>Morgan County Animal Services</div>
+            <div style={{ fontSize: 14, color: "#4ade80", marginTop: 4 }}>{AGENCY_NAME}</div>
           </div>
 
           <div style={{ background: "#fff", borderRadius: 20, padding: "32px 28px", boxShadow: "0 4px 24px rgba(0,0,0,0.08)" }}>
@@ -302,7 +303,7 @@ export default function VolunteerPortalPage() {
       <div style={{ background: "#16a34a", color: "#fff", padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 900 }}>🐾 Volunteer Portal</div>
-          <div style={{ fontSize: 12, opacity: 0.8 }}>Morgan County Animal Services</div>
+          <div style={{ fontSize: 12, opacity: 0.8 }}>{AGENCY_NAME}</div>
         </div>
         <button
           onClick={handleSignOut}
@@ -434,7 +435,7 @@ export default function VolunteerPortalPage() {
         </div>
 
         <div style={{ textAlign: "center", marginTop: 24, fontSize: 11, color: "#d1d5db" }}>
-          ShelterTrace · Volunteer Portal · Morgan County Animal Services
+          ShelterTrace · Volunteer Portal · {AGENCY_NAME}
         </div>
       </div>
     </div>

@@ -5,6 +5,7 @@ import {
   clockInVolunteer, clockOutVolunteer,
 } from "@/lib/data";
 import type { Person, VolunteerLog } from "@/lib/types";
+import { AGENCY_NAME, AGENCY_SHORT } from "@/lib/shelterInfo";
 
 const TASKS = [
   "Dog Walking", "Cat Socialization", "Kennel Cleaning",
@@ -437,7 +438,7 @@ export default function VolunteerClockPage() {
       {/* Header */}
       <div className="kiosk-header">
         <div>
-          <div className="kiosk-logo">Morgan County Animal Services</div>
+          <div className="kiosk-logo">{AGENCY_NAME}</div>
           <div className="kiosk-logo-sub">Volunteer Check-In Kiosk · ShelterTrace</div>
         </div>
         <div className="kiosk-clock">
@@ -661,7 +662,7 @@ export default function VolunteerClockPage() {
       {/* Footer */}
       <div className="kiosk-footer">
         <div className="kiosk-footer-text">
-          ShelterTrace · Volunteer Time Clock · Morgan County Animal Services
+          ShelterTrace · Volunteer Time Clock · {AGENCY_NAME}
         </div>
         <a href="/volunteers" style={{ fontSize: 12, color: "rgba(255,255,255,0.3)", textDecoration: "none" }}>
           Staff View →

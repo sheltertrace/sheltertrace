@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { fetchPeople, fetchVolunteerLogs, fetchVolunteerAnnouncements, saveVolunteerAnnouncements, updatePerson, fetchForms, fetchVolunteerApplications, updateVolunteerApplication, createPerson, genNextPid } from "@/lib/data";
@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AddVolunteerModal, { printBadge } from "@/components/volunteers/AddVolunteerModal";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE_DOTS } from "@/lib/shelterInfo";
 
 const TASKS = ["Dog Walking", "Cat Socialization", "Kennel Cleaning", "Administrative", "Photography", "Transport", "Training", "Events", "Laundry / Dishes", "Other"];
 
@@ -144,7 +145,7 @@ export default function VolunteersPage() {
     const html = `<!DOCTYPE html><html><head><title>Volunteer Hours Report</title>
 <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;padding:1in;font-size:11pt}h1{font-size:16pt;margin-bottom:4px}table{width:100%;border-collapse:collapse;margin-top:14px}th{background:#f1f5f9;padding:7px 10px;text-align:left;font-size:10pt}td{padding:6px 10px;border-bottom:1px solid #e2e8f0}tfoot td{font-weight:700;border-top:2px solid #333}.meta{color:#64748b;font-size:10pt;margin-bottom:20px}</style></head>
 <body><h1>Volunteer Hours Report</h1>
-<div class="meta">Morgan County Animal Services · ${filterFrom} to ${filterTo}</div>
+<div class="meta">{AGENCY_NAME} · ${filterFrom} to ${filterTo}</div>
 <table><thead><tr><th>Volunteer</th><th style="text-align:center">Shifts</th><th style="text-align:right">Total Hours</th></tr></thead>
 <tbody>${rows}</tbody>
 <tfoot><tr><td>TOTAL (${hoursByVol.length} volunteers)</td><td></td><td style="text-align:right">${reportTotal.toFixed(2)}</td></tr></tfoot>
@@ -474,7 +475,7 @@ export default function VolunteersPage() {
         const printQR = () => {
           const html = `<!DOCTYPE html><html><head><title>Volunteer QR Codes</title>
 <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:Arial,sans-serif;padding:40px;text-align:center}h1{font-size:20pt;margin-bottom:6px}.pair{display:flex;justify-content:center;gap:60px;margin-top:30px}.box{text-align:center}.box img{display:block;margin:0 auto 12px}.url{font-size:9pt;color:#666;word-break:break-all;max-width:220px}.title{font-size:14pt;font-weight:bold;margin-bottom:4px}</style></head>
-<body><h1>Morgan County Animal Services — Volunteer Access</h1>
+<body><h1>{AGENCY_NAME} — Volunteer Access</h1>
 <p style="color:#666;font-size:10pt">Scan a QR code with your phone to get started</p>
 <div class="pair">
   <div class="box">
@@ -926,7 +927,7 @@ export default function VolunteersPage() {
           `https://quickchart.io/qr?text=${encodeURIComponent(url)}&size=${size}&margin=2`;
 
         const printQR = () => {
-          const html = `<!DOCTYPE html><html><head><title>Volunteer QR Codes — Morgan County Animal Services</title>
+          const html = `<!DOCTYPE html><html><head><title>Volunteer QR Codes — ${AGENCY_NAME}</title>
 <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
   @page { size: letter; margin: 0.75in; }
   body { font-family: Arial, sans-serif; text-align: center; color: #111; }
@@ -941,7 +942,7 @@ export default function VolunteersPage() {
   .footer{ margin-top: 48px; font-size: 9pt; color: #aaa; }
 </style></head>
 <body>
-  <h1>Morgan County Animal Services</h1>
+  <h1>{AGENCY_NAME}</h1>
   <div class="sub">Scan a QR code with your phone's camera to get started</div>
   <div class="pair">
     <div class="box">

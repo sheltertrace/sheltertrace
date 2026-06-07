@@ -1,8 +1,9 @@
-﻿"use client";
+"use client";
 import { useState, useRef } from "react";
 import { supabasePublic } from "@/lib/supabase-public";
 import { today } from "@/lib/utils";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE, COUNTY_NAME } from "@/lib/shelterInfo";
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 const ANIMAL_PREFS = ["Dogs","Cats","Both — Dogs and Cats","Puppies / Kittens","Any / No Preference"];
@@ -186,7 +187,7 @@ export default function FosterApplyPage() {
       }
       setStep("submitted");
     } catch (err) {
-      setError("Failed to submit application. Please try again or call (706) 752-1195.");
+      setError("Failed to submit application. Please try again or call {AGENCY_PHONE}.");
       console.error("[foster-apply]", err);
     } finally {
       setSaving(false);
@@ -199,8 +200,8 @@ export default function FosterApplyPage() {
         <header style={{ background: "#0f2942", padding: "0 24px" }}>
           <div style={{ maxWidth: 720, margin: "0 auto", height: 64, display: "flex", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <img src="/logo.jpg" alt="MCAS" style={{ height: 40, width: 40, objectFit: "contain", background: "#ececec", borderRadius: 8, padding: 3 }} />
-              <div style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>Morgan County Animal Services</div>
+              <img src="/logo.jpg" alt="{AGENCY_SHORT}" style={{ height: 40, width: 40, objectFit: "contain", background: "#ececec", borderRadius: 8, padding: 3 }} />
+              <div style={{ color: "#fff", fontWeight: 800, fontSize: 15 }}>{AGENCY_NAME}</div>
             </div>
           </div>
         </header>
@@ -209,10 +210,10 @@ export default function FosterApplyPage() {
             <div style={{ fontSize: 56, marginBottom: 16 }}>❤️</div>
             <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f2942", marginBottom: 8 }}>Application Submitted!</h2>
             <p style={{ fontSize: 14, color: "#64748b", lineHeight: 1.7, marginBottom: 20 }}>
-              Thank you for wanting to foster with Morgan County Animal Services! Your application will be reviewed and we&rsquo;ll be in touch soon.
+              Thank you for wanting to foster with {AGENCY_NAME}! Your application will be reviewed and we&rsquo;ll be in touch soon.
             </p>
             <p style={{ fontSize: 13, color: "#94a3b8" }}>
-              Questions? Call us at <a href="tel:+17067521195" style={{ color: "#0d9488", fontWeight: 700 }}>(706) 752-1195</a>
+              Questions? Call us at <a href="tel:+17067521195" style={{ color: "#0d9488", fontWeight: 700 }}>{AGENCY_PHONE}</a>
             </p>
           </div>
         </div>
@@ -227,9 +228,9 @@ export default function FosterApplyPage() {
       <header style={{ background: "#0f2942", padding: "0 24px" }}>
         <div style={{ maxWidth: 720, margin: "0 auto", height: 64, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <img src="/logo.jpg" alt="MCAS" style={{ height: 40, width: 40, objectFit: "contain", background: "#ececec", borderRadius: 8, padding: 3 }} />
+            <img src="/logo.jpg" alt="{AGENCY_SHORT}" style={{ height: 40, width: 40, objectFit: "contain", background: "#ececec", borderRadius: 8, padding: 3 }} />
             <div>
-              <div style={{ color: "#fff", fontWeight: 800, fontSize: 15, lineHeight: 1.2 }}>Morgan County Animal Services</div>
+              <div style={{ color: "#fff", fontWeight: 800, fontSize: 15, lineHeight: 1.2 }}>{AGENCY_NAME}</div>
               <div style={{ color: "#94a3b8", fontSize: 11 }}>Madison, Georgia</div>
             </div>
           </div>
@@ -382,23 +383,23 @@ export default function FosterApplyPage() {
                 <div style={{ fontWeight: 700, marginBottom: 10 }}>Terms and Conditions</div>
 
                 <p style={{ margin: "0 0 12px" }}>
-                  I have received a copy of Morgan County Animal Services Volunteer Handbook and Reference Manual and agree to abide by all guidelines, policies, and procedures. I agree to be supervised by the Volunteer Coordinator or their superiors and will directly report to the Volunteer Coordinator. If I fail to abide by the terms of this agreement or am otherwise unable to meet the program requirements. I may be terminated from the volunteer program. I understand that I may at any time with or without cause be removed from my position as a volunteer at the sole discretion of Morgan County Animal Services (MCAS).
+                  I have received a copy of {AGENCY_NAME} Volunteer Handbook and Reference Manual and agree to abide by all guidelines, policies, and procedures. I agree to be supervised by the Volunteer Coordinator or their superiors and will directly report to the Volunteer Coordinator. If I fail to abide by the terms of this agreement or am otherwise unable to meet the program requirements. I may be terminated from the volunteer program. I understand that I may at any time with or without cause be removed from my position as a volunteer at the sole discretion of {AGENCY_NAME} ({AGENCY_SHORT}).
                 </p>
 
                 <p style={{ margin: "0 0 12px" }}>
-                  I understand that I may be handling or may be exposed to animals while providing my volunteer services for MCAS and therefore there exists a risk for personal injury. On behalf of myself, my heirs, personal representatives, and executor, I release, discharge, indemnify and hold harmless Morgan County, MCAS, their agents, servants, and employees from any and all claims, cause of action or demands of any nature or cause connected with my volunteer services at Morgan County Animal Services or elsewhere. This includes any costs, attorney&apos;s fees, and court costs in connection with my volunteer services based on damages or injuries which I may incur in any way while volunteering at the shelter or at another location. Such damages are not limited to but may include animal bites, accidents, injuries, and personal property.
+                  I understand that I may be handling or may be exposed to animals while providing my volunteer services for {AGENCY_SHORT} and therefore there exists a risk for personal injury. On behalf of myself, my heirs, personal representatives, and executor, I release, discharge, indemnify and hold harmless {COUNTY_NAME}, {AGENCY_SHORT}, their agents, servants, and employees from any and all claims, cause of action or demands of any nature or cause connected with my volunteer services at {AGENCY_NAME} or elsewhere. This includes any costs, attorney&apos;s fees, and court costs in connection with my volunteer services based on damages or injuries which I may incur in any way while volunteering at the shelter or at another location. Such damages are not limited to but may include animal bites, accidents, injuries, and personal property.
                 </p>
 
                 <p style={{ margin: "0 0 12px" }}>
-                  I agree to release, discharge, indemnify and hold Morgan County, harmless for any and all damage to my personal property while providing my volunteer services to MCAS, its agents, servants, and employees.
+                  I agree to release, discharge, indemnify and hold {COUNTY_NAME}, harmless for any and all damage to my personal property while providing my volunteer services to {AGENCY_SHORT}, its agents, servants, and employees.
                 </p>
 
                 <p style={{ margin: "0 0 12px" }}>
-                  In connections with my activities as a MCAS volunteer, I further agree to release, hold harmless, and indemnify Morgan County, their offices, superiors, employees, and agents from any and all claims, damages, and liability arising from my driving or riding while volunteering or while in any motor vehicle owned, operated or leased by MCAS, their officers, superiors, volunteers and agents.
+                  In connections with my activities as a {AGENCY_SHORT} volunteer, I further agree to release, hold harmless, and indemnify {COUNTY_NAME}, their offices, superiors, employees, and agents from any and all claims, damages, and liability arising from my driving or riding while volunteering or while in any motor vehicle owned, operated or leased by {AGENCY_SHORT}, their officers, superiors, volunteers and agents.
                 </p>
 
                 <p style={{ margin: "0 0 12px" }}>
-                  I understand that public relations are an important aspect of volunteer work at MCAS. I, therefore, agree on behalf of myself, my heirs, personal representatives, and executors to allow MCAS and its agents to use any photographs, video or film taken of me for use in any public relations efforts including brochures, newspaper articles, newsletters, Facebook, website, etc.
+                  I understand that public relations are an important aspect of volunteer work at {AGENCY_SHORT}. I, therefore, agree on behalf of myself, my heirs, personal representatives, and executors to allow {AGENCY_SHORT} and its agents to use any photographs, video or film taken of me for use in any public relations efforts including brochures, newspaper articles, newsletters, Facebook, website, etc.
                 </p>
 
                 <p style={{ margin: "0 0 0", fontWeight: 700, borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
@@ -443,23 +444,23 @@ export default function FosterApplyPage() {
               </div>
 
               <p style={{ margin: "0 0 12px" }}>
-                For the mutual benefit of Morgan County Animal Services and the volunteer, and in consideration of the volunteer&apos;s execution of this agreement, the volunteer shall have access to and receive, in part or in whole, information and data considered as confidential information. Wherever &ldquo;Morgan County Animal Services&rdquo; as used in this Agreement is understood to mean Morgan County, a political subdivision of the State of Georgia.
+                For the mutual benefit of {AGENCY_NAME} and the volunteer, and in consideration of the volunteer&apos;s execution of this agreement, the volunteer shall have access to and receive, in part or in whole, information and data considered as confidential information. Wherever &ldquo;{AGENCY_NAME}&rdquo; as used in this Agreement is understood to mean {COUNTY_NAME}, a political subdivision of the State of Georgia.
               </p>
 
               <p style={{ margin: "0 0 12px" }}>
-                Confidential information is defined herein and shall be construed as and applied as to include, without limitation, documents, case information, any data in the shelter database, customer and prospective customer information, programs, specifications, and any and all information in relation to marketing, sales, financials, and forecasts, and other intellectual property, collectively referred hereunder as confidential information, and that shall be accessed, received and used exclusively for the furtherance of Morgan County Animal Services and in connection with the performance of the job duties of the volunteer.
+                Confidential information is defined herein and shall be construed as and applied as to include, without limitation, documents, case information, any data in the shelter database, customer and prospective customer information, programs, specifications, and any and all information in relation to marketing, sales, financials, and forecasts, and other intellectual property, collectively referred hereunder as confidential information, and that shall be accessed, received and used exclusively for the furtherance of {AGENCY_NAME} and in connection with the performance of the job duties of the volunteer.
               </p>
 
               <p style={{ margin: "0 0 12px" }}>
-                The volunteer will hold confidential information of Morgan County Animal Services that is indirectly or directly accessed, received, and used in strict confidence up to the extent permissible by local, state, and federal law and public policy, regarding the disclosure of confidential information. Volunteer shall exercise a reasonable degree of care to prevent unauthorized disclosure of confidential information to others including, but not limited to, other volunteers of Morgan County Animal Services, non-affiliated individuals of Morgan County Animal Services, or any other individual, collectively referred hereunder as &ldquo;others&rdquo; that does not have express privileges to such confidential information.
+                The volunteer will hold confidential information of {AGENCY_NAME} that is indirectly or directly accessed, received, and used in strict confidence up to the extent permissible by local, state, and federal law and public policy, regarding the disclosure of confidential information. Volunteer shall exercise a reasonable degree of care to prevent unauthorized disclosure of confidential information to others including, but not limited to, other volunteers of {AGENCY_NAME}, non-affiliated individuals of {AGENCY_NAME}, or any other individual, collectively referred hereunder as &ldquo;others&rdquo; that does not have express privileges to such confidential information.
               </p>
 
               <p style={{ margin: "0 0 12px" }}>
-                The volunteer will not disclose or divulge, either directly or indirectly, the confidential information to others unless express written authorization to do so is received in advance by the Director or Manager or other authorized representative of Morgan County Animal Services. The volunteer will not reproduce the confidential information nor use the confidential information commercially or for any purpose other than for the performance of the job duties that are for the furtherance of Morgan County Animal Services. The volunteer will, immediately upon the request or upon the voluntary or involuntary termination of the volunteer&apos;s active position and status with Morgan County Animal Services, return to Morgan County Animal Services any and all confidential information in the volunteer&apos;s possession, as well as return to Morgan County Animal Services any property or other items, information, and data in the volunteer&apos;s possession that is the property of Morgan County Animal Services or is considered confidential information and for the furtherance of Morgan County Animal Services.
+                The volunteer will not disclose or divulge, either directly or indirectly, the confidential information to others unless express written authorization to do so is received in advance by the Director or Manager or other authorized representative of {AGENCY_NAME}. The volunteer will not reproduce the confidential information nor use the confidential information commercially or for any purpose other than for the performance of the job duties that are for the furtherance of {AGENCY_NAME}. The volunteer will, immediately upon the request or upon the voluntary or involuntary termination of the volunteer&apos;s active position and status with {AGENCY_NAME}, return to {AGENCY_NAME} any and all confidential information in the volunteer&apos;s possession, as well as return to {AGENCY_NAME} any property or other items, information, and data in the volunteer&apos;s possession that is the property of {AGENCY_NAME} or is considered confidential information and for the furtherance of {AGENCY_NAME}.
               </p>
 
               <p style={{ margin: "0 0 12px" }}>
-                Morgan County Animal Services shall have and retain the sole right to determine the treatment of any information that is in connection, in part or in whole, with Morgan County Animal Services processes, services, and business operations received from the volunteer, or to follow any other procedure as Morgan County Animal Services may deem appropriate.
+                {AGENCY_NAME} shall have and retain the sole right to determine the treatment of any information that is in connection, in part or in whole, with {AGENCY_NAME} processes, services, and business operations received from the volunteer, or to follow any other procedure as {AGENCY_NAME} may deem appropriate.
               </p>
 
               <div style={{ borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>

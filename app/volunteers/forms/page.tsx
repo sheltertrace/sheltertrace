@@ -8,6 +8,7 @@ import VolunteerAgreementForm from "@/app/forms/VolunteerAgreementForm";
 import VolunteerConfidentialityForm from "@/app/forms/VolunteerConfidentialityForm";
 import { reprintShelterForm } from "@/lib/reprintForm";
 import { formatDate } from "@/lib/utils";
+import { AGENCY_NAME, AGENCY_SHORT } from "@/lib/shelterInfo";
 
 type VolFormType = "volunteer_application" | "volunteer_agreement" | "volunteer_confidentiality";
 
@@ -25,7 +26,7 @@ const FORM_TEMPLATES = [
     type: "volunteer_agreement" as VolFormType,
     label: "Volunteer Agreement & Release",
     icon: "🤝",
-    description: "Volunteer service agreement, liability release, and code of conduct. Requires volunteer and MCAS representative signatures.",
+    description: "Volunteer service agreement, liability release, and code of conduct. Requires volunteer and {AGENCY_SHORT} representative signatures.",
     color: "#0284c7",
     bg: "#e0f2fe",
     border: "#bae6fd",
@@ -94,7 +95,7 @@ export default function VolunteerFormsPage() {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
         <div>
           <div style={{ fontSize: 22, fontWeight: 800 }}>Volunteer Forms Library</div>
-          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>Morgan County Animal Services · Digital volunteer documentation</div>
+          <div style={{ fontSize: 13, color: "var(--text-secondary)", marginTop: 2 }}>{AGENCY_NAME} · Digital volunteer documentation</div>
         </div>
       </div>
 

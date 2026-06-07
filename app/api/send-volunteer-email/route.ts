@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { IS_DEMO } from "@/lib/demo";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE, COUNTY_NAME } from "@/lib/shelterInfo";
 
 export const dynamic = "force-dynamic";
 
-const MCAS_ADDRESS = "2392 Athens Hwy, Madison, GA 30650";
-const MCAS_PHONE   = "(706) 752-1195";
-const FROM         = "Morgan County Animal Services <noreply@resend.dev>";
+const MCAS_ADDRESS = AGENCY_ADDRESS;
+const MCAS_PHONE   = AGENCY_PHONE;
+const FROM         = `${AGENCY_NAME} <noreply@resend.dev>`;
 
 type EmailType = "approval" | "rejection" | "more_info";
 
 export async function POST(req: NextRequest) {
+  if (IS_DEMO) {
+    return NextResponse.json({ success: true, demo: true, message: "Email suppressed in demo mode." });
+  }
   if (!process.env.RESEND_API_KEY) {
     return NextResponse.json({ success: false, error: "RESEND_API_KEY is not configured." }, { status: 500 });
   }
@@ -39,13 +44,13 @@ export async function POST(req: NextRequest) {
   let html    = "";
 
   if (type === "approval") {
-    subject = "Welcome to the MCAS Volunteer Team!";
+    subject = `Welcome to the ${AGENCY_SHORT} Volunteer Team!`;
     html = buildApprovalEmail(applicantName, pid || "—", reviewerNotes);
   } else if (type === "rejection") {
-    subject = "Morgan County Animal Services — Volunteer Application Update";
+    subject = `${AGENCY_NAME} — Volunteer Application Update`;
     html = buildRejectionEmail(applicantName, reviewerNotes);
   } else if (type === "more_info") {
-    subject = "Action Required — MCAS Volunteer Application";
+    subject = `Action Required — ${AGENCY_SHORT} Volunteer Application`;
     html = buildMoreInfoEmail(applicantName, reviewerNotes);
   } else {
     return NextResponse.json({ success: false, error: `Unknown email type: ${type}` }, { status: 400 });
@@ -79,7 +84,7 @@ function shell(content: string): string {
 
     <div style="background:#0f2942;padding:28px 32px">
       <div style="font-size:20px;font-weight:900;color:#fff;text-transform:uppercase;letter-spacing:0.5px;line-height:1.2">
-        Morgan County Animal Services
+        ${AGENCY_NAME}
       </div>
       <div style="color:rgba(255,255,255,.7);font-size:12px;margin-top:6px">
         ${MCAS_ADDRESS} &nbsp;·&nbsp; ${MCAS_PHONE}
@@ -92,7 +97,7 @@ function shell(content: string): string {
 
     <div style="background:#1f2937;padding:18px 32px">
       <div style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.8">
-        Morgan County Animal Services &nbsp;·&nbsp; ${MCAS_ADDRESS}<br>
+        ${AGENCY_NAME} &nbsp;·&nbsp; ${MCAS_ADDRESS}<br>
         Phone: ${MCAS_PHONE}<br>
         <span style="font-size:11px">Do not reply to this email — contact us by phone or in person.</span>
       </div>
@@ -113,7 +118,7 @@ function buildApprovalEmail(name: string, pid: string, notes?: string): string {
 
     <p style="margin:0 0 18px;font-size:15px">Dear <strong>${name}</strong>,</p>
     <p style="margin:0 0 20px;color:#374151;line-height:1.7">
-      We are thrilled to welcome you as a volunteer with <strong>Morgan County Animal Services</strong>!
+      We are thrilled to welcome you as a volunteer with <strong>${AGENCY_NAME}</strong>!
       Your application has been reviewed and approved.
     </p>
 
@@ -146,12 +151,12 @@ function buildApprovalEmail(name: string, pid: string, notes?: string): string {
     </div>` : ""}
 
     <p style="margin:0;font-size:13px;color:#374151;line-height:1.7">
-      Thank you for choosing to make a difference in the lives of animals in Morgan County.
+      Thank you for choosing to make a difference in the lives of animals in ${COUNTY_NAME}.
       We look forward to working with you!
     </p>
     <p style="margin:12px 0 0;font-size:13px;color:#374151">
       Warmly,<br>
-      <strong>Morgan County Animal Services Volunteer Team</strong>
+      <strong>${AGENCY_NAME} Volunteer Team</strong>
     </p>
   `);
 }
@@ -166,7 +171,7 @@ function buildRejectionEmail(name: string, notes?: string): string {
 
     <p style="margin:0 0 18px;font-size:15px">Dear <strong>${name}</strong>,</p>
     <p style="margin:0 0 20px;color:#374151;line-height:1.7">
-      Thank you for your interest in volunteering with <strong>Morgan County Animal Services</strong>.
+      Thank you for your interest in volunteering with <strong>${AGENCY_NAME}</strong>.
       After careful review of your application, we are unable to move forward with your volunteer registration at this time.
     </p>
 
@@ -182,7 +187,7 @@ function buildRejectionEmail(name: string, notes?: string): string {
     </p>
     <p style="margin:0;font-size:13px;color:#374151">
       Thank you,<br>
-      <strong>Morgan County Animal Services</strong>
+      <strong>${AGENCY_NAME}</strong>
     </p>
   `);
 }
@@ -197,7 +202,7 @@ function buildMoreInfoEmail(name: string, notes?: string): string {
 
     <p style="margin:0 0 18px;font-size:15px">Dear <strong>${name}</strong>,</p>
     <p style="margin:0 0 20px;color:#374151;line-height:1.7">
-      Thank you for applying to volunteer with <strong>Morgan County Animal Services</strong>.
+      Thank you for applying to volunteer with <strong>${AGENCY_NAME}</strong>.
       We have reviewed your application and need a bit more information before we can make a decision.
     </p>
 
@@ -218,7 +223,7 @@ function buildMoreInfoEmail(name: string, notes?: string): string {
     </p>
     <p style="margin:0;font-size:13px;color:#374151">
       Thank you,<br>
-      <strong>Morgan County Animal Services</strong>
+      <strong>${AGENCY_NAME}</strong>
     </p>
   `);
 }
