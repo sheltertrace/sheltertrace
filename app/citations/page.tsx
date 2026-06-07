@@ -7,9 +7,8 @@ import DispositionModal, { CitationStatusBadge, CITATION_STATUSES } from "./Disp
 import { fetchCitations, fetchCalls, fetchCourtSettings, markCitationNotified, markCitationEmailSent } from "@/lib/data";
 import type { Citation, CourtSettings } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
+import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, COURT_MAGISTRATE, COURT_STATE } from "@/lib/shelterInfo";
 import { openCourtEmail } from "@/lib/courtEmail";
-import { AGENCY_NAME, AGENCY_ADDRESS } from "@/lib/shelterInfo";
 import { useAuth } from "@/app/providers";
 
 function printCitation(cit: Citation) {
@@ -223,8 +222,8 @@ export default function CitationsPage() {
         ? "149 E Jefferson St, Madison, GA 30650"
         : "118 N Main St, Madison, GA 30650";
       const courtName = cit.court_type === "Magistrate"
-        ? "Morgan County Magistrate Court"
-        : "Morgan County State Court";
+        ? COURT_MAGISTRATE
+        : COURT_STATE;
       const res = await fetch("/api/send-citation-email", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

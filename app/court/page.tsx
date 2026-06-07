@@ -5,11 +5,9 @@ import AppShell from "@/components/layout/AppShell";
 import { fetchCitations, fetchCourtSettings, markCitationNotified, fetchCall, fetchCitationsByPerson, fetchFormsByLinked } from "@/lib/data";
 import type { Citation, CourtSettings, ShelterForm } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
-import { MORGAN_COUNTY_ORDINANCES } from "@/lib/constants";
+import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, getOrdinances, COURT_MAGISTRATE, COURT_STATE, COUNTY_NAME } from "@/lib/shelterInfo";
 import DispositionModal, { CitationStatusBadge } from "@/app/citations/DispositionModal";
 import { openCourtEmail } from "@/lib/courtEmail";
-import { AGENCY_NAME, AGENCY_ADDRESS } from "@/lib/shelterInfo";
 
 export default function CourtPage() {
   const router = useRouter();
@@ -81,7 +79,7 @@ export default function CourtPage() {
     ${mcasHeader("BENCH WARRANT — FAILURE TO APPEAR")}
     <div class="warrant-box">
       <div style="font-size:22px;font-weight:900;letter-spacing:2px;text-transform:uppercase">BENCH WARRANT</div>
-      <div style="font-size:14px;margin-top:6px;font-weight:700">State of Georgia · Morgan County</div>
+      <div style="font-size:14px;margin-top:6px;font-weight:700">State of Georgia · ${COUNTY_NAME}</div>
       <div style="font-size:12px;margin-top:4px;color:#555">Issued for Failure to Appear in Court</div>
     </div>
     <h2>Warrant Information</h2>
@@ -106,7 +104,7 @@ export default function CourtPage() {
     ${renderViolationTable(Array.isArray(cit.violations) ? cit.violations : [])}
     <p style="margin:16px 0;font-size:12px;line-height:1.6">
       The above-named subject was cited for violations of ${AGENCY_NAME} Chapter 10 Ordinances on
-      ${cit.date || "the date shown above"} and was ordered to appear before the ${cit.court_type || ""} Court of Morgan County, Georgia
+      ${cit.date || "the date shown above"} and was ordered to appear before the ${cit.court_type || ""} Court of ${COUNTY_NAME}, Georgia
       on ${cit.court_date || "the scheduled court date"}. Said subject failed to appear as ordered. You are hereby commanded
       to arrest the above-named subject and bring them before the Court without delay.
     </p>
@@ -115,7 +113,7 @@ export default function CourtPage() {
       <div style="width:260px">
         <div style="height:50px;border-bottom:1px solid #000;margin-bottom:6px"></div>
         <div style="font-size:11px">Judge Signature</div>
-        <div style="font-size:10px;color:#555;margin-top:2px">${cit.judge_name || "Presiding Judge, Morgan County"}</div>
+        <div style="font-size:10px;color:#555;margin-top:2px">${cit.judge_name || `Presiding Judge, ${COUNTY_NAME}`}</div>
       </div>
       <div style="width:260px">
         <div style="height:50px;border-bottom:1px solid #000;margin-bottom:6px"></div>
@@ -182,7 +180,7 @@ export default function CourtPage() {
   const renderViolationBlocks = (vios: any[]) =>
     vios.length === 0 ? "<p>No violations listed.</p>" :
     vios.map((v: any, i: number) => {
-      const ord  = MORGAN_COUNTY_ORDINANCES.find((o) => o.code === (v.code || v.code_section));
+      const ord  = getOrdinances().find((o) => o.code === (v.code || v.code_section));
       const code = v.code || v.code_section || "—";
       const title = ord?.title || v.description || "—";
       const desc  = v.description || ord?.description || "—";

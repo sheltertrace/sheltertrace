@@ -1,11 +1,11 @@
 "use client";
 import { useState, useMemo } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { MORGAN_COUNTY_ORDINANCES } from "@/lib/constants";
+import { getOrdinances, COURT_MAGISTRATE, COURT_STATE, COUNTY_NAME } from "@/lib/shelterInfo";
 import type { MorganCountyOrdinance } from "@/lib/constants";
 
 // Group ordinances by article
-const ARTICLES = Array.from(new Set(MORGAN_COUNTY_ORDINANCES.map((o) => o.article)));
+const ARTICLES = Array.from(new Set(getOrdinances().map((o) => o.article)));
 
 function OrdinanceCard({ ord, highlight }: { ord: MorganCountyOrdinance; highlight?: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -70,7 +70,7 @@ export default function OrdinancesPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return MORGAN_COUNTY_ORDINANCES.filter((o) => {
+    return getOrdinances().filter((o) => {
       const matchQ = !q
         || o.code.toLowerCase().includes(q)
         || o.title.toLowerCase().includes(q)
@@ -87,16 +87,16 @@ export default function OrdinancesPage() {
     [filtered],
   );
 
-  const citableCount = MORGAN_COUNTY_ORDINANCES.filter((o) => o.citable).length;
+  const citableCount = getOrdinances().filter((o) => o.citable).length;
 
   return (
-    <AppShell title="Morgan County Animal Ordinances">
+    <AppShell title="${COUNTY_NAME} Animal Ordinances">
       {/* Header banner */}
       <div style={{ background: "#1e3a5f", color: "#fff", borderRadius: 10, padding: "16px 20px", marginBottom: 20, display: "flex", alignItems: "center", gap: 16 }}>
         <div style={{ fontSize: 32 }}>📖</div>
         <div>
           <div style={{ fontWeight: 900, fontSize: 18 }}>Chapter 10 — Animals</div>
-          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>Morgan County, Georgia Code of Ordinances · {MORGAN_COUNTY_ORDINANCES.length} sections · {citableCount} citable violations</div>
+          <div style={{ fontSize: 13, opacity: 0.8, marginTop: 2 }}>${COUNTY_NAME}, Georgia Code of Ordinances · {getOrdinances().length} sections · {citableCount} citable violations</div>
         </div>
         <div style={{ marginLeft: "auto", textAlign: "right" }}>
           <div style={{ fontSize: 11, opacity: 0.6 }}>Reference last updated</div>
@@ -180,7 +180,7 @@ export default function OrdinancesPage() {
 
       {/* Footer note */}
       <div style={{ padding: "14px 18px", background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 8, fontSize: 12, color: "#92400e", marginTop: 8 }}>
-        <strong>Note:</strong> This is a reference tool only. Always consult the official Morgan County Code of Ordinances on Municode for authoritative text. Chapter 10 violations are misdemeanors under § 1-9 unless otherwise specified. Each continuing day is a separate offense (§ 10-18).
+        <strong>Note:</strong> This is a reference tool only. Always consult the official ${COUNTY_NAME} Code of Ordinances on Municode for authoritative text. Chapter 10 violations are misdemeanors under § 1-9 unless otherwise specified. Each continuing day is a separate offense (§ 10-18).
       </div>
     </AppShell>
   );

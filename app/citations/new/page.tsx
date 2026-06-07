@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -6,12 +6,12 @@ import { fetchCall, fetchPerson, createCitation, uploadCitationPhotoId } from "@
 import type { DispatchCall, Person } from "@/lib/types";
 import { today, nowTime, genCitationNumber } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
-import { CITABLE_ORDINANCES, MORGAN_COUNTY_ORDINANCES } from "@/lib/constants";
+import { getCitableOrdinances, getOrdinances, COURT_MAGISTRATE, COURT_STATE, COUNTY_NAME } from "@/lib/shelterInfo";
 import SignaturePad from "@/components/ui/SignaturePad";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import DateInput from "@/components/ui/DateInput";
 
-const ORDINANCE_ARTICLES = Array.from(new Set(CITABLE_ORDINANCES.map((o) => o.article)));
+const ORDINANCE_ARTICLES = Array.from(new Set(getCitableOrdinances().map((o) => o.article)));
 
 function F({ label, req, children }: { label: string; req?: boolean; children: React.ReactNode }) {
   return (
@@ -47,7 +47,7 @@ function CitationNewInner() {
   const [citNumber, setCitNumber] = useState(genCitationNumber());
   const [physCitNumber, setPhysCitNumber] = useState("");
   const [animalImpound, setAnimalImpound] = useState("");
-  const [violations, setViolations] = useState([{ code: CITABLE_ORDINANCES[0].code, description: CITABLE_ORDINANCES[0].description, count: 1 }]);
+  const [violations, setViolations] = useState([{ code: getCitableOrdinances()[0].code, description: getCitableOrdinances()[0].description, count: 1 }]);
   const [violatorFirst, setViolatorFirst] = useState("");
   const [violatorMiddle, setViolatorMiddle] = useState("");
   const [violatorLast, setViolatorLast] = useState("");
@@ -163,13 +163,13 @@ function CitationNewInner() {
   }, [callId]);
 
   const addViolation = () =>
-    setViolations((prev) => [...prev, { code: CITABLE_ORDINANCES[0].code, description: CITABLE_ORDINANCES[0].description, count: 1 }]);
+    setViolations((prev) => [...prev, { code: getCitableOrdinances()[0].code, description: getCitableOrdinances()[0].description, count: 1 }]);
 
   const updateViolation = (i: number, field: string, val: string | number) => {
     setViolations((prev) => prev.map((v, j) => {
       if (j !== i) return v;
       if (field === "code") {
-        const found = MORGAN_COUNTY_ORDINANCES.find((o) => o.code === val);
+        const found = getOrdinances().find((o) => o.code === val);
         return { ...v, code: val as string, description: found?.description || v.description };
       }
       return { ...v, [field]: val };
@@ -362,7 +362,7 @@ function CitationNewInner() {
                 <select className="form-select" style={{ fontSize: 12 }} value={v.code} onChange={(e) => updateViolation(i, "code", e.target.value)}>
                   {ORDINANCE_ARTICLES.map((article) => (
                     <optgroup key={article} label={article}>
-                      {CITABLE_ORDINANCES.filter((o) => o.article === article).map((o) => (
+                      {getCitableOrdinances().filter((o) => o.article === article).map((o) => (
                         <option key={o.code} value={o.code}>{o.code} — {o.title}</option>
                       ))}
                     </optgroup>
@@ -389,7 +389,7 @@ function CitationNewInner() {
           <div className="grid-3">
             <F label="Court Type">
               <select className="form-select" value={courtType} onChange={(e) => setCourtType(e.target.value)}>
-                <option value="Magistrate">Morgan County Magistrate Court</option><option value="State">Morgan County State Court</option>
+                <option value="Magistrate">{COURT_MAGISTRATE}</option><option value="State">{COURT_STATE}</option>
               </select>
             </F>
             <div style={{ fontSize: 11, color: "var(--text-secondary)", alignSelf: "flex-end", paddingBottom: 10 }}>
