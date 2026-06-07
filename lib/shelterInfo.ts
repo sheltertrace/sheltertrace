@@ -8,8 +8,10 @@ import { MCAS_SEAL_LOGO } from "./mcasLogo";
 export const AGENCY_NAME    = IS_DEMO ? "Maplewood Animal Services"              : "Morgan County Animal Services";
 export const AGENCY_ADDRESS = IS_DEMO ? "123 Demo Street, Maplewood, GA 30650"   : "2392 Athens Hwy, Madison, GA 30650";
 export const AGENCY_PHONE   = IS_DEMO ? "(555) 000-9999"                         : "(706) 752-1195";
+export const AGENCY_PHONE_DOTS = IS_DEMO ? "555.000.9999"                        : "706.752.1195";
 export const AGENCY_EMAIL   = IS_DEMO ? "info@demo.sheltertrace.com"             : "info@morgancountyga.gov";
 export const AGENCY_SHORT   = IS_DEMO ? "Maplewood AS"                           : "MCAS";
+export const AGENCY_CITY    = IS_DEMO ? "Maplewood, GA"                          : "Madison, GA";
 // Full one-line identifier used in footers
 export const AGENCY_FULL = `${AGENCY_NAME} · ${AGENCY_ADDRESS} · ${AGENCY_PHONE}`;
 
@@ -18,9 +20,12 @@ export const AGENCY_FULL = `${AGENCY_NAME} · ${AGENCY_ADDRESS} · ${AGENCY_PHON
 export const AGENCY_SEAL_LOGO: string = IS_DEMO ? "/logo.jpg" : MCAS_SEAL_LOGO;
 
 // Court names
-export const COURT_MAGISTRATE = IS_DEMO ? "Demo County Magistrate Court" : "Morgan County Magistrate Court";
-export const COURT_STATE      = IS_DEMO ? "Demo County State Court"      : "Morgan County State Court";
-export const COUNTY_NAME      = IS_DEMO ? "Demo County"                  : "Morgan County";
+export const COURT_MAGISTRATE      = IS_DEMO ? "Demo County Magistrate Court"          : "Morgan County Magistrate Court";
+export const COURT_MAGISTRATE_ADDR = IS_DEMO ? "1 Demo Court, Maplewood, GA 30650"    : "149 E Jefferson St, Madison, GA 30650";
+export const COURT_STATE           = IS_DEMO ? "Demo County State Court"               : "Morgan County State Court";
+export const COURT_STATE_ADDR      = IS_DEMO ? "2 Demo Blvd, Maplewood, GA 30650"     : "118 N Main St, Madison, GA 30650";
+export const COUNTY_NAME           = IS_DEMO ? "Demo County"                           : "Morgan County";
+export const COUNTY_STATE          = IS_DEMO ? "Demo County, GA"                       : "Morgan County, Georgia";
 
 // ── Demo ordinances ────────────────────────────────────────────────────────────
 // Generic animal control ordinances used on the demo deployment.

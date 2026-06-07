@@ -72,7 +72,7 @@ const FORM_CARDS: Array<{
   {
     type: "adoption_application",
     title: "Pet Adoption Application",
-    description: "Full MCAS two-page adoption application. Includes animal and adopter info, household details, care plan, agreement terms, fees, and signatures.",
+    description: "Full ${AGENCY_SHORT} two-page adoption application. Includes animal and adopter info, household details, care plan, agreement terms, fees, and signatures.",
     icon: "🐾",
     color: "#be185d",
     bg: "#fdf2f8",
@@ -167,7 +167,7 @@ export default function FormsPage() {
   };
 
   return (
-    <AppShell title="MCAS Forms">
+    <AppShell title="${AGENCY_SHORT} Forms">
       {/* Form type cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginBottom: 28 }}>
         {FORM_CARDS.map((card) => (

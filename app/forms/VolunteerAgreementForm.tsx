@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useMemo } from "react";
 import { createForm, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -6,30 +6,31 @@ import { useAuth } from "@/app/providers";
 import type { ShelterForm, Person, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_PHONE_DOTS, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
 
 const MCAS_BLUE = "#0f2942";
 
 const AGREEMENT_TEXT = `VOLUNTEER AGREEMENT AND RELEASE OF LIABILITY
 
-I, the undersigned, hereby agree to volunteer my services to Morgan County Animal Services ("MCAS"), a division of Morgan County, Georgia ("the County"). In consideration of being allowed to participate as a volunteer with MCAS, I agree to the following terms and conditions:
+I, the undersigned, hereby agree to volunteer my services to ${AGENCY_NAME} ("${AGENCY_SHORT}"), a division of ${COUNTY_STATE} ("the County"). In consideration of being allowed to participate as a volunteer with ${AGENCY_SHORT}, I agree to the following terms and conditions:
 
-1. VOLUNTEER STATUS. I understand that I am a volunteer and not an employee of Morgan County or MCAS. I will not receive wages, salary, or monetary compensation for my volunteer services. I understand that I am not entitled to any employee benefits, including but not limited to workers' compensation, unemployment insurance, health insurance, or retirement benefits.
+1. VOLUNTEER STATUS. I understand that I am a volunteer and not an employee of ${COUNTY_NAME} or ${AGENCY_SHORT}. I will not receive wages, salary, or monetary compensation for my volunteer services. I understand that I am not entitled to any employee benefits, including but not limited to workers' compensation, unemployment insurance, health insurance, or retirement benefits.
 
-2. COMPLIANCE WITH POLICIES. I agree to follow all policies, procedures, rules, and guidelines established by MCAS, as may be amended from time to time. I agree to treat all animals humanely, with compassion, and in accordance with MCAS animal care protocols. I agree to treat all staff, other volunteers, and members of the public with courtesy and respect.
+2. COMPLIANCE WITH POLICIES. I agree to follow all policies, procedures, rules, and guidelines established by ${AGENCY_SHORT}, as may be amended from time to time. I agree to treat all animals humanely, with compassion, and in accordance with ${AGENCY_SHORT} animal care protocols. I agree to treat all staff, other volunteers, and members of the public with courtesy and respect.
 
-3. CONFIDENTIALITY. I agree to maintain the strict confidentiality of all information I may encounter during my volunteer service, including but not limited to information regarding animals in the shelter's care, personnel matters, operational procedures, legal matters, and information about individuals who interact with MCAS. I understand that this obligation of confidentiality continues beyond the conclusion of my volunteer service.
+3. CONFIDENTIALITY. I agree to maintain the strict confidentiality of all information I may encounter during my volunteer service, including but not limited to information regarding animals in the shelter's care, personnel matters, operational procedures, legal matters, and information about individuals who interact with ${AGENCY_SHORT}. I understand that this obligation of confidentiality continues beyond the conclusion of my volunteer service.
 
-4. ASSUMPTION OF RISK. I acknowledge and understand that working with animals involves inherent risks of injury, including but not limited to animal bites, scratches, kicks, and other physical contact with animals. I acknowledge that I may be exposed to zoonotic diseases, animal dander, and other allergens. I voluntarily assume all such risks and acknowledge that MCAS has informed me of these risks.
+4. ASSUMPTION OF RISK. I acknowledge and understand that working with animals involves inherent risks of injury, including but not limited to animal bites, scratches, kicks, and other physical contact with animals. I acknowledge that I may be exposed to zoonotic diseases, animal dander, and other allergens. I voluntarily assume all such risks and acknowledge that ${AGENCY_SHORT} has informed me of these risks.
 
-5. RELEASE OF LIABILITY. In consideration of being permitted to serve as a volunteer, I, on behalf of myself, my heirs, assigns, and personal representatives, hereby release, discharge, and hold harmless Morgan County, MCAS, and their respective officers, employees, agents, volunteers, and representatives ("Released Parties") from any and all claims, demands, actions, causes of action, damages, losses, costs, or expenses of any kind, including attorneys' fees, arising from or related to my participation as a volunteer, including but not limited to injuries caused by animals, accidents on MCAS property, or use of MCAS equipment.
+5. RELEASE OF LIABILITY. In consideration of being permitted to serve as a volunteer, I, on behalf of myself, my heirs, assigns, and personal representatives, hereby release, discharge, and hold harmless ${COUNTY_NAME}, ${AGENCY_SHORT}, and their respective officers, employees, agents, volunteers, and representatives ("Released Parties") from any and all claims, demands, actions, causes of action, damages, losses, costs, or expenses of any kind, including attorneys' fees, arising from or related to my participation as a volunteer, including but not limited to injuries caused by animals, accidents on ${AGENCY_SHORT} property, or use of ${AGENCY_SHORT} equipment.
 
 6. INDEMNIFICATION. I agree to indemnify and hold harmless the Released Parties from any claims arising from my own negligent or intentional acts or omissions during my volunteer service.
 
-7. PHOTOGRAPH AND MEDIA RELEASE. I grant MCAS permission to use photographs, videos, or other media of me taken during my volunteer service for educational, promotional, and public awareness purposes, without compensation.
+7. PHOTOGRAPH AND MEDIA RELEASE. I grant ${AGENCY_SHORT} permission to use photographs, videos, or other media of me taken during my volunteer service for educational, promotional, and public awareness purposes, without compensation.
 
-8. TERMINATION. I understand that my volunteer service may be terminated at any time and for any reason, with or without cause, by either MCAS or by me. Upon termination, I agree to immediately return any MCAS property, equipment, or materials in my possession.
+8. TERMINATION. I understand that my volunteer service may be terminated at any time and for any reason, with or without cause, by either ${AGENCY_SHORT} or by me. Upon termination, I agree to immediately return any ${AGENCY_SHORT} property, equipment, or materials in my possession.
 
-9. GOVERNING LAW. This Agreement shall be governed by the laws of the State of Georgia. Any dispute arising under this Agreement shall be resolved in the courts of Morgan County, Georgia.
+9. GOVERNING LAW. This Agreement shall be governed by the laws of the State of Georgia. Any dispute arising under this Agreement shall be resolved in the courts of ${COUNTY_STATE}.
 
 10. ENTIRE AGREEMENT. This Agreement constitutes the entire agreement between the parties with respect to my volunteer service and supersedes all prior agreements, representations, or understandings.
 
@@ -77,7 +78,7 @@ export function printVolunteerAgreement(d: Record<string, unknown>) {
   .sigblock{display:inline-block;vertical-align:top;margin-right:30px;margin-bottom:16px}
   @media print{body{padding:14px}}</style></head><body>
   <h1>Volunteer Agreement & Release of Liability</h1>
-  <div class="sub">Morgan County Animal Services · 2392 Athens Hwy, Madison, GA 30650 · (706) 752-1195</div>
+  <div class="sub">${AGENCY_NAME} · ${AGENCY_ADDRESS} · ${AGENCY_PHONE}</div>
   ${sh("Volunteer Information")}
   <div>${fl("Name", `${d.first_name || ""} ${d.last_name || ""}`.trim())}${fl("Date of Birth", d.dob)}${fl("Age", d.age, 50)}${fl("Date", d.agreement_date, 100)}</div>
   <div>${fl("Address", d.address, 220)}${fl("City", d.city, 120)}${fl("State", d.state, 40)}${fl("Zip", d.zip, 70)}</div>
@@ -93,7 +94,7 @@ export function printVolunteerAgreement(d: Record<string, unknown>) {
       <div>${fl("Date", d.volunteer_sig_date, 100)}</div>
     </div>
     <div class="sigblock">
-      <div style="font-size:9px;color:#555;margin-bottom:2px">MCAS Representative Signature</div>
+      <div style="font-size:9px;color:#555;margin-bottom:2px">${AGENCY_SHORT} Representative Signature</div>
       ${sig("rep_sig")}
       <div style="margin-top:4px">${fl("Printed Name", d.rep_print, 180)}</div>
       <div>${fl("Date", d.rep_sig_date, 100)}</div>
@@ -101,7 +102,7 @@ export function printVolunteerAgreement(d: Record<string, unknown>) {
   </div>
   ${d.is_minor ? `
   ${sh("Parent / Guardian Consent (Volunteer Under 18)")}
-  <div style="font-size:9px;margin-bottom:8px">I, the parent or legal guardian of the above-named minor, hereby consent to the minor's participation as a volunteer with MCAS and agree to the terms of this Agreement on the minor's behalf.</div>
+  <div style="font-size:9px;margin-bottom:8px">I, the parent or legal guardian of the above-named minor, hereby consent to the minor's participation as a volunteer with ${AGENCY_SHORT} and agree to the terms of this Agreement on the minor's behalf.</div>
   <div>
     <div class="sigblock">
       <div style="font-size:9px;color:#555;margin-bottom:2px">Parent / Guardian Signature</div>
@@ -233,7 +234,7 @@ export default function VolunteerAgreementForm({ onSave, onClose, prefill }: Pro
         <div className="modal-header">
           <div>
             <div className="modal-title">🤝 Volunteer Agreement & Release</div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>Morgan County Animal Services</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>${AGENCY_NAME}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
@@ -323,14 +324,14 @@ export default function VolunteerAgreementForm({ onSave, onClose, prefill }: Pro
             </div>
             <div>
               <SignaturePad
-                label="MCAS Representative Signature"
+                label="${AGENCY_SHORT} Representative Signature"
                 value={repSig?.value || null}
                 timestamp={repSig?.timestamp || null}
                 onAccept={(val, ts) => setRepSig({ value: val, timestamp: ts })}
                 onClear={() => setRepSig(null)}
               />
               <div style={{ marginTop: 8 }}>
-                <label style={labelStyle}>MCAS Representative Printed Name</label>
+                <label style={labelStyle}>${AGENCY_SHORT} Representative Printed Name</label>
                 <input style={fieldStyle} value={repPrint} onChange={(e) => setRepPrint(e.target.value)} />
               </div>
               <div style={{ marginTop: 8 }}>
@@ -345,7 +346,7 @@ export default function VolunteerAgreementForm({ onSave, onClose, prefill }: Pro
             <>
               <div style={sectionHead}>Parent / Guardian Consent (Minor Volunteer)</div>
               <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 12 }}>
-                I, the parent or legal guardian of the above-named minor, hereby consent to the minor&apos;s participation as a volunteer with MCAS and agree to the terms of this Agreement on the minor&apos;s behalf.
+                I, the parent or legal guardian of the above-named minor, hereby consent to the minor&apos;s participation as a volunteer with ${AGENCY_SHORT} and agree to the terms of this Agreement on the minor&apos;s behalf.
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 20 }}>
                 <div>

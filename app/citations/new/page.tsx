@@ -6,7 +6,7 @@ import { fetchCall, fetchPerson, createCitation, uploadCitationPhotoId } from "@
 import type { DispatchCall, Person } from "@/lib/types";
 import { today, nowTime, genCitationNumber } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
-import { getCitableOrdinances, getOrdinances, COURT_MAGISTRATE, COURT_STATE, COUNTY_NAME } from "@/lib/shelterInfo";
+import { getCitableOrdinances, getOrdinances, COURT_MAGISTRATE, COURT_MAGISTRATE_ADDR, COURT_STATE, COURT_STATE_ADDR, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
 import SignaturePad from "@/components/ui/SignaturePad";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import DateInput from "@/components/ui/DateInput";
@@ -393,7 +393,7 @@ function CitationNewInner() {
               </select>
             </F>
             <div style={{ fontSize: 11, color: "var(--text-secondary)", alignSelf: "flex-end", paddingBottom: 10 }}>
-              {courtType === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650"}
+              {courtType === "Magistrate" ? COURT_MAGISTRATE_ADDR : COURT_STATE_ADDR}
             </div>
             <F label="Court Date"><DateInput className="form-input" value={courtDate} onChange={(e) => setCourtDate(e.target.value)} /></F>
             <F label="Court Time"><input className="form-input" value={courtTime} onChange={(e) => setCourtTime(e.target.value)} placeholder="e.g. 9:00" /></F>

@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchAnimals, updateAnimal } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
-import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
+import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_PHONE_DOTS, AGENCY_SHORT } from "@/lib/shelterInfo";
 import type { ShelterForm, Officer, Animal, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
@@ -14,8 +14,8 @@ const REQUIREMENTS = [
   "Animal(s) in quarantine must be isolated from children under the age of 18. The animal(s) in quarantine cannot have ANY contact with children under the age of 18 either inside or outside the home.",
   "Only one (1) or at most two (2) responsible adults over the age of 18 are to have contact with the animal(s) in quarantine. This includes feeding, walking, playing, veterinarian appointments, or any other contact with the animal(s) in quarantine.",
   "When the animal(s) in quarantine are outside they MUST be on a leash. The leash must be physically held at AT ALL TIMES by one of the adults responsible for the quarantine and for the entire time the animal(s) are outside. If any other animals or humans approach the quarantined animal(s) the responsible adult must ensure there is no contact between the animals or humans and the quarantined animal(s).",
-  "If the animal(s) in quarantine display any signs of being sick, especially any neurological symptoms, behavioral changes, or changes in temperament, they should be taken to a licensed veterinarian by the responsible adult. The veterinarian's staff must be notified that the animal(s) are in a rabies quarantine that is being monitored by Morgan County Animal Services. The responsible adult must also contact Morgan County Animal Services with the veterinarian's information and the reason the animal(s) were taken there.",
-  "If the animal(s) escape or must be moved from the approved location Morgan County Animal Services must be notified immediately.",
+  "If the animal(s) in quarantine display any signs of being sick, especially any neurological symptoms, behavioral changes, or changes in temperament, they should be taken to a licensed veterinarian by the responsible adult. The veterinarian's staff must be notified that the animal(s) are in a rabies quarantine that is being monitored by ${AGENCY_NAME}. The responsible adult must also contact ${AGENCY_NAME} with the veterinarian's information and the reason the animal(s) were taken there.",
+  "If the animal(s) escape or must be moved from the approved location ${AGENCY_NAME} must be notified immediately.",
 ];
 
 interface Props {
@@ -37,18 +37,18 @@ export function printRabiesQuarantine(data: Record<string, unknown>, logo: strin
   <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:12px">
     <img src="${logo}" style="width:70px;height:70px;object-fit:contain;flex-shrink:0" />
     <div>
-      <div style="font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.5px">Morgan County Animal Services</div>
-      <div style="font-size:11px;margin-top:2px">2392 Athens Hwy, Madison, GA 30650 &nbsp;|&nbsp; 706.752.1195</div>
+      <div style="font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.5px">${AGENCY_NAME}</div>
+      <div style="font-size:11px;margin-top:2px">${AGENCY_ADDRESS} &nbsp;|&nbsp; ${AGENCY_PHONE_DOTS}</div>
       <div style="font-size:14px;font-weight:800;margin-top:6px">HOME RABIES QUARANTINE ACKNOWLEDGEMENT</div>
     </div>
   </div>
   ${data.animal_name ? `<div style="font-size:11px;margin-bottom:8px;padding:4px 8px;background:#f0f9ff;border:1px solid #bae6fd;border-radius:4px"><b>Animal:</b> ${data.animal_name} (ID: ${data.animal_id || "—"})</div>` : ""}
-  <p style="margin-bottom:10px">The undersigned acknowledges that they have accepted the responsibility of performing a home rabies quarantine with the animal(s) that were or may have been involved in a bite incident. The undersigned affirms that they have read and understand the conditions of this rabies quarantine and will follow the protocol completely and for the entire length of the quarantine as required by Morgan County Animal Services.</p>
+  <p style="margin-bottom:10px">The undersigned acknowledges that they have accepted the responsibility of performing a home rabies quarantine with the animal(s) that were or may have been involved in a bite incident. The undersigned affirms that they have read and understand the conditions of this rabies quarantine and will follow the protocol completely and for the entire length of the quarantine as required by ${AGENCY_NAME}.</p>
   <div style="font-weight:800;font-size:11px;margin:10px 0 6px;text-decoration:underline">Home Rabies Quarantine Requirements:</div>
   <ol style="margin:0;padding-left:18px">
     ${REQUIREMENTS.map((r) => `<li>${r}</li>`).join("")}
   </ol>
-  <p style="margin-top:12px;font-weight:700">I fully understand the requirements of the home rabies quarantine and agree to comply with the requirements as stipulated above. I also understand that Morgan County Animal Services may do periodic checks at my home, with or without prior notification, to ensure that I am in compliance with the requirements. I acknowledge that Morgan County Animal Services will impound my animal(s) for any non-compliance and my animal(s) will complete the rabies quarantine at the Morgan County Animal Shelter.</p>
+  <p style="margin-top:12px;font-weight:700">I fully understand the requirements of the home rabies quarantine and agree to comply with the requirements as stipulated above. I also understand that ${AGENCY_NAME} may do periodic checks at my home, with or without prior notification, to ensure that I am in compliance with the requirements. I acknowledge that ${AGENCY_NAME} will impound my animal(s) for any non-compliance and my animal(s) will complete the rabies quarantine at the ${AGENCY_NAME}.</p>
   <div style="display:flex;gap:30px;margin-top:18px;flex-wrap:wrap">
     <div>
       <div style="font-size:10px;margin-bottom:3px"><b>Printed Name:</b></div>
@@ -68,7 +68,7 @@ export function printRabiesQuarantine(data: Record<string, unknown>, logo: strin
     <span style="border-bottom:1px solid #000;display:inline-block;min-width:200px;margin-left:6px">${data.officer || ""}${data.badge ? ` · Badge #${data.badge}` : ""}</span>
   </div>
   <div style="border-top:1.5px solid #000;margin-top:24px;padding-top:8px;font-size:10px;text-align:center;color:#444">
-    Morgan County Animal Services / 2392 Athens Hwy, Madison, GA 30650 / 706.752.1195
+    ${AGENCY_NAME} / ${AGENCY_ADDRESS} / ${AGENCY_PHONE_DOTS}
   </div>
   </body></html>`);
   w.document.close();
@@ -156,7 +156,7 @@ export default function RabiesQuarantineForm({ onSave, onClose, prefill }: Props
         <div className="modal-body">
           {/* Pre-printed intro */}
           <div style={{ background: "var(--surface-alt)", border: "1px solid var(--border-light)", borderRadius: 8, padding: "12px 14px", marginBottom: 16, fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-            The undersigned acknowledges that they have accepted the responsibility of performing a home rabies quarantine with the animal(s) that were or may have been involved in a bite incident. The undersigned affirms that they have read and understand the conditions of this rabies quarantine and will follow the protocol completely and for the entire length of the quarantine as required by Morgan County Animal Services.
+            The undersigned acknowledges that they have accepted the responsibility of performing a home rabies quarantine with the animal(s) that were or may have been involved in a bite incident. The undersigned affirms that they have read and understand the conditions of this rabies quarantine and will follow the protocol completely and for the entire length of the quarantine as required by ${AGENCY_NAME}.
           </div>
 
           {/* Requirements (read-only) */}
@@ -168,7 +168,7 @@ export default function RabiesQuarantineForm({ onSave, onClose, prefill }: Props
           </div>
 
           <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 8, padding: "10px 14px", marginBottom: 16, fontSize: 12, fontWeight: 700, lineHeight: 1.6 }}>
-            I fully understand the requirements of the home rabies quarantine and agree to comply with the requirements as stipulated above. I also understand that Morgan County Animal Services may do periodic checks at my home, with or without prior notification, to ensure that I am in compliance with the requirements. I acknowledge that Morgan County Animal Services will impound my animal(s) for any non-compliance and my animal(s) will complete the rabies quarantine at the Morgan County Animal Shelter.
+            I fully understand the requirements of the home rabies quarantine and agree to comply with the requirements as stipulated above. I also understand that ${AGENCY_NAME} may do periodic checks at my home, with or without prior notification, to ensure that I am in compliance with the requirements. I acknowledge that ${AGENCY_NAME} will impound my animal(s) for any non-compliance and my animal(s) will complete the rabies quarantine at the ${AGENCY_NAME}.
           </div>
 
           {/* Animal link */}

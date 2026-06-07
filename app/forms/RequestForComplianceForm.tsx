@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
-import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
+import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_PHONE_DOTS, AGENCY_SHORT } from "@/lib/shelterInfo";
 import type { ShelterForm, Officer, Person, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
@@ -45,8 +45,8 @@ export function printRFC(data: Record<string, unknown>, logo: string) {
   <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:4px">
     <img src="${logo}" style="width:70px;height:70px;object-fit:contain;flex-shrink:0" />
     <div>
-      <div style="font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.5px">Morgan County Animal Services</div>
-      <div style="font-size:10px;margin-top:2px">2392 ATHENS HWY. MADISON GA, 30650 &nbsp; PHONE: 706.752.1195</div>
+      <div style="font-size:13px;font-weight:900;text-transform:uppercase;letter-spacing:.5px">${AGENCY_NAME}</div>
+      <div style="font-size:10px;margin-top:2px">${AGENCY_ADDRESS} &nbsp; PHONE: ${AGENCY_PHONE_DOTS}</div>
       <div style="font-size:15px;font-weight:900;margin-top:6px;letter-spacing:.5px;text-transform:uppercase">Request for Compliance</div>
     </div>
   </div>
@@ -68,7 +68,7 @@ export function printRFC(data: Record<string, unknown>, logo: string) {
     <div style="text-align:center;font-weight:700;margin:6px 0">OR</div>
     An officer witnessed a violation.
     <div style="margin-top:8px">To avoid further action such as a court citation, please make the following corrections by the date given to achieve and maintain compliance.</div>
-    <div style="margin-top:6px">Thank you and please call with any questions. <b>(706) 752-1195</b></div>
+    <div style="margin-top:6px">Thank you and please call with any questions. <b>${AGENCY_PHONE}</b></div>
   </div>
   ${data.notes ? `<div style="margin-bottom:10px"><b>Notes:</b><div style="border:1px solid #aaa;padding:6px;margin-top:3px;min-height:36px;font-size:10.5px">${data.notes}</div></div>` : ""}
   <div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:14px;font-size:10.5px">
@@ -255,7 +255,7 @@ export default function RequestForComplianceForm({ onSave, onClose, prefill }: P
             <div style={{ textAlign: "center", fontWeight: 700, margin: "6px 0", color: "var(--text)" }}>OR</div>
             An officer witnessed a violation.
             <div style={{ marginTop: 6 }}>To avoid further action such as a court citation, please make the following corrections by the date given to achieve and maintain compliance.</div>
-            <div style={{ marginTop: 4 }}>Thank you and please call with any questions. <strong>(706) 752-1195</strong></div>
+            <div style={{ marginTop: 4 }}>Thank you and please call with any questions. <strong>${AGENCY_PHONE}</strong></div>
           </div>
 
           <div className="form-group" style={{ marginBottom: 14 }}>

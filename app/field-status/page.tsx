@@ -9,6 +9,7 @@ import {
   clearOfficerTracking,
 } from "@/lib/fieldOps";
 import type { OfficerFieldProfile, FieldStatus } from "@/lib/types";
+import { AGENCY_NAME, AGENCY_SHORT } from "@/lib/shelterInfo";
 
 const STATUSES: { label: FieldStatus; color: string; bg: string }[] = [
   { label: "On Duty",   color: "#1e7e34", bg: "#e6f4ea" },
@@ -242,7 +243,7 @@ export default function FieldStatusPage() {
         <div style={{ background: "#fff", borderRadius: 14, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }}>
           <div style={{ fontSize: 15, fontWeight: 600, marginBottom: 8, color: "#0f2942" }}>Enter Your Username</div>
           <div style={{ fontSize: 12, color: "#64748b", marginBottom: 16, lineHeight: 1.5 }}>
-            MCAS needs your location while on duty for dispatch coordination.
+            ${AGENCY_SHORT} needs your location while on duty for dispatch coordination.
           </div>
           <input
             autoFocus

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchPeople, fetchShelterSettings } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -7,6 +7,7 @@ import type { ShelterForm, Officer, Person, ShelterSettings, FormPreFill } from 
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME } from "@/lib/shelterInfo";
 
 export const INSPECTION_ITEMS = [
   { num: 1, label: "Adequate Food", ref: "40-13-13-.01", outdoorNA: false },
@@ -106,7 +107,7 @@ export function printInspection(d: Record<string, unknown>, items: typeof INSPEC
 
 export default function GdaFosterInspectionForm({ onSave, onClose, prefill }: Props) {
   const { user } = useAuth();
-  const [settings, setSettings] = useState<ShelterSettings>({ shelter_name: "Morgan County Animal Services", shelter_address: "", shelter_phone: "", gda_license_number: "" });
+  const [settings, setSettings] = useState<ShelterSettings>({ shelter_name: AGENCY_NAME, shelter_address: "", shelter_phone: "", gda_license_number: "" });
   const [inspectionDate, setInspectionDate] = useState(today());
   const [inspectionType, setInspectionType] = useState<typeof INSPECTION_TYPES[number]>("Routine");
   const [housing, setHousing] = useState<string[]>([]);

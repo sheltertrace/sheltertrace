@@ -5,7 +5,7 @@ import AppShell from "@/components/layout/AppShell";
 import { fetchCitations, fetchCourtSettings, markCitationNotified, fetchCall, fetchCitationsByPerson, fetchFormsByLinked } from "@/lib/data";
 import type { Citation, CourtSettings, ShelterForm } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, getOrdinances, COURT_MAGISTRATE, COURT_STATE, COUNTY_NAME } from "@/lib/shelterInfo";
+import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, AGENCY_SHORT, getOrdinances, COURT_MAGISTRATE, COURT_MAGISTRATE_ADDR, COURT_STATE, COURT_STATE_ADDR, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
 import DispositionModal, { CitationStatusBadge } from "@/app/citations/DispositionModal";
 import { openCourtEmail } from "@/lib/courtEmail";
 
@@ -139,7 +139,7 @@ export default function CourtPage() {
 
   const mcasHeader = (subtitle: string) => `
     <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:14px">
-      <img src="${AGENCY_SEAL_LOGO}" alt="MCAS Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
+      <img src="${AGENCY_SEAL_LOGO}" alt="${AGENCY_SHORT} Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
       <div style="flex:1">
         <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px">${AGENCY_NAME}</div>
         <div style="font-size:11px;margin-top:2px">${AGENCY_ADDRESS} · State of Georgia</div>
@@ -152,10 +152,10 @@ export default function CourtPage() {
     : (cit.violator_name || "—");
 
   const courtAddr = (cit: Citation) =>
-    cit.court_type === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" :
-    (cit.court_type === "State" || cit.court_type === "Municipal") ? "118 N Main St, Madison, GA 30650" : "—";
+    cit.court_type === "Magistrate" ? COURT_MAGISTRATE_ADDR :
+    (cit.court_type === "State" || cit.court_type === "Municipal") ? COURT_STATE_ADDR : "—";
 
-  // Table format — matches physical MCAS citation form
+  // Table format — matches physical ${AGENCY_SHORT} citation form
   const renderViolationTable = (vios: any[]) => `
     <table>
       <tr>
@@ -636,7 +636,7 @@ export default function CourtPage() {
     <div class="page pb">
       ${pgHdr("FORMS & DOCUMENTS")}
       ${mcasHeader("Related Forms & Documents")}
-      <p style="font-size:10px;font-style:italic;margin-bottom:12px">Official MCAS forms associated with this case, included for the court's reference.</p>
+      <p style="font-size:10px;font-style:italic;margin-bottom:12px">Official ${AGENCY_SHORT} forms associated with this case, included for the court's reference.</p>
       ${linkedForms.map((f: ShelterForm) => renderFormSummary(f)).join("")}
     </div>` : ""}
 

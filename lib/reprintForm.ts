@@ -1,5 +1,5 @@
 import type { ShelterForm } from "./types";
-import { AGENCY_SEAL_LOGO } from "./shelterInfo";
+import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE_DOTS } from "./shelterInfo";
 import { printDoorKnocker } from "@/app/forms/DoorKnockerForm";
 import { printRabiesQuarantine } from "@/app/forms/RabiesQuarantineForm";
 import { printRFC } from "@/app/forms/RequestForComplianceForm";
@@ -62,9 +62,9 @@ const FORM_TYPE_LABELS: Record<string, string> = {
 
 export function emailShelterForm(form: ShelterForm, toEmail?: string): void {
   const label = FORM_TYPE_LABELS[form.form_type] || form.form_type.replace(/_/g, " ");
-  const subject = encodeURIComponent(`Morgan County Animal Services — ${label}`);
+  const subject = encodeURIComponent(`${AGENCY_NAME} — ${label}`);
   const body = encodeURIComponent(
-    `Please find the attached ${label} from Morgan County Animal Services.\n\nContact us at 706.752.1195 with any questions.\n\nThank you,\nMorgan County Animal Services`
+    `Please find the attached ${label} from ${AGENCY_NAME}.\n\nContact us at ${AGENCY_PHONE_DOTS} with any questions.\n\nThank you,\n${AGENCY_NAME}`
   );
   const to = toEmail ? encodeURIComponent(toEmail) : "";
   window.open(`mailto:${to}?subject=${subject}&body=${body}`, "_blank");

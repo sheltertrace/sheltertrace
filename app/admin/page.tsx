@@ -7,6 +7,7 @@ import { genId, today } from "@/lib/utils";
 import { fetchAnimals, fetchCalls, fetchPeople, fetchCourtSettings, saveCourtSettings, fetchShelterSettings, saveShelterSettings } from "@/lib/data";
 import type { Animal, DispatchCall, Person } from "@/lib/types";
 import { useAuth } from "@/app/providers";
+import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE_DOTS, COURT_MAGISTRATE, COURT_STATE } from "@/lib/shelterInfo";
 
 const PRESET_ROLES = ["Administrator", "Shelter Manager", "Officer", "Dispatcher", "Vet Tech", "Front Desk", "Court Clerk", "Judge", "Volunteer", "Veterinarian", "Adoption Counselor", "Animal Care Tech", "Field Officer", "Volunteer Coordinator"];
 const ALL_PERMS = ["animals", "dispatch", "medical", "people", "adoptions", "foster", "kennels", "receipts", "citations", "court", "reports", "volunteers", "admin"];
@@ -95,7 +96,7 @@ export default function AdminPage() {
   const [courtSaved, setCourtSaved] = useState(false);
 
   // Shelter settings state
-  const [shelterSettings, setShelterSettings] = useState<ShelterSettings>({ shelter_name: "Morgan County Animal Services", shelter_address: "2392 Athens Hwy, Madison, GA 30650", shelter_phone: "706.752.1195", gda_license_number: "" });
+  const [shelterSettings, setShelterSettings] = useState<ShelterSettings>({ shelter_name: AGENCY_NAME, shelter_address: AGENCY_ADDRESS, shelter_phone: AGENCY_PHONE_DOTS, gda_license_number: "" });
   const [shelterSaving, setShelterSaving] = useState(false);
   const [shelterSaved, setShelterSaved] = useState(false);
 
@@ -336,9 +337,9 @@ export default function AdminPage() {
           <div className="card" style={{ padding: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--teal)" }}>🏛️ Shelter Identity</div>
             {([
-              ["Shelter Name", "shelter_name", "text", "Morgan County Animal Services"],
-              ["Shelter Address", "shelter_address", "text", "2392 Athens Hwy, Madison, GA 30650"],
-              ["Shelter Phone", "shelter_phone", "text", "706.752.1195"],
+              ["Shelter Name", "shelter_name", "text", AGENCY_NAME],
+              ["Shelter Address", "shelter_address", "text", AGENCY_ADDRESS],
+              ["Shelter Phone", "shelter_phone", "text", AGENCY_PHONE_DOTS],
             ] as const).map(([label, key, type, placeholder]) => (
               <div className="form-group" key={key}>
                 <label className="form-label">{label}</label>
@@ -372,7 +373,7 @@ export default function AdminPage() {
           <div className="card" style={{ padding: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 14, color: "var(--teal)" }}>📧 Court Email Addresses</div>
             <div className="form-group">
-              <label className="form-label">Morgan County Magistrate Court Email</label>
+              <label className="form-label">{COURT_MAGISTRATE} Email</label>
               <input
                 className="form-input"
                 type="email"
@@ -380,10 +381,10 @@ export default function AdminPage() {
                 value={courtSettings.magistrate_email}
                 onChange={(e) => setCourtSettings((s) => ({ ...s, magistrate_email: e.target.value }))}
               />
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>149 E Jefferson St, Madison, GA 30650</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>149 E Jefferson St, Madison, GA 30650</div>  {/* production address */}
             </div>
             <div className="form-group">
-              <label className="form-label">Morgan County State Court Email</label>
+              <label className="form-label">{COURT_STATE} Email</label>
               <input
                 className="form-input"
                 type="email"

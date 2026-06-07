@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useMemo } from "react";
 import { createForm, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -6,47 +6,48 @@ import { useAuth } from "@/app/providers";
 import type { ShelterForm, Person, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_PHONE_DOTS, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
 
 const MCAS_BLUE = "#0f2942";
 
 const CONFIDENTIALITY_TEXT = `VOLUNTEER CONFIDENTIALITY AGREEMENT
 
-This Confidentiality Agreement ("Agreement") is entered into between Morgan County Animal Services ("MCAS"), a division of Morgan County, Georgia, and the undersigned volunteer ("Volunteer").
+This Confidentiality Agreement ("Agreement") is entered into between ${AGENCY_NAME} ("${AGENCY_SHORT}"), a division of ${COUNTY_STATE}, and the undersigned volunteer ("Volunteer").
 
-WHEREAS, in the course of Volunteer's service with MCAS, Volunteer may have access to confidential and sensitive information; and
+WHEREAS, in the course of Volunteer's service with ${AGENCY_SHORT}, Volunteer may have access to confidential and sensitive information; and
 
-WHEREAS, MCAS desires to protect such information from unauthorized disclosure;
+WHEREAS, ${AGENCY_SHORT} desires to protect such information from unauthorized disclosure;
 
-NOW, THEREFORE, in consideration of being permitted to serve as a volunteer with MCAS, and other good and valuable consideration, the parties agree as follows:
+NOW, THEREFORE, in consideration of being permitted to serve as a volunteer with ${AGENCY_SHORT}, and other good and valuable consideration, the parties agree as follows:
 
 1. DEFINITION OF CONFIDENTIAL INFORMATION. "Confidential Information" includes, but is not limited to:
-   a) Information about animals in MCAS custody, including medical history, behavior records, and case histories;
-   b) Information about individuals who interact with MCAS, including adopters, owners, complainants, and witnesses;
-   c) Personnel information about MCAS staff and other volunteers;
-   d) Operational procedures, protocols, and internal policies of MCAS;
+   a) Information about animals in ${AGENCY_SHORT} custody, including medical history, behavior records, and case histories;
+   b) Information about individuals who interact with ${AGENCY_SHORT}, including adopters, owners, complainants, and witnesses;
+   c) Personnel information about ${AGENCY_SHORT} staff and other volunteers;
+   d) Operational procedures, protocols, and internal policies of ${AGENCY_SHORT};
    e) Legal matters, pending investigations, or law enforcement activities;
-   f) Financial information related to MCAS operations;
-   g) Any other information designated as confidential by MCAS staff.
+   f) Financial information related to ${AGENCY_SHORT} operations;
+   g) Any other information designated as confidential by ${AGENCY_SHORT} staff.
 
 2. OBLIGATIONS OF VOLUNTEER. Volunteer agrees to:
    a) Hold all Confidential Information in strict confidence;
    b) Not disclose any Confidential Information to any unauthorized person, including but not limited to family members, friends, acquaintances, or other volunteers who do not have a demonstrated need to know;
    c) Not use Confidential Information for any personal benefit or the benefit of any third party;
-   d) Not post, publish, or otherwise share Confidential Information on social media platforms, websites, blogs, or any other public medium, including photographs, videos, or other media taken at MCAS;
+   d) Not post, publish, or otherwise share Confidential Information on social media platforms, websites, blogs, or any other public medium, including photographs, videos, or other media taken at ${AGENCY_SHORT};
    e) Access Confidential Information only to the extent necessary to perform volunteer duties;
-   f) Report any known or suspected unauthorized disclosure of Confidential Information to MCAS management immediately.
+   f) Report any known or suspected unauthorized disclosure of Confidential Information to ${AGENCY_SHORT} management immediately.
 
-3. MEDIA AND PHOTOGRAPHY. Volunteer understands that photographing or recording animals, clients, staff, or MCAS facilities without explicit permission from MCAS management is prohibited. Any media created with MCAS authorization shall remain the property of MCAS and may not be used for personal gain or posted publicly without written permission.
+3. MEDIA AND PHOTOGRAPHY. Volunteer understands that photographing or recording animals, clients, staff, or ${AGENCY_SHORT} facilities without explicit permission from ${AGENCY_SHORT} management is prohibited. Any media created with ${AGENCY_SHORT} authorization shall remain the property of ${AGENCY_SHORT} and may not be used for personal gain or posted publicly without written permission.
 
-4. SOCIAL MEDIA. Volunteer shall not post on social media any information about specific animals in MCAS custody, ongoing cases or investigations, individuals who interact with MCAS, or any other information that could identify MCAS clients, staff, or operations, without prior written approval from MCAS management.
+4. SOCIAL MEDIA. Volunteer shall not post on social media any information about specific animals in ${AGENCY_SHORT} custody, ongoing cases or investigations, individuals who interact with ${AGENCY_SHORT}, or any other information that could identify ${AGENCY_SHORT} clients, staff, or operations, without prior written approval from ${AGENCY_SHORT} management.
 
-5. RETURN OF MATERIALS. Upon conclusion of volunteer service, Volunteer agrees to promptly return to MCAS all documents, records, and materials containing Confidential Information, in whatever form, that are in Volunteer's possession or control.
+5. RETURN OF MATERIALS. Upon conclusion of volunteer service, Volunteer agrees to promptly return to ${AGENCY_SHORT} all documents, records, and materials containing Confidential Information, in whatever form, that are in Volunteer's possession or control.
 
-6. SURVIVAL. The obligations set forth in this Agreement shall survive the termination or expiration of Volunteer's service with MCAS and shall continue indefinitely.
+6. SURVIVAL. The obligations set forth in this Agreement shall survive the termination or expiration of Volunteer's service with ${AGENCY_SHORT} and shall continue indefinitely.
 
 7. CONSEQUENCES OF BREACH. Volunteer understands that any violation of this Agreement may result in:
    a) Immediate termination of volunteer service;
-   b) Legal action by Morgan County, including claims for damages;
+   b) Legal action by ${COUNTY_NAME}, including claims for damages;
    c) Referral to appropriate authorities if the breach involves criminal conduct.
 
 8. ENTIRE AGREEMENT. This Agreement constitutes the entire agreement between the parties with respect to the subject matter hereof and supersedes all prior agreements, representations, and understandings.
@@ -81,7 +82,7 @@ export function printVolunteerConfidentiality(d: Record<string, unknown>) {
   .sigblock{display:inline-block;vertical-align:top;margin-right:30px;margin-bottom:16px}
   @media print{body{padding:14px}}</style></head><body>
   <h1>Volunteer Confidentiality Agreement</h1>
-  <div class="sub">Morgan County Animal Services · 2392 Athens Hwy, Madison, GA 30650 · (706) 752-1195</div>
+  <div class="sub">${AGENCY_NAME} · ${AGENCY_ADDRESS} · ${AGENCY_PHONE}</div>
   ${sh("Volunteer")}
   <div>${fl("Volunteer Name", `${d.first_name || ""} ${d.last_name || ""}`.trim(), 220)}${fl("Date", d.agreement_date, 110)}</div>
   ${sh("Agreement")}
@@ -184,7 +185,7 @@ export default function VolunteerConfidentialityForm({ onSave, onClose, prefill 
         <div className="modal-header">
           <div>
             <div className="modal-title">🔒 Volunteer Confidentiality Agreement</div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>Morgan County Animal Services</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>${AGENCY_NAME}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>

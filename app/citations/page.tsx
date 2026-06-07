@@ -7,14 +7,14 @@ import DispositionModal, { CitationStatusBadge, CITATION_STATUSES } from "./Disp
 import { fetchCitations, fetchCalls, fetchCourtSettings, markCitationNotified, markCitationEmailSent } from "@/lib/data";
 import type { Citation, CourtSettings } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, COURT_MAGISTRATE, COURT_STATE } from "@/lib/shelterInfo";
+import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, AGENCY_SHORT, COURT_MAGISTRATE, COURT_MAGISTRATE_ADDR, COURT_STATE, COURT_STATE_ADDR } from "@/lib/shelterInfo";
 import { openCourtEmail } from "@/lib/courtEmail";
 import { useAuth } from "@/app/providers";
 
 function printCitation(cit: Citation) {
   const w = window.open("", "_blank", "width=700,height=900");
   if (!w) return;
-  const courtAddr = cit.court_type === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650";
+  const courtAddr = cit.court_type === "Magistrate" ? COURT_MAGISTRATE_ADDR : COURT_STATE_ADDR;
   const formalName = cit.violator_last
     ? [cit.violator_last, (cit.violator_first || "") + (cit.violator_middle ? ` ${cit.violator_middle.charAt(0).toUpperCase()}.` : "")].filter(Boolean).join(", ")
     : (cit.violator_name || "—");
@@ -35,9 +35,9 @@ function printCitation(cit: Citation) {
       @media print{body{padding:12px}}
     </style></head>
     <body>
-      <!-- MCAS Header -->
+      <!-- ${AGENCY_SHORT} Header -->
       <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:10px">
-        <img src="${AGENCY_SEAL_LOGO}" alt="MCAS Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
+        <img src="${AGENCY_SEAL_LOGO}" alt="${AGENCY_SHORT} Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
         <div style="flex:1">
           <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px">${AGENCY_NAME}</div>
           <div style="font-size:11px;margin-top:2px">${AGENCY_ADDRESS}</div>
@@ -219,8 +219,8 @@ export default function CitationsPage() {
     setEmailResult(null);
     try {
       const courtAddr = cit.court_type === "Magistrate"
-        ? "149 E Jefferson St, Madison, GA 30650"
-        : "118 N Main St, Madison, GA 30650";
+        ? COURT_MAGISTRATE_ADDR
+        : COURT_STATE_ADDR;
       const courtName = cit.court_type === "Magistrate"
         ? COURT_MAGISTRATE
         : COURT_STATE;

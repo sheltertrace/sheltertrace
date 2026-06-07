@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchPeople, fetchShelterSettings } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -7,6 +7,7 @@ import type { ShelterForm, Officer, Person, ShelterSettings, FormPreFill } from 
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME } from "@/lib/shelterInfo";
 
 const AGREEMENT_POINTS = [
   "This form must be maintained at the animal shelter's licensed address.",
@@ -102,7 +103,7 @@ export default function GdaFosterAgreementForm({ onSave, onClose, prefill }: Pro
   const { user } = useAuth();
   const defaultLhPrint = user ? `${user.firstName} ${user.lastName}`.trim() : "";
 
-  const [settings, setSettings] = useState<ShelterSettings>({ shelter_name: "Morgan County Animal Services", shelter_address: "", shelter_phone: "", gda_license_number: "" });
+  const [settings, setSettings] = useState<ShelterSettings>({ shelter_name: AGENCY_NAME, shelter_address: "", shelter_phone: "", gda_license_number: "" });
   const [effectiveDate, setEffectiveDate] = useState(today());
   const [fosterName, setFosterName] = useState("");
   const [fosterAddress, setFosterAddress] = useState("");

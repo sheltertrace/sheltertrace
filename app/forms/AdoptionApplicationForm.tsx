@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchPeople, fetchAnimals } from "@/lib/data";
 import { today } from "@/lib/utils";
@@ -7,6 +7,7 @@ import type { ShelterForm, Person, Animal, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_PHONE_DOTS, COUNTY_NAME } from "@/lib/shelterInfo";
 
 const MCAS_BLUE = "#1a3a6b";
 
@@ -15,11 +16,11 @@ const AGREEMENT_ITEMS = [
   "I will provide this animal with adequate food, water, shelter, and veterinary care at all times.",
   "I will keep this animal confined or on a leash as required by local ordinance.",
   "I understand that this animal must be licensed and vaccinated for rabies as required by law.",
-  "I will not transfer ownership of this animal without prior written notification to MCAS.",
-  "I agree to allow MCAS personnel to conduct a follow-up home visit within 30 days of adoption.",
-  "If I am unable to keep this animal for any reason, I agree to return the animal to MCAS.",
+  `I will not transfer ownership of this animal without prior written notification to ${AGENCY_SHORT}.`,
+  `I agree to allow ${AGENCY_SHORT} personnel to conduct a follow-up home visit within 30 days of adoption.`,
+  `If I am unable to keep this animal for any reason, I agree to return the animal to ${AGENCY_SHORT}.`,
   "I understand that providing false information on this application is grounds for immediate revocation of the adoption.",
-  "I release MCAS and Morgan County from any liability arising from the behavior of this animal after adoption.",
+  `I release ${AGENCY_SHORT} and ${COUNTY_NAME} from any liability arising from the behavior of this animal after adoption.`,
   "I have read and agree to all terms and conditions of this adoption agreement.",
 ];
 
@@ -54,7 +55,7 @@ export function printApplication(d: Record<string, unknown>) {
 
   <!-- PAGE 1 -->
   <h1>Pet Adoption Application</h1>
-  <div class="sub">Morgan County Animal Services &nbsp;|&nbsp; ${(d.application_date as string) || ""}</div>
+  <div class="sub">${AGENCY_NAME} &nbsp;|&nbsp; ${(d.application_date as string) || ""}</div>
 
   ${sectionHead("Animal Information")}
   <div>
@@ -117,7 +118,7 @@ export function printApplication(d: Record<string, unknown>) {
   <!-- PAGE 2 -->
   <div class="page2">
   <h1>Adoption Agreement</h1>
-  <div class="sub">Morgan County Animal Services</div>
+  <div class="sub">${AGENCY_NAME}</div>
 
   ${sectionHead("Terms and Conditions")}
   <ol style="margin:0;padding-left:16px">
@@ -153,7 +154,7 @@ export function printApplication(d: Record<string, unknown>) {
       <div style="font-size:8.5px">${fl("Date", d.sig_date as string, 100)}</div>
     </div>
     <div>
-      <div style="font-size:9px;font-weight:700;margin-bottom:4px">MCAS STAFF SIGNATURE</div>
+      <div style="font-size:9px;font-weight:700;margin-bottom:4px">${AGENCY_SHORT} STAFF SIGNATURE</div>
       ${sig("staff_sig")}
       <div style="font-size:8.5px;margin-top:3px">${fl("Printed Name", d.staff_print as string, 180)}</div>
       <div style="font-size:8.5px">${fl("Date", d.sig_date as string, 100)}</div>
@@ -380,7 +381,7 @@ export default function AdoptionApplicationForm({ onSave, onClose, prefill }: Pr
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 17, color: MCAS_BLUE }}>Pet Adoption Application</div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>Morgan County Animal Services</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>{AGENCY_NAME}</div>
           </div>
           <button onClick={onClose} style={{ background: "none", border: "none", fontSize: 22, cursor: "pointer", color: "var(--text-secondary)" }}>✕</button>
         </div>
@@ -587,7 +588,7 @@ export default function AdoptionApplicationForm({ onSave, onClose, prefill }: Pr
           </div>
           <div>
             <SignaturePad
-              label="MCAS Staff Signature"
+              label={`${AGENCY_SHORT} Staff Signature`}
               value={staffSig?.value || null}
               timestamp={staffSig?.timestamp || null}
               onAccept={(val, ts) => setStaffSig({ value: val, timestamp: ts })}

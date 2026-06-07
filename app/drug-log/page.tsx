@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -15,6 +15,7 @@ import {
 } from "@/lib/data";
 import type { DrugInventory, EuthanasiaLog, DrugReconciliation } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
+import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_PHONE_DOTS, AGENCY_SHORT, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
 
 // ── Signature adapter ─────────────────────────────────────────────────────────
 // The existing SignaturePad uses { value, timestamp, onAccept, onClear }
@@ -75,7 +76,7 @@ function printLogEntry(entry: EuthanasiaLog) {
   <div class="watermark">CONTROLLED SUBSTANCE RECORD — CONFIDENTIAL</div>
   <div class="header">
     <div>
-      <h1>Morgan County Animal Services</h1>
+      <h1>${AGENCY_NAME}</h1>
       <div>Controlled Substance Euthanasia Log</div>
       <div style="margin-top:4px;font-size:11px;">GDA License · DEA Compliant</div>
     </div>
@@ -126,7 +127,7 @@ function printLogEntry(entry: EuthanasiaLog) {
     </div>
   </div>
   <div style="margin-top:30px;font-size:10px;color:#666;border-top:1px solid #ccc;padding-top:8px;">
-    Morgan County Animal Services · CONTROLLED SUBSTANCE RECORD — CONFIDENTIAL · Generated ${new Date().toLocaleString()}
+    ${AGENCY_NAME} · CONTROLLED SUBSTANCE RECORD — CONFIDENTIAL · Generated ${new Date().toLocaleString()}
   </div>
   <script>window.onload=function(){window.print();}</script>
   </body></html>`);
@@ -149,7 +150,7 @@ function printReport(title: string, html: string) {
   </style></head><body>
   <div class="watermark">CONTROLLED SUBSTANCE RECORD — CONFIDENTIAL</div>
   <div class="header">
-    <div><h1>Morgan County Animal Services</h1><div>${title}</div></div>
+    <div><h1>${AGENCY_NAME}</h1><div>${title}</div></div>
     <div style="text-align:right;font-size:11px;">Generated: ${new Date().toLocaleString()}</div>
   </div>
   ${html}

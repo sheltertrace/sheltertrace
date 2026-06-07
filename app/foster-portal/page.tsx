@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabasePublic } from "@/lib/supabase-public";
 import type { Person, FosterPlacement, FosterUpdate, Animal } from "@/lib/types";
 import { today } from "@/lib/utils";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE } from "@/lib/shelterInfo";
 
 // ── Tiny helper matching lib/data's safeArray (no DB call) ────────────────────
 function safeArray(v: unknown): string[] {
@@ -191,7 +192,7 @@ function AnimalCard({
 
             {updateStatus === "Emergency" && (
               <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 12px", marginBottom: 10, fontWeight: 700, color: "#b91c1c", fontSize: 13 }}>
-                🚨 For emergencies, please also call MCAS immediately at <a href="tel:+17067521195" style={{ color: "#b91c1c" }}>(706) 752-1195</a>
+                🚨 For emergencies, please also call ${AGENCY_SHORT} immediately at <a href="tel:+15550009999" style={{ color: "#b91c1c" }}>${AGENCY_PHONE}</a>
               </div>
             )}
 
@@ -314,7 +315,7 @@ export default function FosterPortalPage() {
         .limit(1);
       const found = (rows as Person[] | null)?.[0] ?? null;
       if (!found) { setAuthError("ID not found. Check your PID card and try again."); return; }
-      if (found.role !== "Foster Parent") { setAuthError("This ID is not registered as a foster parent account. Contact MCAS if this is an error."); return; }
+      if (found.role !== "Foster Parent") { setAuthError("This ID is not registered as a foster parent account. Contact ${AGENCY_SHORT} if this is an error."); return; }
       if (found.last_name.toLowerCase() !== lastNameInput.trim().toLowerCase()) { setAuthError("Last name does not match. Please try again."); return; }
       const s: PortalSession = { personId: found.id, pid: normalized, firstName: found.first_name, lastName: found.last_name };
       localStorage.setItem("foster_portal_session", JSON.stringify(s));
@@ -355,9 +356,9 @@ export default function FosterPortalPage() {
   if (authState === "login") {
     return (
       <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: 24, background: "#0f2942", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
-        <img src="/logo.jpg" alt="MCAS" style={{ height: 60, width: 60, objectFit: "contain", background: "#ececec", borderRadius: 12, padding: 4, marginBottom: 16 }} />
+        <img src="/logo.jpg" alt="${AGENCY_SHORT}" style={{ height: 60, width: 60, objectFit: "contain", background: "#ececec", borderRadius: 12, padding: 4, marginBottom: 16 }} />
         <div style={{ color: "#fff", fontSize: 20, fontWeight: 800, marginBottom: 4 }}>Foster Parent Portal</div>
-        <div style={{ color: "#7fc6c6", fontSize: 14, marginBottom: 28 }}>Morgan County Animal Services</div>
+        <div style={{ color: "#7fc6c6", fontSize: 14, marginBottom: 28 }}>${AGENCY_NAME}</div>
         <form onSubmit={handleLogin} style={{ background: "#fff", borderRadius: 14, padding: "28px 24px", width: "100%", maxWidth: 380, boxShadow: "0 8px 24px rgba(0,0,0,0.2)" }}>
           <div style={{ marginBottom: 14 }}>
             <label style={{ display: "block", fontSize: 13, fontWeight: 600, color: "#374151", marginBottom: 4 }}>Foster Parent ID (PID)</label>
@@ -372,7 +373,7 @@ export default function FosterPortalPage() {
             {authLoading ? "Signing in…" : "Sign In"}
           </button>
           <div style={{ textAlign: "center", marginTop: 14, fontSize: 12, color: "#94a3b8" }}>
-            Your PID is on your approval letter. Questions? Call <a href="tel:+17067521195" style={{ color: "#0d9488" }}>(706) 752-1195</a>
+            Your PID is on your approval letter. Questions? Call <a href="tel:+15550009999" style={{ color: "#0d9488" }}>${AGENCY_PHONE}</a>
           </div>
         </form>
         <div style={{ marginTop: 20, fontSize: 13, color: "#64748b" }}>
@@ -391,7 +392,7 @@ export default function FosterPortalPage() {
       <header style={{ background: "#0f2942", padding: "0 16px", position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ maxWidth: 800, margin: "0 auto", height: 60, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <img src="/logo.jpg" alt="MCAS" style={{ height: 36, width: 36, objectFit: "contain", background: "#ececec", borderRadius: 7, padding: 2 }} />
+            <img src="/logo.jpg" alt="${AGENCY_SHORT}" style={{ height: 36, width: 36, objectFit: "contain", background: "#ececec", borderRadius: 7, padding: 2 }} />
             <div>
               <div style={{ color: "#fff", fontWeight: 800, fontSize: 14, lineHeight: 1.2 }}>Foster Portal</div>
               <div style={{ color: "#7fc6c6", fontSize: 11 }}>Welcome, {session?.firstName}!</div>
@@ -403,7 +404,7 @@ export default function FosterPortalPage() {
 
       {/* Emergency banner */}
       <div style={{ background: "#dc2626", color: "#fff", textAlign: "center", padding: "10px 16px", fontSize: 13, fontWeight: 600 }}>
-        🚨 Foster animal emergency? Call MCAS immediately: <a href="tel:+17067521195" style={{ color: "#fca5a5", fontWeight: 800 }}>(706) 752-1195</a>
+        🚨 Foster animal emergency? Call ${AGENCY_SHORT} immediately: <a href="tel:+15550009999" style={{ color: "#fca5a5", fontWeight: 800 }}>${AGENCY_PHONE}</a>
       </div>
 
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "20px 16px 60px" }}>
@@ -427,7 +428,7 @@ export default function FosterPortalPage() {
             <div style={{ textAlign: "center", padding: "60px 0", color: "#64748b" }}>
               <div style={{ fontSize: 48, marginBottom: 14 }}>🐾</div>
               <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 8 }}>No animals in your care right now</div>
-              <div style={{ fontSize: 14 }}>When MCAS places an animal with you, it will appear here.</div>
+              <div style={{ fontSize: 14 }}>When ${AGENCY_SHORT} places an animal with you, it will appear here.</div>
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))", gap: 20 }}>
@@ -477,7 +478,7 @@ export default function FosterPortalPage() {
           <div style={{ maxWidth: 480, margin: "0 auto" }}>
             <div style={{ background: "#fff", borderRadius: 12, border: "1px solid #e2e8f0", padding: "20px 22px" }}>
               <div style={{ fontWeight: 800, fontSize: 16, color: "#0f2942", marginBottom: 4 }}>Request Supplies</div>
-              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>Select any supplies you need for your foster animals. MCAS will prepare them for pickup or drop-off.</div>
+              <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>Select any supplies you need for your foster animals. ${AGENCY_SHORT} will prepare them for pickup or drop-off.</div>
 
               <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 8 }}>What do you need?</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
@@ -500,7 +501,7 @@ export default function FosterPortalPage() {
               <button onClick={handleSupplyRequest} disabled={supplySubmitting || supplyItems.length === 0} style={{ width: "100%", padding: "12px 0", border: "none", borderRadius: 8, background: supplySubmitting || supplyItems.length === 0 ? "#9ca3af" : "#0d9488", color: "#fff", fontWeight: 800, fontSize: 15, cursor: supplySubmitting || supplyItems.length === 0 ? "not-allowed" : "pointer" }}>
                 {supplySubmitting ? "Submitting…" : "Submit Request"}
               </button>
-              {supplySubmitted && <div style={{ textAlign: "center", color: "#16a34a", fontWeight: 700, fontSize: 14, marginTop: 12 }}>✓ Request submitted! MCAS will be in touch.</div>}
+              {supplySubmitted && <div style={{ textAlign: "center", color: "#16a34a", fontWeight: 700, fontSize: 14, marginTop: 12 }}>✓ Request submitted! ${AGENCY_SHORT} will be in touch.</div>}
             </div>
           </div>
         )}

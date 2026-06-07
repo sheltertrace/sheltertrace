@@ -1,10 +1,11 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useMemo } from "react";
 import { createForm, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
 import type { ShelterForm, Person, FormPreFill } from "@/lib/types";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_PHONE_DOTS, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
 
 const MCAS_BLUE = "#0f2942";
 
@@ -50,7 +51,7 @@ export function printVolunteerApplication(d: Record<string, unknown>) {
   .sub{font-size:9px;color:#444;margin-bottom:12px}
   @media print{body{padding:14px}}</style></head><body>
   <h1>Volunteer Application</h1>
-  <div class="sub">Morgan County Animal Services · 2392 Athens Hwy, Madison, GA 30650 · (706) 752-1195 · Date: ${d.application_date as string || ""}</div>
+  <div class="sub">${AGENCY_NAME} · ${AGENCY_ADDRESS} · ${AGENCY_PHONE} · Date: ${d.application_date as string || ""}</div>
   ${sh("Personal Information")}
   <div>${fl("First Name", d.first_name)}${fl("Last Name", d.last_name)}${fl("Date of Birth", d.dob)}${fl("Age", d.age, 60)}</div>
   <div>${fl("Street Address", d.address, 240)}${fl("City", d.city, 120)}${fl("State", d.state, 40)}${fl("Zip", d.zip, 70)}</div>
@@ -63,7 +64,7 @@ export function printVolunteerApplication(d: Record<string, unknown>) {
   <div style="margin-bottom:6px"><strong style="font-size:10px">Have you been convicted of a felony?</strong> &nbsp; ${radio("Yes", d.felony_conviction)}${radio("No", d.felony_conviction)}</div>
   ${d.felony_conviction === "Yes" ? `<div style="margin-bottom:8px">${fl("Felony Details", d.felony_details, 400)}</div>` : ""}
   ${sh("Volunteer Information")}
-  ${ta("Why are you interested in volunteering at MCAS?", d.why_volunteer)}
+  ${ta("Why are you interested in volunteering at ${AGENCY_SHORT}?", d.why_volunteer)}
   ${ta("Previous animal experience (pets, work, etc.)", d.animal_experience)}
   ${ta("Certifications, licenses, or relevant degrees", d.certifications)}
   ${ta("Allergies or physical/mental limitations", d.limitations)}
@@ -208,7 +209,7 @@ export default function VolunteerApplicationForm({ onSave, onClose, prefill }: P
         <div className="modal-header">
           <div>
             <div className="modal-title">🐾 Volunteer Application</div>
-            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>Morgan County Animal Services</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>${AGENCY_NAME}</div>
           </div>
           <button className="btn btn-ghost btn-sm" onClick={onClose}>✕</button>
         </div>
@@ -311,7 +312,7 @@ export default function VolunteerApplicationForm({ onSave, onClose, prefill }: P
           {/* Volunteer info */}
           <div style={sectionHead}>Volunteer Information</div>
           <div style={{ marginBottom: 12 }}>
-            <label style={labelStyle}>Why are you interested in volunteering at MCAS?</label>
+            <label style={labelStyle}>Why are you interested in volunteering at ${AGENCY_SHORT}?</label>
             <textarea style={taStyle} value={whyVolunteer} onChange={(e) => setWhyVolunteer(e.target.value)} />
           </div>
           <div style={{ marginBottom: 12 }}>

@@ -4,7 +4,7 @@ import { AuthProvider } from "./providers";
 
 export const metadata: Metadata = {
   title: "ShelterTrace",
-  description: "Shelter Data Systems — Morgan County Georgia Animal Services",
+  description: "Shelter Data Systems — Animal Shelter Management Software",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

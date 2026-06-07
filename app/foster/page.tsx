@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Link from "next/link";
@@ -14,6 +14,7 @@ import type { Animal, Person, FosterPlacement, FosterCheckin, FosterApplication,
 import { today, formatDate } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE } from "@/lib/shelterInfo";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FOSTER_REASONS = ["Medical recovery","Behavioral","Underage / Bottle baby","Space","Socialization","Other"];
@@ -45,8 +46,8 @@ function printFosterAgreement(placement: FosterPlacement, animal?: Animal, paren
   .sig-line{border-bottom:1px solid #333;margin-bottom:4px;height:40px}
   .sig-label{font-size:9pt;color:#555}
 </style></head><body>
-<h1>Morgan County Animal Services</h1>
-<div class="sub">2392 Athens Hwy, Madison, GA 30650 · (706) 752-1195 · Foster Care Agreement</div>
+<h1>${AGENCY_NAME}</h1>
+<div class="sub">${AGENCY_ADDRESS} · ${AGENCY_PHONE} · Foster Care Agreement</div>
 <table>
   <tr><th colspan="2">Foster Parent Information</th></tr>
   <tr><td>Name</td><td><strong>${placement.foster_parent_name ?? "—"}</strong></td></tr>
@@ -76,18 +77,18 @@ ${placement.medication_schedule ? `<table><tr><th>Medication Schedule</th></tr><
     <li>Provide proper food, water, shelter, veterinary care, and humane treatment at all times.</li>
     <li>Keep the animal safe and secured; not allow the animal to roam freely outdoors unsupervised.</li>
     <li>Not adopt out, sell, give away, trade, or transfer the animal to any other person or entity.</li>
-    <li>Return the animal to MCAS immediately upon request or at the end of the foster period.</li>
-    <li>Contact MCAS immediately at (706) 752-1195 if the animal becomes sick, injured, escapes, or dies.</li>
-    <li>Allow MCAS staff to conduct welfare checks and home visits.</li>
-    <li>Morgan County Animal Services retains full legal ownership throughout the foster period.</li>
+    <li>Return the animal to ${AGENCY_SHORT} immediately upon request or at the end of the foster period.</li>
+    <li>Contact ${AGENCY_SHORT} immediately at ${AGENCY_PHONE} if the animal becomes sick, injured, escapes, or dies.</li>
+    <li>Allow ${AGENCY_SHORT} staff to conduct welfare checks and home visits.</li>
+    <li>${AGENCY_NAME} retains full legal ownership throughout the foster period.</li>
     <li>The foster parent accepts responsibility for any damage caused by the animal to people or property.</li>
   </ol>
 </div>
 <div class="sig">
   <div class="sig-block"><div class="sig-line"></div><div class="sig-label">Foster Parent Signature &amp; Date</div></div>
-  <div class="sig-block"><div class="sig-line"></div><div class="sig-label">MCAS Representative Signature &amp; Date</div></div>
+  <div class="sig-block"><div class="sig-line"></div><div class="sig-label">${AGENCY_SHORT} Representative Signature &amp; Date</div></div>
 </div>
-<div style="margin-top:24px;font-size:9pt;color:#555;text-align:center">Morgan County Animal Services · 2392 Athens Hwy, Madison, GA 30650 · (706) 752-1195</div>
+<div style="margin-top:24px;font-size:9pt;color:#555;text-align:center">${AGENCY_NAME} · ${AGENCY_ADDRESS} · ${AGENCY_PHONE}</div>
 </body></html>`);
   w.document.close();
   setTimeout(() => w.print(), 400);

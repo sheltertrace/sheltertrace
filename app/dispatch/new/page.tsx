@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
@@ -73,7 +73,7 @@ const INIT: Phase1Data = {
   caller_anonymous: false, caller_person_id: "", caller: "",
   caller_first: "", caller_middle: "", caller_last: "", caller_phone: "",
   caller_address: "", caller_city: "", caller_state: "GA", caller_save: false,
-  address: "", city: "Morgan County", cross_street: "", location_notes: "",
+  address: "", city: "", cross_street: "", location_notes: "",
   assigned_officers: [], primary_officer_id: "",
 };
 

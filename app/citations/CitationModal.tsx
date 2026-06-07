@@ -4,7 +4,7 @@ import { createCitation, fetchCourtSettings, markCitationNotified } from "@/lib/
 import { today, nowTime, genCitationNumber } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
 import type { Citation, CourtSettings } from "@/lib/types";
-import { getCitableOrdinances, getOrdinances, COURT_MAGISTRATE, COURT_STATE, COUNTY_NAME } from "@/lib/shelterInfo";
+import { getCitableOrdinances, getOrdinances, COURT_MAGISTRATE, COURT_MAGISTRATE_ADDR, COURT_STATE, COURT_STATE_ADDR, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
 import SignaturePad from "@/components/ui/SignaturePad";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import { openCourtEmail } from "@/lib/courtEmail";
@@ -305,7 +305,7 @@ export default function CitationModal({ onSave, onClose }: Props) {
               </select>
             </F>
             <div style={{ fontSize: 11, color: "var(--text-secondary)", alignSelf: "flex-end", paddingBottom: 10 }}>
-              {courtType === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650"}
+              {courtType === "Magistrate" ? COURT_MAGISTRATE_ADDR : COURT_STATE_ADDR}
             </div>
             <F label="Court Date"><DateInput className="form-input" value={courtDate} onChange={(e) => setCourtDate(e.target.value)} /></F>
             <F label="Court Time"><input className="form-input" value={courtTime} onChange={(e) => setCourtTime(e.target.value)} placeholder="e.g. 9:00" /></F>
@@ -371,7 +371,7 @@ export default function CitationModal({ onSave, onClose }: Props) {
                   onClick={() => {
                     const w = window.open("", "_blank", "width=700,height=900");
                     if (!w) return;
-                    const courtAddr = issuedCitation.court_type === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650";
+                    const courtAddr = issuedCitation.court_type === "Magistrate" ? COURT_MAGISTRATE_ADDR : COURT_STATE_ADDR;
                     w.document.write(`<html><head><title>Citation ${issuedCitation.citation_number}</title><style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:serif;font-size:11px;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #000;padding:4px 6px}.s{margin:8px 0;font-weight:bold;font-size:11px;border-bottom:2px solid #000;padding-bottom:2px;text-transform:uppercase}@media print{body{padding:12px}}</style></head><body>
                       <div style="text-align:center;margin-bottom:10px"><strong style="font-size:14px">${AGENCY_NAME.toUpperCase()}</strong><br>${AGENCY_ADDRESS}<br><em>Uniform Citation, Summons, Accusation</em></div>
                       <div class="s">Citation #${issuedCitation.citation_number} — ${issuedCitation.date || ""}</div>
@@ -411,8 +411,8 @@ export default function CitationModal({ onSave, onClose }: Props) {
                       try {
                         const { markCitationEmailSent } = await import("@/lib/data");
                         const courtAddr = issuedCitation.court_type === "Magistrate"
-                          ? "149 E Jefferson St, Madison, GA 30650"
-                          : "118 N Main St, Madison, GA 30650";
+                          ? COURT_MAGISTRATE_ADDR
+                          : COURT_STATE_ADDR;
                         const courtName = issuedCitation.court_type === "Magistrate"
                           ? COURT_MAGISTRATE
                           : COURT_STATE;

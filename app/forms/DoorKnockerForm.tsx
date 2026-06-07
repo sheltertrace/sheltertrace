@@ -3,7 +3,7 @@ import { useState, useEffect } from "react";
 import { createForm, fetchOfficers } from "@/lib/data";
 import { today, nowTime } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
-import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
+import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_PHONE_DOTS, AGENCY_SHORT } from "@/lib/shelterInfo";
 import type { ShelterForm, Officer, FormPreFill } from "@/lib/types";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
 import DateInput from "@/components/ui/DateInput";
@@ -42,8 +42,8 @@ export function printDoorKnocker(data: Record<string, unknown>, logo: string) {
   <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:14px">
     <img src="${logo}" style="width:70px;height:70px;object-fit:contain;flex-shrink:0" />
     <div>
-      <div style="font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.5px">Morgan County Animal Services</div>
-      <div style="font-size:11px;margin-top:2px">2392 Athens Hwy Madison, GA 30650 &nbsp;|&nbsp; 706.752.1195</div>
+      <div style="font-size:15px;font-weight:900;text-transform:uppercase;letter-spacing:.5px">${AGENCY_NAME}</div>
+      <div style="font-size:11px;margin-top:2px">${AGENCY_ADDRESS} &nbsp;|&nbsp; ${AGENCY_PHONE_DOTS}</div>
       <div style="font-size:14px;font-weight:800;margin-top:6px;letter-spacing:.3px">DOOR KNOCKER NOTICE</div>
     </div>
   </div>
