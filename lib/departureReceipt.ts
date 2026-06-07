@@ -1,8 +1,9 @@
 ﻿import type { Animal, DepartureReceipt, Person } from "./types";
+import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "./shelterInfo";
 
-const MCAS_NAME    = "Morgan County Animal Services";
-const MCAS_ADDR    = "2392 Athens Hwy, Madison, GA 30650";
-const MCAS_PHONE   = "(706) 752-1195";
+const MCAS_NAME    = AGENCY_NAME;
+const MCAS_ADDR    = AGENCY_ADDRESS;
+const MCAS_PHONE   = AGENCY_PHONE;
 const MCAS_BLUE    = "#0f2942";
 
 export const DEPARTURE_STATUSES = new Set([

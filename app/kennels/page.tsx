@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { fetchAnimals, updateAnimal, fetchShelterConfig, saveShelterConfig, fetchMedical } from "@/lib/data";
 import type { Animal, ShelterRoom, MedicalRecord } from "@/lib/types";
+import { AGENCY_NAME, AGENCY_PHONE, AGENCY_ADDRESS } from "@/lib/shelterInfo";
 import { DEFAULT_SHELTER_CONFIG, STATUS_COLORS, BEHAVIOR_FLAGS, DIAGNOSTIC_TEST_TYPES } from "@/lib/constants";
 import { useAuth, useKennels } from "@/app/providers";
 import { useRouter } from "next/navigation";
@@ -62,7 +63,7 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
     <!-- Header -->
     <div style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;">
       <div>
-        <div style="font-size:15px;font-weight:800;letter-spacing:0.5px;">MORGAN COUNTY ANIMAL SERVICES</div>
+        <div style="font-size:15px;font-weight:800;letter-spacing:0.5px;">${AGENCY_NAME}</div>
         <div style="font-size:10px;color:#93c5fd;margin-top:2px;font-weight:500;">ShelterTrace · Shelter Data Systems</div>
       </div>
       <div style="background:#1a8a8a;padding:6px 18px;border-radius:5px;text-align:center;">

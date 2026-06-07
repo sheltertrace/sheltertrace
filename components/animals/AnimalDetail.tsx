@@ -13,6 +13,7 @@ import {
 import StaffSelect from "@/components/ui/StaffSelect";
 import { useKennels } from "@/app/providers";
 import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId, isImported } from "@/lib/utils";
+import { AGENCY_NAME } from "@/lib/shelterInfo";
 import AgeInput from "@/components/ui/AgeInput";
 import {
   updateAnimal, addAnimalNote, fetchAnimalNotes, createMedical, updateMedical,
@@ -460,7 +461,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     </head><body>
     <div style="width:7.5in;padding:0.2in;">
       <div style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;">
-        <div><div style="font-size:15px;font-weight:800;">MORGAN COUNTY ANIMAL SERVICES</div><div style="font-size:10px;color:#93c5fd;margin-top:2px;">ShelterTrace · Shelter Data Systems</div></div>
+        <div><div style="font-size:15px;font-weight:800;">${AGENCY_NAME.toUpperCase()}</div><div style="font-size:10px;color:#93c5fd;margin-top:2px;">ShelterTrace · Shelter Data Systems</div></div>
         <div style="background:#1a8a8a;padding:6px 18px;border-radius:5px;text-align:center;"><div style="font-size:9px;color:#99f6e4;font-weight:700;text-transform:uppercase;">Kennel</div><div style="font-size:24px;font-weight:900;">${kennel}</div></div>
       </div>
       ${animal.is_dangerous ? `<div style="background:#fee2e2;border:2px solid #dc2626;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;">🚨 DANGEROUS ANIMAL — HANDLE WITH EXTREME CAUTION</div>` : ""}

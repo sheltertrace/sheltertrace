@@ -9,6 +9,7 @@ import type { Citation, CourtSettings } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
 import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
 import { openCourtEmail } from "@/lib/courtEmail";
+import { AGENCY_NAME, AGENCY_ADDRESS } from "@/lib/shelterInfo";
 import { useAuth } from "@/app/providers";
 
 function printCitation(cit: Citation) {
@@ -39,8 +40,8 @@ function printCitation(cit: Citation) {
       <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:10px">
         <img src="${MCAS_SEAL_LOGO}" alt="MCAS Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
         <div style="flex:1">
-          <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px">Morgan County Animal Services</div>
-          <div style="font-size:11px;margin-top:2px">2392 Athens Hwy, Madison, GA 30650</div>
+          <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px">${AGENCY_NAME}</div>
+          <div style="font-size:11px;margin-top:2px">${AGENCY_ADDRESS}</div>
           <div style="font-size:11px;margin-top:1px">State of Georgia</div>
           <div style="font-size:12px;font-weight:700;margin-top:4px;font-style:italic">Uniform Citation, Summons, Accusation / Warning</div>
         </div>

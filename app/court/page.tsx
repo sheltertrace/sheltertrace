@@ -9,6 +9,7 @@ import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
 import { MORGAN_COUNTY_ORDINANCES } from "@/lib/constants";
 import DispositionModal, { CitationStatusBadge } from "@/app/citations/DispositionModal";
 import { openCourtEmail } from "@/lib/courtEmail";
+import { AGENCY_NAME, AGENCY_ADDRESS } from "@/lib/shelterInfo";
 
 export default function CourtPage() {
   const router = useRouter();
@@ -104,7 +105,7 @@ export default function CourtPage() {
     <h2>Original Charges</h2>
     ${renderViolationTable(Array.isArray(cit.violations) ? cit.violations : [])}
     <p style="margin:16px 0;font-size:12px;line-height:1.6">
-      The above-named subject was cited for violations of Morgan County Animal Services Chapter 10 Ordinances on
+      The above-named subject was cited for violations of ${AGENCY_NAME} Chapter 10 Ordinances on
       ${cit.date || "the date shown above"} and was ordered to appear before the ${cit.court_type || ""} Court of Morgan County, Georgia
       on ${cit.court_date || "the scheduled court date"}. Said subject failed to appear as ordered. You are hereby commanded
       to arrest the above-named subject and bring them before the Court without delay.
@@ -142,8 +143,8 @@ export default function CourtPage() {
     <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:14px">
       <img src="${MCAS_SEAL_LOGO}" alt="MCAS Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
       <div style="flex:1">
-        <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px">Morgan County Animal Services</div>
-        <div style="font-size:11px;margin-top:2px">2392 Athens Hwy, Madison, GA 30650 · State of Georgia</div>
+        <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px">${AGENCY_NAME}</div>
+        <div style="font-size:11px;margin-top:2px">${AGENCY_ADDRESS} · State of Georgia</div>
         <div style="font-size:13px;font-weight:700;margin-top:5px;font-style:italic">${subtitle}</div>
       </div>
     </div>`;
@@ -409,7 +410,7 @@ export default function CourtPage() {
       ${mcasHeader("Court Case Packet")}
       <div style="text-align:center;margin:28px 0 22px">
         <div style="font-size:26px;font-weight:900;letter-spacing:3px;text-transform:uppercase;border:3px solid #000;display:inline-block;padding:10px 28px">COURT CASE PACKET</div>
-        <div style="font-size:12px;margin-top:8px;color:#555">State of Georgia · Morgan County Animal Services</div>
+        <div style="font-size:12px;margin-top:8px;color:#555">State of Georgia · ${AGENCY_NAME}</div>
       </div>
       <table style="max-width:520px;margin:0 auto 20px">
         <tr><th>Citation #</th><td><b style="font-size:13px">${cit.citation_number || "—"}</b></td></tr>

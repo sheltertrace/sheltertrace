@@ -84,6 +84,8 @@ export function fmtDateUS(d?: string | null): string {
 
 // ── Shared print window ────────────────────────────────────────────────────────
 
+import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "./shelterInfo";
+
 const PRINT_CSS = `
   * { box-sizing: border-box; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
   body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #111; margin: 0.5in; }
@@ -121,8 +123,8 @@ export function printReport(
   w.document.write(`<!DOCTYPE html><html><head><title>${title}</title>
 <style>${PRINT_CSS}</style></head><body>
 <div class="mcas-hdr">
-  <h1>Morgan County Animal Services</h1>
-  <p class="sub">2392 Athens Hwy, Madison, GA 30650 · (706) 752-1195</p>
+  <h1>${AGENCY_NAME}</h1>
+  <p class="sub">${AGENCY_ADDRESS} · ${AGENCY_PHONE}</p>
   <h2>${title}</h2>
   <p class="sub">Period: ${dateRange}</p>
 </div>

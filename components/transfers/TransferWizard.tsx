@@ -6,6 +6,7 @@ import { today, formatDate, displayAge } from "@/lib/utils";
 import { getCurrentUser } from "@/lib/auth";
 import { BEHAVIOR_FLAGS } from "@/lib/constants";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_ADDRESS } from "@/lib/shelterInfo";
 
 interface Props {
   animals: Animal[];
@@ -62,7 +63,7 @@ export function printTransferReceipt(
       <div style="page-break-before:always;padding:0.5in;font-family:Arial,sans-serif;">
         <div style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;margin-bottom:0;">
           <div>
-            <div style="font-size:13px;font-weight:800;">MORGAN COUNTY ANIMAL SERVICES</div>
+            <div style="font-size:13px;font-weight:800;">${AGENCY_NAME.toUpperCase()}</div>
             <div style="font-size:9px;color:#93c5fd;">Animal Transfer Receipt · ${transfer.transfer_number}</div>
           </div>
           <div style="font-size:10px;color:#bfdbfe;">${a.name} (${a.id})</div>
@@ -143,8 +144,8 @@ body{background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:11px;}
   <!-- Header -->
   <div class="receipt-header" style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:flex-start;">
     <div>
-      <div style="font-size:15px;font-weight:900;letter-spacing:0.5px;">MORGAN COUNTY ANIMAL SERVICES</div>
-      <div style="font-size:9px;color:#93c5fd;margin-top:2px;">2392 Athens Hwy, Madison, GA 30650 · ShelterTrace · Shelter Data Systems</div>
+      <div style="font-size:15px;font-weight:900;letter-spacing:0.5px;">${AGENCY_NAME.toUpperCase()}</div>
+      <div style="font-size:9px;color:#93c5fd;margin-top:2px;">${AGENCY_ADDRESS} · ShelterTrace · Shelter Data Systems</div>
     </div>
     <div style="text-align:right;">
       <div style="font-size:10px;color:#bfdbfe;font-weight:700;letter-spacing:1px;">ANIMAL TRANSFER RECEIPT</div>
@@ -231,7 +232,7 @@ body{background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:11px;}
       <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:0.5px;color:#1e3a5f;border-bottom:2px solid #e2e8f0;padding-bottom:4px;margin-bottom:6px;">Terms and Conditions of Transfer</div>
       <div style="font-size:9px;color:#334155;line-height:1.55;">
         <div style="margin-bottom:4px;">1. The receiving organization accepts full responsibility for the care and welfare of the above animal(s) effective the date and time of this transfer.</div>
-        <div style="margin-bottom:4px;">2. The receiving organization agrees not to return the animal(s) to Morgan County Animal Services without prior written authorization from shelter management.</div>
+        <div style="margin-bottom:4px;">2. The receiving organization agrees not to return the animal(s) to ${AGENCY_NAME} without prior written authorization from shelter management.</div>
         <div>3. The receiving organization agrees to provide veterinary care as needed and to comply with all applicable state and local animal welfare regulations.</div>
       </div>
     </div>
@@ -240,7 +241,7 @@ body{background:#fff;font-family:Arial,Helvetica,sans-serif;font-size:11px;}
     <div class="signatures-section" style="border-top:2px solid #e2e8f0;padding-top:14px;">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
         <div>
-          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;margin-bottom:22px;">Transferring Officer — Morgan County Animal Services</div>
+          <div style="font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;margin-bottom:22px;">Transferring Officer — ${AGENCY_NAME}</div>
           <div style="border-bottom:1px solid #000;margin-bottom:3px;height:24px;"></div>
           <div style="font-size:9px;color:#475569;">Signature</div>
           <div style="margin-top:10px;border-bottom:1px solid #000;margin-bottom:3px;padding-bottom:2px;font-size:11px;">${transfer.officer || ""}</div>

@@ -9,6 +9,7 @@ import SignaturePad from "@/components/ui/SignaturePad";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import { openCourtEmail } from "@/lib/courtEmail";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_ADDRESS } from "@/lib/shelterInfo";
 
 const ORDINANCE_ARTICLES = Array.from(new Set(CITABLE_ORDINANCES.map((o) => o.article)));
 
@@ -372,7 +373,7 @@ export default function CitationModal({ onSave, onClose }: Props) {
                     if (!w) return;
                     const courtAddr = issuedCitation.court_type === "Magistrate" ? "149 E Jefferson St, Madison, GA 30650" : "118 N Main St, Madison, GA 30650";
                     w.document.write(`<html><head><title>Citation ${issuedCitation.citation_number}</title><style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}body{font-family:serif;font-size:11px;padding:20px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #000;padding:4px 6px}.s{margin:8px 0;font-weight:bold;font-size:11px;border-bottom:2px solid #000;padding-bottom:2px;text-transform:uppercase}@media print{body{padding:12px}}</style></head><body>
-                      <div style="text-align:center;margin-bottom:10px"><strong style="font-size:14px">MORGAN COUNTY ANIMAL SERVICES</strong><br>2392 Athens Hwy, Madison, GA 30650<br><em>Uniform Citation, Summons, Accusation</em></div>
+                      <div style="text-align:center;margin-bottom:10px"><strong style="font-size:14px">${AGENCY_NAME.toUpperCase()}</strong><br>${AGENCY_ADDRESS}<br><em>Uniform Citation, Summons, Accusation</em></div>
                       <div class="s">Citation #${issuedCitation.citation_number} — ${issuedCitation.date || ""}</div>
                       <div class="s">VIOLATOR</div><table><tr><td><b>Name:</b> ${issuedCitation.violator_name || "—"}</td><td><b>DL:</b> ${issuedCitation.violator_dl || "—"}</td></tr><tr><td colspan="2"><b>Address:</b> ${[issuedCitation.violator_address, issuedCitation.violator_city, issuedCitation.violator_state].filter(Boolean).join(", ") || "—"}</td></tr><tr><td><b>Phone:</b> ${issuedCitation.violator_phone || "—"}</td><td><b>DOB:</b> ${issuedCitation.violator_dob || "—"}</td></tr></table>
                       <div class="s">VIOLATIONS</div><table><tr><th>Count</th><th>Code</th><th>Description</th></tr>${(issuedCitation.violations || []).map((v: {code:string;description:string;count:number}) => `<tr><td style="text-align:center">×${v.count}</td><td>§ ${v.code}</td><td>${v.description}</td></tr>`).join("")}</table>

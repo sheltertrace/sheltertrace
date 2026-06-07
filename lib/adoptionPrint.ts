@@ -1,9 +1,10 @@
-﻿import type { AdoptionApplication } from "./types";
+import type { AdoptionApplication } from "./types";
+import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "./shelterInfo";
 
-const AGENCY  = "Morgan County Animal Services";
-const ADDRESS = "Morgan County, Georgia";
-const PHONE   = "(706) 752-1195";
-const FOOTER  = `${AGENCY} • ${ADDRESS} • Thank you for choosing to adopt!`;
+const AGENCY  = AGENCY_NAME;
+const ADDRESS = AGENCY_ADDRESS;
+const PHONE   = AGENCY_PHONE;
+const FOOTER  = `${AGENCY} � ${ADDRESS} � Thank you for choosing to adopt!`;
 
 type FormData = Partial<AdoptionApplication>;
 
@@ -14,7 +15,7 @@ function v(val: string | number | boolean | null | undefined, blank = "_________
 
 /** Render a checkbox character. */
 function cb(val: boolean | null | undefined): string {
-  return val ? "☑" : "☐";
+  return val ? "?" : "?";
 }
 
 /** Two-column row inside a section table. */
@@ -41,7 +42,7 @@ export function buildAdoptionFormHTML(data?: FormData): string {
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Pet Adoption Application — ${AGENCY}</title>
+<title>Pet Adoption Application � ${AGENCY}</title>
 <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
   @page { size: letter; margin: 0.55in 0.5in; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -88,7 +89,7 @@ export function buildAdoptionFormHTML(data?: FormData): string {
 <div class="header">
   <div>
     <div class="header-title">${AGENCY}</div>
-    <div class="header-sub">${ADDRESS} &nbsp;·&nbsp; ${PHONE}</div>
+    <div class="header-sub">${ADDRESS} &nbsp;�&nbsp; ${PHONE}</div>
   </div>
   <div class="header-right">
     Date: ${v(d.date, "_____ / _____ / _______")}<br>
@@ -141,8 +142,8 @@ export function buildAdoptionFormHTML(data?: FormData): string {
     <tr>
       <td class="lbl">Housing</td>
       <td class="val" colspan="3">
-        ${d.housing === "Own" || isBlank ? "☐ Own" : "☑ Own"} &nbsp;&nbsp;
-        ${d.housing === "Rent" || isBlank ? "☐ Rent" : d.housing === "Rent" ? "☑ Rent" : "☐ Rent"}
+        ${d.housing === "Own" || isBlank ? "? Own" : "? Own"} &nbsp;&nbsp;
+        ${d.housing === "Rent" || isBlank ? "? Rent" : d.housing === "Rent" ? "? Rent" : "? Rent"}
         ${d.housing === "Own" ? "" : d.housing === "Rent" ? ` &nbsp;&nbsp; Landlord Info: ${v(d.landlord_info)}` : ""}
       </td>
     </tr>
@@ -150,10 +151,10 @@ export function buildAdoptionFormHTML(data?: FormData): string {
     <tr>
       <td class="lbl">Dwelling Type</td>
       <td class="val" colspan="3">
-        ${d.dwelling_type === "House" ? "☑" : "☐"} House &nbsp;&nbsp;
-        ${d.dwelling_type === "Apartment" ? "☑" : "☐"} Apartment &nbsp;&nbsp;
-        ${d.dwelling_type === "Mobile Home" ? "☑" : "☐"} Mobile Home &nbsp;&nbsp;
-        ${d.dwelling_type === "Other" ? "☑" : "☐"} Other${d.dwelling_type === "Other" && d.landlord_info ? `: ${d.landlord_info}` : ""}
+        ${d.dwelling_type === "House" ? "?" : "?"} House &nbsp;&nbsp;
+        ${d.dwelling_type === "Apartment" ? "?" : "?"} Apartment &nbsp;&nbsp;
+        ${d.dwelling_type === "Mobile Home" ? "?" : "?"} Mobile Home &nbsp;&nbsp;
+        ${d.dwelling_type === "Other" ? "?" : "?"} Other${d.dwelling_type === "Other" && d.landlord_info ? `: ${d.landlord_info}` : ""}
       </td>
     </tr>
   </table>
@@ -167,14 +168,14 @@ export function buildAdoptionFormHTML(data?: FormData): string {
     <tr>
       <td class="lbl">Pet Allergies in Household</td>
       <td class="val" colspan="3">
-        ${d.pet_allergies === true ? "☑ Yes &nbsp; ☐ No" : d.pet_allergies === false ? "☐ Yes &nbsp; ☑ No" : "☐ Yes &nbsp; ☐ No"}
+        ${d.pet_allergies === true ? "? Yes &nbsp; ? No" : d.pet_allergies === false ? "? Yes &nbsp; ? No" : "? Yes &nbsp; ? No"}
       </td>
     </tr>
     <tr><td class="lbl">Current Pets (species, breed, altered, vaccinated)</td><td class="val-lg" colspan="3">${v(d.current_pets, "")}</td></tr>
     <tr>
       <td class="lbl">Ever Surrendered / Rehomed a Pet</td>
       <td class="val" colspan="3">
-        ${d.surrendered_pet === true ? "☑ Yes &nbsp; ☐ No" : d.surrendered_pet === false ? "☐ Yes &nbsp; ☑ No" : "☐ Yes &nbsp; ☐ No"}
+        ${d.surrendered_pet === true ? "? Yes &nbsp; ? No" : d.surrendered_pet === false ? "? Yes &nbsp; ? No" : "? Yes &nbsp; ? No"}
         ${d.surrendered_pet && d.surrendered_explain ? ` &nbsp; Explanation: ${d.surrendered_explain}` : ""}
       </td>
     </tr>
@@ -203,11 +204,11 @@ export function buildAdoptionFormHTML(data?: FormData): string {
       <li>I agree to comply with all Morgan County and State of Georgia ordinances regarding animal ownership, including licensing and leash laws.</li>
       <li>I understand that if the animal has not yet been spayed/neutered, I agree to have the procedure completed within 30 days of adoption or as directed by a veterinarian, and to provide proof to Animal Services.</li>
       <li>I agree to keep current identification (tag, microchip) on the animal at all times.</li>
-      <li>I will not sell, give away, or transfer ownership of this animal without first contacting Morgan County Animal Services.</li>
-      <li>If I can no longer care for this animal, I agree to return it to Morgan County Animal Services.</li>
-      <li>I understand that Morgan County Animal Services makes no guarantees regarding the health, temperament, or breed of the animal.</li>
+      <li>I will not sell, give away, or transfer ownership of this animal without first contacting ${AGENCY}.</li>
+      <li>If I can no longer care for this animal, I agree to return it to ${AGENCY}.</li>
+      <li>I understand that ${AGENCY} makes no guarantees regarding the health, temperament, or breed of the animal.</li>
       <li>I understand that an adjustment period is normal and I will allow adequate time for the animal to settle into my home.</li>
-      <li>I understand that providing false information on this application may result in the animal being reclaimed by Morgan County Animal Services.</li>
+      <li>I understand that providing false information on this application may result in the animal being reclaimed by ${AGENCY}.</li>
     </ol>
   </div>
 </div>
@@ -220,10 +221,10 @@ export function buildAdoptionFormHTML(data?: FormData): string {
     <tr>
       <td class="lbl">Payment Method</td>
       <td class="val" colspan="3">
-        ${d.payment_method === "Cash" ? "☑" : "☐"} Cash &nbsp;&nbsp;
-        ${d.payment_method === "Check" ? "☑" : "☐"} Check &nbsp;&nbsp;
-        ${d.payment_method === "Card" ? "☑" : "☐"} Card &nbsp;&nbsp;
-        ${d.payment_method === "Other" ? "☑" : "☐"} Other
+        ${d.payment_method === "Cash" ? "?" : "?"} Cash &nbsp;&nbsp;
+        ${d.payment_method === "Check" ? "?" : "?"} Check &nbsp;&nbsp;
+        ${d.payment_method === "Card" ? "?" : "?"} Card &nbsp;&nbsp;
+        ${d.payment_method === "Other" ? "?" : "?"} Other
       </td>
     </tr>
     ${row1("Receipt / Transaction #", v(d.receipt_number))}

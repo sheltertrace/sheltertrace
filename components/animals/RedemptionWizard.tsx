@@ -6,6 +6,7 @@ import { today } from "@/lib/utils";
 import StaffSelect from "@/components/ui/StaffSelect";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import DateInput from "@/components/ui/DateInput";
+import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "@/lib/shelterInfo";
 
 export interface RedemptionReceiptInfo {
   ownerName: string;
@@ -93,7 +94,7 @@ function printRedemptionReceipt(
   const ownerName = [owner.first_name, owner.last_name].filter(Boolean).join(" ");
   const html = `<!DOCTYPE html><html><head><title>Redemption Receipt — ${animal.name}</title>
 <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
-  @page { size: letter; margin: 0.75in; @top-left { content: "Morgan County Animal Services"; font-size: 9pt; } @top-right { content: "Page " counter(page); font-size: 9pt; } }
+  @page { size: letter; margin: 0.75in; @top-left { content: "${AGENCY_NAME}"; font-size: 9pt; } @top-right { content: "Page " counter(page); font-size: 9pt; } }
   body { font-family: Arial, sans-serif; font-size: 10pt; color: #111; }
   h1 { font-size: 18pt; margin: 0 0 2px; }
   h2 { font-size: 12pt; border-bottom: 1.5px solid #333; padding-bottom: 4px; margin: 18px 0 8px; }
@@ -116,7 +117,7 @@ function printRedemptionReceipt(
 </style></head><body>
 <div class="header">
   <h1>Animal Redemption Receipt</h1>
-  <div class="subtitle">Morgan County Animal Services · 2392 Athens Hwy, Madison, GA 30650 · 706.752.1195</div>
+  <div class="subtitle">${AGENCY_NAME} · ${AGENCY_ADDRESS} · ${AGENCY_PHONE}</div>
   ${receiptNumber ? `<div class="receipt-num">Receipt #: ${receiptNumber}</div>` : ""}
 </div>
 
