@@ -1,7 +1,7 @@
 {
-  "name": "ShelterTrace - MCAS",
+  "name": "ShelterTrace",
   "short_name": "ShelterTrace",
-  "description": "Morgan County Animal Services Field Operations",
+  "description": "Modern Shelter Management Software",
   "start_url": "/officer-app",
   "scope": "/",
   "display": "standalone",
@@ -11,15 +11,15 @@
   "categories": ["utilities", "productivity"],
   "icons": [
     {
-      "src": "/mcas_logo.png",
+      "src": "/logo.jpg",
       "sizes": "192x192",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     },
     {
-      "src": "/mcas_logo.png",
+      "src": "/logo.jpg",
       "sizes": "512x512",
-      "type": "image/png",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ],
