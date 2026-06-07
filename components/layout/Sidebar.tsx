@@ -112,21 +112,35 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     return () => clearInterval(id);
   }, []);
 
-  // Demo bypass: when running as a demo-* account, skip permission checks
-  // entirely rather than relying on the DB's permissions JSONB being correct.
-  const isDemoUser = IS_DEMO && (user?.id ?? "").startsWith("demo-");
+  // ── Diagnostic logging — always runs so browser console shows session state ──
+  console.log("[sidebar] user.id:", user?.id);
+  console.log("[sidebar] user.role:", user?.role);
+  console.log("[sidebar] user.permissions:", JSON.stringify(user?.permissions));
+  console.log("[sidebar] IS_DEMO env:", process.env.NEXT_PUBLIC_IS_DEMO);
+  console.log("[sidebar] isAdmin:", isAdmin);
+
+  // ── Demo bypass — keyed on user.id ONLY (no env var dependency) ────────────
+  // This fires even if NEXT_PUBLIC_IS_DEMO wasn't set in the Vercel build,
+  // as long as the account has an id starting with "demo-".
+  const isDemoUser = (user?.id ?? "").startsWith("demo-");
+
   const demoOfficerPerms = new Set<string>(["dashboard","dispatch","animals","citations","medical","kennels","reports","people","court","foster","volunteers"]);
   const demoStaffPerms   = new Set<string>(["dashboard","animals","adoptions","receipts","medical","kennels","reports","people","court","foster","volunteers"]);
 
   function demoPerm(perm: string): boolean {
-    if (!isDemoUser || !user) return false;
-    if (user.id === "demo-admin") return true; // full access — show everything
+    if (!user) return false;
+    console.log("[sidebar] demoPerm check:", perm, "user.id:", user.id);
+    if (user.id === "demo-admin") return true;  // full access unconditionally
     const allowed = user.id === "demo-officer1" ? demoOfficerPerms : demoStaffPerms;
-    return perm === "admin" ? false : allowed.has(perm);
+    return perm !== "admin" && allowed.has(perm);
   }
 
   function canSee(item: NavItem): boolean {
-    if (isDemoUser) return demoPerm(item.perm);
+    if (isDemoUser) {
+      const result = demoPerm(item.perm);
+      console.log("[sidebar] canSee (demo)", item.href, item.perm, "→", result);
+      return result;
+    }
     if (item.perm === "admin") return isAdmin;
     if (item.perm === "dashboard") return true;
     return hasPermission(user, item.perm);
