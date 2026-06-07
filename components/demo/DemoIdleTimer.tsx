@@ -40,7 +40,7 @@ export default function DemoIdleTimer({ logout }: DemoIdleTimerProps) {
     }
     setResetting(false);
     logout();
-    router.replace("/login?expired=1");
+    router.replace("/?expired=1");
   }, [logout, router, clearWarningInterval]);
 
   const startWarningCountdown = useCallback(() => {
@@ -85,7 +85,7 @@ export default function DemoIdleTimer({ logout }: DemoIdleTimerProps) {
     }
     setResetting(false);
     logout();
-    router.replace("/login");
+    router.replace("/?reset=1");
   }, [logout, router, clearWarningInterval]);
 
   useEffect(() => {

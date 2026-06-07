@@ -218,7 +218,7 @@ export default function AppShell({ children, title, action }: AppShellProps) {
 
   // Auth guard
   useEffect(() => {
-    if (!loading && !user) router.replace("/login");
+    if (!loading && !user) router.replace(IS_DEMO ? "/" : "/login");
   }, [user, loading, router]);
 
   if (loading || !user) {

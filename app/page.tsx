@@ -3,6 +3,8 @@ import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { supabasePublic } from "@/lib/supabase-public";
+import { IS_DEMO } from "@/lib/demo";
+import DemoWelcomePage from "@/components/demo/DemoWelcomePage";
 
 // ── Scroll-reveal hook ────────────────────────────────────────────────────────
 
@@ -545,6 +547,10 @@ function FAQ() {
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function MarketingPage() {
+  // On the demo deployment (NEXT_PUBLIC_IS_DEMO=true) skip the marketing site
+  // entirely and show the demo welcome/login page instead.
+  if (IS_DEMO) return <DemoWelcomePage />;
+
   return (
     <>
       <style>{`

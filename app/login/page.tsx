@@ -14,6 +14,14 @@ export default function LoginPage() {
     if (!authLoading && user) router.replace("/dashboard");
   }, [user, authLoading, router]);
 
+  // In demo mode, /login redirects to / where DemoWelcomePage lives
+  useEffect(() => {
+    if (IS_DEMO && !user) {
+      const params = typeof window !== "undefined" ? window.location.search : "";
+      router.replace(`/${params}`);
+    }
+  }, [IS_DEMO, user, router]);
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
