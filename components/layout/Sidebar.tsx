@@ -82,10 +82,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const [sidebarResetting, setSidebarResetting] = useState(false);
 
   const handleLogout = useCallback(async () => {
+    console.log("[Sidebar] sign-out clicked — IS_DEMO:", IS_DEMO);
     if (IS_DEMO) {
+      console.log("[Sidebar] calling resetDemoData...");
       setSidebarResetting(true);
-      try { await resetDemoData(supabase); } catch (e) { console.error("Demo reset error:", e); }
+      try { await resetDemoData(supabase); } catch (e) { console.error("[Sidebar] Demo reset error:", e); }
       setSidebarResetting(false);
+      console.log("[Sidebar] reset complete — logging out");
       logout();
       router.replace("/?reset=1");
       return;

@@ -72,16 +72,25 @@ export function getLastResetTime(): string | null {
 // Called on every sign-out and idle timeout so the next visitor starts fresh.
 // Non-fatal: if the RPC fails we still sign the user out and stamp the reset time.
 export async function resetDemoSession(supabase: SupabaseClient): Promise<void> {
-  console.log("[demo] starting full_demo_reset...");
-  const { error } = await supabase.rpc("full_demo_reset");
+  console.log("[demo] resetDemoSession() called");
+  console.log("[demo] Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+  console.log("[demo] calling full_demo_reset RPC...");
+
+  const start = Date.now();
+  const { data, error } = await supabase.rpc("full_demo_reset");
+  const elapsed = Date.now() - start;
+
   if (error) {
-    console.error("[demo] full_demo_reset RPC error:", error.message, error.hint || "");
+    console.error(`[demo] full_demo_reset FAILED after ${elapsed}ms:`, error.code, error.message, error.hint || "");
+    console.error("[demo] → If error is 'function full_demo_reset() does not exist', run supabase/demo/full_reset_function.sql in the demo Supabase SQL editor.");
   } else {
-    console.log("[demo] full_demo_reset completed successfully");
+    console.log(`[demo] full_demo_reset SUCCESS in ${elapsed}ms`, data ?? "(no return data)");
   }
+
   if (typeof window !== "undefined") {
     localStorage.removeItem("demo_session_id");
     localStorage.setItem("demo_last_reset", new Date().toISOString());
+    console.log("[demo] localStorage cleared, last_reset stamped");
   }
 }
 

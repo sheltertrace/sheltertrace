@@ -94,12 +94,15 @@ export default function AppShell({ children, title, action }: AppShellProps) {
   const [resetting, setResetting] = useState(false);
 
   const handleLogout = useCallback(async () => {
+    console.log("[AppShell] sign-out button clicked — IS_DEMO:", IS_DEMO);
     if (IS_DEMO) {
+      console.log("[AppShell] calling resetDemoSession...");
       setResetting(true);
-      try { await resetDemoSession(supabase); } catch (e) { console.error("Demo reset error:", e); }
+      try { await resetDemoSession(supabase); } catch (e) { console.error("[AppShell] Demo reset error:", e); }
       setResetting(false);
+      console.log("[AppShell] reset complete — logging out and redirecting");
       logout();
-      router.replace("/?reset=1");  // redirect to welcome page with reset confirmation
+      router.replace("/?reset=1");
       return;
     }
     logout();
@@ -265,7 +268,10 @@ export default function AppShell({ children, title, action }: AppShellProps) {
 
       </div>  {/* close app-shell */}
 
-      {IS_DEMO && <DemoIdleTimer logout={handleLogout} />}
+      {/* Pass plain logout so DemoIdleTimer owns its own reset+redirect flow.
+          handleLogout (sign-out button) is separate — both call resetDemoSession
+          independently so they don't interfere with each other's redirect. */}
+      {IS_DEMO && <DemoIdleTimer logout={logout} />}
 
       {resetting && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(15,41,66,0.95)", zIndex: 9999, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
