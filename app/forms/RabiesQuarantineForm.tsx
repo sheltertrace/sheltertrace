@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchAnimals, updateAnimal } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
-import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
+import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
 import type { ShelterForm, Officer, Animal, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
@@ -234,7 +234,7 @@ export default function RabiesQuarantineForm({ onSave, onClose, prefill }: Props
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-secondary" onClick={() => printRabiesQuarantine({ printed_name: printedName, signature, date, officer, badge, animal_id: selectedAnimal?.id, animal_name: selectedAnimal?.name }, MCAS_SEAL_LOGO)}>
+          <button className="btn btn-secondary" onClick={() => printRabiesQuarantine({ printed_name: printedName, signature, date, officer, badge, animal_id: selectedAnimal?.id, animal_name: selectedAnimal?.name }, AGENCY_SEAL_LOGO)}>
             🖨 Print Preview
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>

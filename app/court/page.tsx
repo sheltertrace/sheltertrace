@@ -1,11 +1,11 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { fetchCitations, fetchCourtSettings, markCitationNotified, fetchCall, fetchCitationsByPerson, fetchFormsByLinked } from "@/lib/data";
 import type { Citation, CourtSettings, ShelterForm } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
+import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
 import { MORGAN_COUNTY_ORDINANCES } from "@/lib/constants";
 import DispositionModal, { CitationStatusBadge } from "@/app/citations/DispositionModal";
 import { openCourtEmail } from "@/lib/courtEmail";
@@ -141,7 +141,7 @@ export default function CourtPage() {
 
   const mcasHeader = (subtitle: string) => `
     <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:14px">
-      <img src="${MCAS_SEAL_LOGO}" alt="MCAS Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
+      <img src="${AGENCY_SEAL_LOGO}" alt="MCAS Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
       <div style="flex:1">
         <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px">${AGENCY_NAME}</div>
         <div style="font-size:11px;margin-top:2px">${AGENCY_ADDRESS} · State of Georgia</div>

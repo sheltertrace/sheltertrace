@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers } from "@/lib/data";
 import { today, nowTime } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
-import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
+import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
 import type { ShelterForm, Officer, FormPreFill } from "@/lib/types";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
 import DateInput from "@/components/ui/DateInput";
@@ -177,7 +177,7 @@ export default function DoorKnockerForm({ onSave, onClose, prefill }: Props) {
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-secondary" onClick={() => printDoorKnocker({ to, date, time, am_pm: amPm, checkboxes: checks, remarks, officer, badge }, MCAS_SEAL_LOGO)}>
+          <button className="btn btn-secondary" onClick={() => printDoorKnocker({ to, date, time, am_pm: amPm, checkboxes: checks, remarks, officer, badge }, AGENCY_SEAL_LOGO)}>
             🖨 Print Preview
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>

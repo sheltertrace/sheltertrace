@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Pagination from "@/components/ui/Pagination";
@@ -7,7 +7,7 @@ import DispositionModal, { CitationStatusBadge, CITATION_STATUSES } from "./Disp
 import { fetchCitations, fetchCalls, fetchCourtSettings, markCitationNotified, markCitationEmailSent } from "@/lib/data";
 import type { Citation, CourtSettings } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
-import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
+import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
 import { openCourtEmail } from "@/lib/courtEmail";
 import { AGENCY_NAME, AGENCY_ADDRESS } from "@/lib/shelterInfo";
 import { useAuth } from "@/app/providers";
@@ -38,7 +38,7 @@ function printCitation(cit: Citation) {
     <body>
       <!-- MCAS Header -->
       <div style="display:flex;align-items:center;gap:14px;border-bottom:3px solid #000;padding-bottom:10px;margin-bottom:10px">
-        <img src="${MCAS_SEAL_LOGO}" alt="MCAS Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
+        <img src="${AGENCY_SEAL_LOGO}" alt="MCAS Seal" style="width:80px;height:80px;object-fit:contain;flex-shrink:0" />
         <div style="flex:1">
           <div style="font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:0.5px">${AGENCY_NAME}</div>
           <div style="font-size:11px;margin-top:2px">${AGENCY_ADDRESS}</div>

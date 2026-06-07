@@ -1,9 +1,9 @@
-﻿"use client";
+"use client";
 import { useState, useEffect } from "react";
 import { createForm, fetchOfficers, fetchPeople } from "@/lib/data";
 import { today } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
-import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
+import { AGENCY_SEAL_LOGO } from "@/lib/shelterInfo";
 import type { ShelterForm, Officer, Person, FormPreFill } from "@/lib/types";
 import SignaturePad from "@/components/ui/SignaturePad";
 import LinkToSection, { type LinkIds } from "@/components/forms/LinkToSection";
@@ -294,7 +294,7 @@ export default function RequestForComplianceForm({ onSave, onClose, prefill }: P
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-secondary" onClick={() => printRFC(formData() as unknown as Record<string, unknown>, MCAS_SEAL_LOGO)}>
+          <button className="btn btn-secondary" onClick={() => printRFC(formData() as unknown as Record<string, unknown>, AGENCY_SEAL_LOGO)}>
             🖨 Print Preview
           </button>
           <button className="btn btn-primary" onClick={handleSave} disabled={saving}>

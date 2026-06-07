@@ -1,5 +1,5 @@
 import type { ShelterForm } from "./types";
-import { MCAS_SEAL_LOGO } from "./mcasLogo";
+import { AGENCY_SEAL_LOGO } from "./shelterInfo";
 import { printDoorKnocker } from "@/app/forms/DoorKnockerForm";
 import { printRabiesQuarantine } from "@/app/forms/RabiesQuarantineForm";
 import { printRFC } from "@/app/forms/RequestForComplianceForm";
@@ -15,13 +15,13 @@ export function reprintShelterForm(form: ShelterForm): void {
   const d = form.form_data;
   switch (form.form_type) {
     case "door_knocker":
-      printDoorKnocker(d, MCAS_SEAL_LOGO);
+      printDoorKnocker(d, AGENCY_SEAL_LOGO);
       break;
     case "rabies_quarantine":
-      printRabiesQuarantine(d, MCAS_SEAL_LOGO);
+      printRabiesQuarantine(d, AGENCY_SEAL_LOGO);
       break;
     case "request_for_compliance":
-      printRFC(d, MCAS_SEAL_LOGO);
+      printRFC(d, AGENCY_SEAL_LOGO);
       break;
     case "gda_foster_agreement":
       printAgreement(d);
