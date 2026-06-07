@@ -140,13 +140,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     return perm !== "admin" && allowed.has(perm);
   }
 
-  // Routes that are hidden from ALL demo users regardless of role.
-  const DEMO_HIDDEN_ROUTES = new Set(["/drug-log"]);
-
   function canSee(item: NavItem): boolean {
     if (isDemoUser) {
-      // Always hide DEA/drug log routes in demo — sensitive controlled-substance module
-      if (DEMO_HIDDEN_ROUTES.has(item.href)) return false;
       const result = demoPerm(item.perm);
       console.log("[sidebar] canSee (demo)", item.href, item.perm, "→", result);
       return result;

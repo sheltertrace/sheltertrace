@@ -20,8 +20,12 @@ BEGIN
   DELETE FROM foster_placements;
   DELETE FROM volunteer_logs;
   DELETE FROM receipts;
-  DELETE FROM people WHERE pid NOT LIKE 'SEED-%';  -- keep any seeded contacts
+  DELETE FROM people WHERE pid NOT LIKE 'SEED-%';
   DELETE FROM animals;
+  -- Clear drug log data so it reseeds correctly
+  DELETE FROM euthanasia_log;
+  DELETE FROM drug_reconciliation;
+  DELETE FROM drug_inventory;
 
   -- ── Re-seed animals ───────────────────────────────────────────────────────
 
@@ -85,10 +89,56 @@ BEGIN
 
   -- ── Re-seed drug inventory ────────────────────────────────────────────────
 
-  INSERT INTO drug_inventory (drug_name, dea_schedule, ndc_number, manufacturer, lot_number, bottle_number, concentration, bottle_size_ml, quantity_remaining_ml, date_received, received_from, dea_form_222_number, received_by, expiration_date, bottle_status)
+  INSERT INTO drug_inventory (drug_name, dea_schedule, manufacturer, lot_number, bottle_number, concentration, bottle_size_ml, quantity_remaining_ml, date_received, received_from, received_by, expiration_date, bottle_status, notes)
   VALUES
-  ('Fatal-Plus (Sodium Pentobarbital)','Schedule II','11169-0111-1','Vortech Pharmaceuticals','DEMO-LOT-001','FP-001','390 mg/mL',250,220,'2026-01-15','Demo Distributor Inc.','DEMO-222-001','Demo Administrator','2028-01-15','Active'),
-  ('Telazol','Schedule III','0856-4025-01','Zoetis','DEMO-LOT-002','T-001','500 mg/vial',5,4.5,'2026-02-01','Demo Distributor Inc.',NULL,'Demo Administrator','2027-06-30','Active');
+  ('Euthasol (Pentobarbital Sodium)','Schedule II','Merck Animal Health','LOT-2026-001','BTL-001','390 mg/mL',100,67.5,'2026-04-01','MWI Veterinary Supply','Demo Administrator','2027-04-01','Active','Received via DEA Form 222. Current balance reflects usage across logged euthanasia events.'),
+  ('Telazol','Schedule III','Zoetis','LOT-2026-002','BTL-002','100 mg/mL',50,42.0,'2026-03-15','MWI Veterinary Supply','Demo Administrator','2027-03-15','Active','Pre-sedation agent. Used as needed prior to pentobarbital administration.');
+
+  -- ── Re-seed euthanasia log ────────────────────────────────────────────────
+  -- Balances: 100.0 → 91.0 → 89.6 → 76.1 mL (3 events = 23.9 mL used)
+
+  INSERT INTO euthanasia_log (
+    log_number, log_date, log_time,
+    animal_name, species, breed, sex, weight, reason,
+    drug_inventory_id, drug_name, lot_number, bottle_id,
+    route, dosage_drawn_ml, dosage_administered_ml, dosage_wasted_ml, running_balance_ml,
+    death_verification, time_of_death, body_disposition, owner_present,
+    administered_by_name, witness_name, notes
+  )
+  SELECT
+    log_number, log_date, log_time,
+    animal_name, species, breed, sex, weight, reason,
+    inv.id, drug_name, lot_number, bottle_id,
+    route, dosage_drawn_ml, dosage_administered_ml, dosage_wasted_ml, running_balance_ml,
+    death_verification, time_of_death, body_disposition, owner_present,
+    administered_by_name, witness_name, notes
+  FROM (VALUES
+    ('EL-2026-0001','2026-05-10'::date,'09:15:00'::time,
+     'Unknown','Dog','Mixed Breed','Male','45 lbs','Medical — Suffering / Quality of Life',
+     'BTL-001','Euthasol (Pentobarbital Sodium)','LOT-2026-001','BTL-001',
+     'IV — Intravenous',9.0,9.0,0.0,91.0,
+     'All of the above','09:17:00'::time,'Pickup by rendering',false,
+     'Demo Administrator','Demo Officer 1',
+     'Stray male dog, approx 3-4 years old. Found severely injured on highway. No microchip. Humane destruction authorized per field officer report.'),
+    ('EL-2026-0002','2026-05-18'::date,'14:30:00'::time,
+     'Unknown','Cat','Domestic Shorthair','Female','7 lbs','Medical — Untreatable Condition',
+     'BTL-001','Euthasol (Pentobarbital Sodium)','LOT-2026-001','BTL-001',
+     'IP — Intraperitoneal',1.4,1.4,0.0,89.6,
+     'All of the above','14:32:00'::time,'Pickup by rendering',false,
+     'Demo Administrator','Demo Officer 1',
+     'Stray female cat, advanced feline leukemia confirmed by FeLV positive test. No viable treatment option.'),
+    ('EL-2026-0003','2026-05-28'::date,'10:45:00'::time,
+     'Unknown','Dog','Pit Bull Mix','Male','68 lbs','Dangerous Animal Declaration',
+     'BTL-001','Euthasol (Pentobarbital Sodium)','LOT-2026-001','BTL-001',
+     'IV — Intravenous',13.5,13.5,0.0,76.1,
+     'All of the above','10:48:00'::time,'Owner claimed',false,
+     'Demo Administrator','Demo Officer 1',
+     'Court-ordered destruction following dangerous dog hearing. Owner present for return of remains.')
+  ) AS v(log_number,log_date,log_time,animal_name,species,breed,sex,weight,reason,
+         bottle_ref,drug_name,lot_number,bottle_id,route,dosage_drawn_ml,dosage_administered_ml,
+         dosage_wasted_ml,running_balance_ml,death_verification,time_of_death,body_disposition,
+         owner_present,administered_by_name,witness_name,notes)
+  JOIN drug_inventory inv ON inv.bottle_number = v.bottle_ref;
 
   RETURN;
 END;

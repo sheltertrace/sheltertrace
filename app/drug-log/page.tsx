@@ -578,11 +578,6 @@ export default function DrugLogPage() {
   }
 
   if (!canAccess) {
-    // In demo mode: silently redirect instead of showing access denied
-    if (IS_DEMO) {
-      if (typeof window !== "undefined") window.location.replace("/dashboard");
-      return null;
-    }
     return (
       <AppShell title="Drug Log — Controlled Substances">
         <div style={{ padding: 40, textAlign: "center" }}>

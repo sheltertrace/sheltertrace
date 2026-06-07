@@ -316,10 +316,6 @@ export default function NewDrugLogPage() {
   }
 
   if (!canAccess) {
-    if (IS_DEMO) {
-      if (typeof window !== "undefined") window.location.replace("/dashboard");
-      return null;
-    }
     return (
       <AppShell title="New Drug Log Entry">
         <div style={{ padding: 40, textAlign: "center" }}>
