@@ -82,21 +82,39 @@ export async function login(username: string, password: string): Promise<StaffAc
 // Demo-only: fetch a staff account directly by id (no password check).
 // Only called when NEXT_PUBLIC_IS_DEMO=true.
 export async function demoLoginById(id: string): Promise<StaffAccount | null> {
+  // Diagnostic: confirm which Supabase project is being targeted
+  const projectUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "(not set)";
+  console.log("[demo] demoLoginById called — id:", id);
+  console.log("[demo] NEXT_PUBLIC_SUPABASE_URL:", projectUrl);
+  console.log("[demo] IS_DEMO env:", process.env.NEXT_PUBLIC_IS_DEMO);
+
   try {
+    console.log("[demo] Querying staff_accounts WHERE id =", id);
     const { data, error } = await supabase
       .from("staff_accounts")
       .select("*")
       .eq("id", id)
       .limit(1);
-    if (error) throw error;
-    if (!data || data.length === 0) return null;
+
+    console.log("[demo] Query result — data:", JSON.stringify(data), "error:", error);
+
+    if (error) {
+      console.error("[demo] Supabase error:", error.code, error.message, error.hint || "");
+      return null;
+    }
+    if (!data || data.length === 0) {
+      console.warn("[demo] No account found with id:", id, "— check that seed.sql was run");
+      return null;
+    }
     const account = normalizeAccount(data[0] as Record<string, unknown>);
+    console.log("[demo] Account fetched:", account.id, account.role, account.first_name);
     if (typeof window !== "undefined") {
       sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(account));
+      console.log("[demo] Session stored in sessionStorage key:", CURRENT_USER_KEY);
     }
     return account;
   } catch (err) {
-    console.error("[demo] demoLoginById error:", err);
+    console.error("[demo] demoLoginById unexpected error:", err);
     return null;
   }
 }

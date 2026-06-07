@@ -18,12 +18,16 @@ export default function DemoWelcomePage() {
     if (!authLoading && user) router.replace("/dashboard");
   }, [user, authLoading, router]);
 
-  // Check if a session was just reset
+  // Check if a session was just reset; log env diagnostics
   useEffect(() => {
     if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search);
       if (params.get("reset") === "1" || params.get("expired") === "1") setWasReset(true);
       setLastReset(getLastResetTime());
+      // Diagnostic: confirm demo env is wired to the correct Supabase project
+      console.log("[demo] DemoWelcomePage mounted");
+      console.log("[demo] NEXT_PUBLIC_SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+      console.log("[demo] NEXT_PUBLIC_IS_DEMO:", process.env.NEXT_PUBLIC_IS_DEMO);
     }
   }, []);
 
