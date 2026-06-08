@@ -140,6 +140,45 @@ BEGIN
          owner_present,administered_by_name,witness_name,notes)
   JOIN drug_inventory inv ON inv.bottle_number = v.bottle_ref;
 
+  -- ── Restore kennel assignments ─────────────────────────────────────────────
+  -- Belt-and-suspenders: explicitly set kennels after INSERT in case any were
+  -- changed during the session (INSERT only sets them for new rows; if an
+  -- existing row was updated its kennel persists unless we fix it here).
+
+  UPDATE animals SET kennel = 'D-1'   WHERE id = '26-04-001';
+  UPDATE animals SET kennel = 'C-1'   WHERE id = '26-04-002';
+  UPDATE animals SET kennel = 'D-2'   WHERE id = '26-04-003';
+  UPDATE animals SET kennel = 'C-2'   WHERE id = '26-04-004';
+  UPDATE animals SET kennel = 'ISO-1' WHERE id = '26-04-005';
+  UPDATE animals SET kennel = 'C-3'   WHERE id = '26-04-006';
+  UPDATE animals SET kennel = 'D-3'   WHERE id = '26-05-001';
+  UPDATE animals SET kennel = NULL    WHERE id = '26-05-002';
+  UPDATE animals SET kennel = 'D-4'   WHERE id = '26-05-003';
+  UPDATE animals SET kennel = 'C-4'   WHERE id = '26-05-004';
+  UPDATE animals SET kennel = 'D-5'   WHERE id = '26-05-005';
+  UPDATE animals SET kennel = 'C-5'   WHERE id = '26-05-006';
+  UPDATE animals SET kennel = 'D-6'   WHERE id = '26-05-007';
+  UPDATE animals SET kennel = 'C-6'   WHERE id = '26-05-008';
+  UPDATE animals SET kennel = 'D-7'   WHERE id = '26-05-009';
+  UPDATE animals SET kennel = 'D-8'   WHERE id = '26-05-010';
+  UPDATE animals SET kennel = 'C-7'   WHERE id = '26-05-011';
+  UPDATE animals SET kennel = 'D-9'   WHERE id = '26-05-012';
+  UPDATE animals SET kennel = 'D-10'  WHERE id = '26-05-013';
+  UPDATE animals SET kennel = 'C-8'   WHERE id = '26-05-014';
+
+  -- ── Restore statuses ───────────────────────────────────────────────────────
+
+  UPDATE animals SET status = 'Available' WHERE id IN (
+    '26-04-001','26-04-002','26-04-004','26-04-006',
+    '26-05-001','26-05-003','26-05-004','26-05-006',
+    '26-05-008','26-05-009','26-05-010','26-05-011',
+    '26-05-012','26-05-013','26-05-014'
+  );
+  UPDATE animals SET status = 'Medical Hold' WHERE id IN ('26-04-003','26-05-005');
+  UPDATE animals SET status = 'Quarantine'   WHERE id = '26-04-005';
+  UPDATE animals SET status = 'Foster'       WHERE id = '26-05-002';
+  UPDATE animals SET status = 'Pending'      WHERE id = '26-05-007';
+
   RETURN;
 END;
 $$;
