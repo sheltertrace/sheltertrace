@@ -78,8 +78,28 @@ const SEED_ANIMAL_IDS = SEED_ANIMALS.map(a => a.id);
 //   client-side operations so the demo still works without the SQL function.
 
 export async function resetDemoSession(supabase: SupabaseClient): Promise<void> {
+  // ── Hard safety guards ─────────────────────────────────────────────────────
+  // These abort the reset before touching any data if the environment is wrong.
+  // Both checks are belt-and-suspenders — failing either one aborts cleanly.
+
+  if (process.env.NEXT_PUBLIC_IS_DEMO !== "true") {
+    console.error("SAFETY ABORT: resetDemoSession() called but NEXT_PUBLIC_IS_DEMO is not 'true'. Aborting — no data was changed.");
+    return;
+  }
+
+  const currentUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  if (currentUrl.includes("jaksulyiodzswlbrqyev")) {
+    console.error("SAFETY ABORT: resetDemoSession() called but NEXT_PUBLIC_SUPABASE_URL points to the PRODUCTION database (jaksulyiodzswlbrqyev). Aborting — no data was changed.");
+    return;
+  }
+
+  if (!currentUrl) {
+    console.error("SAFETY ABORT: NEXT_PUBLIC_SUPABASE_URL is not set. Aborting reset.");
+    return;
+  }
+
   console.log("DEMO RESET: Starting reset...");
-  console.log("DEMO RESET: Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+  console.log("DEMO RESET: Supabase URL:", currentUrl, "✓ (not production)");
 
   const sessionId = typeof window !== "undefined" ? localStorage.getItem("demo_session_id") : null;
   console.log("DEMO RESET: Session ID:", sessionId ?? "(none)");

@@ -297,7 +297,9 @@ export async function updatePerson(id: string, updates: Partial<Person>): Promis
   return data as Person;
 }
 
-const SUPABASE_STORAGE_BASE = "https://jaksulyiodzswlbrqyev.supabase.co/storage/v1/object/public";
+// Derive storage base from env var so demo deployment uses its own storage bucket,
+// not the production one. Hardcoding the production URL here was a security gap.
+const SUPABASE_STORAGE_BASE = `${(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "")}/storage/v1/object/public`;
 
 export async function uploadPersonPhotoId(personId: string, file: File): Promise<string> {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
