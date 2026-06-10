@@ -97,6 +97,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [medResult, setMedResult] = useState("");
   const [medCost, setMedCost] = useState("");
   const [medStatus, setMedStatus]       = useState("");
+  const [medMedName, setMedMedName]     = useState("");   // specific drug/medication name (free text)
   const [medTestResult, setMedTestResult] = useState("Pending");
   const [medTestedBy, setMedTestedBy]   = useState("");
   const [medSaving, setMedSaving] = useState(false);
@@ -108,6 +109,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   // Vaccine confirmation
   const [confirmVaccine, setConfirmVaccine] = useState<{ record: MedicalRecord; action: "administered" | "declined" | "skipped" } | null>(null);
   const [confirmDate, setConfirmDate]           = useState(today());
+  const [confirmVet, setConfirmVet]             = useState("");   // who administered — defaults to logged-in user
   const [confirmLot, setConfirmLot]             = useState("");
   const [confirmManufacturer, setConfirmMfr]    = useState("");
   const [confirmRoute, setConfirmRoute]         = useState("");
@@ -312,7 +314,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       animal_id:    animal.id,
       animal_name:  animal.name,
       type:         medType,
-      description:  medDesc || medType,   // fall back to type name so description is never blank
+      description:  medMedName.trim() || medDesc || medType,  // specific drug name > category > type
       date:         medDate,
       vet:          medVet || undefined,
       next_due:     medNextDue || undefined,
@@ -336,7 +338,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       setTimeout(() => {
         setShowAddMed(false);
         setMedSaved(false);
-        setMedDesc(""); setMedNextDue(""); setMedLotNumber(""); setMedManufacturer("");
+        setMedDesc(""); setMedMedName(""); setMedNextDue(""); setMedLotNumber(""); setMedManufacturer("");
         setMedRoute(""); setMedDosage(""); setMedNotes(""); setMedResult(""); setMedCost(""); setMedStatus("");
         setMedTestResult("Pending"); setMedTestedBy("");
       }, 800);
@@ -357,14 +359,19 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
 
   const openConfirm = (record: MedicalRecord, action: "administered" | "declined" | "skipped") => {
     setConfirmVaccine({ record, action });
-    setConfirmDate(today());
+    setConfirmDate(record.date && action !== "administered" ? record.date : today()); // default to today only for new administration
+    // Default vet to whoever gave the original vaccine, otherwise to current logged-in user
+    const currentUser = getCurrentUser();
+    const defaultVet = record.vet || (currentUser ? `${currentUser.firstName} ${currentUser.lastName}`.trim() : "");
+    setConfirmVet(defaultVet);
     setConfirmLot(""); setConfirmMfr(""); setConfirmRoute(""); setConfirmDosage(""); setConfirmNotes("");
   };
 
   const handleConfirmVaccine = async () => {
     if (!confirmVaccine) return;
     const { record, action } = confirmVaccine;
-    const staffName = (() => { const u = getCurrentUser(); return u ? `${u.firstName} ${u.lastName}`.trim() : "Staff"; })();
+    const currentUser = getCurrentUser();
+    const staffName = currentUser ? `${currentUser.firstName} ${currentUser.lastName}`.trim() : "Staff";
     setConfirmSaving(true);
     try {
       const updates: Partial<MedicalRecord> = {
@@ -373,7 +380,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         updated_at: new Date().toISOString(),
         ...(action === "administered" ? {
           date: confirmDate,
-          vet: staffName,
+          vet: confirmVet || staffName,  // use selected vet; fall back to logged-in user
           lot_number: confirmLot || undefined,
           manufacturer: confirmManufacturer || undefined,
           route: confirmRoute || undefined,
@@ -895,12 +902,31 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Description</label>
+                    <label className="form-label">
+                      {medType === "Treatment" ? "Category" : "Description"}
+                    </label>
                     <select className="form-select" value={medDesc} onChange={(e) => setMedDesc(e.target.value)}>
                       <option value="">— Select —</option>
                       {(MEDICAL_DESC_MAP[medType] || []).map((d) => <option key={d}>{d}</option>)}
                     </select>
                   </div>
+                  {/* Medication/drug name free-text — shown for Treatment type */}
+                  {medType === "Treatment" && (
+                    <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                      <label className="form-label">Medication Name <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>(specific drug — e.g. Amoxicillin 250mg)</span></label>
+                      <input
+                        className="form-input"
+                        value={medMedName}
+                        onChange={(e) => setMedMedName(e.target.value)}
+                        placeholder="e.g. Amoxicillin, Doxycycline, Metronidazole…"
+                      />
+                      {medMedName.trim() && (
+                        <div style={{ fontSize: 11, color: "#0369a1", marginTop: 3 }}>
+                          This will be saved as the record name (overrides category selection above)
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="form-group">
                     <label className="form-label">Date</label>
                     <DateInput className="form-input" value={medDate} onChange={(e) => setMedDate(e.target.value)} />
@@ -1025,6 +1051,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     <div className="form-group">
                       <label className="form-label">Date Administered</label>
                       <DateInput className="form-input" value={confirmDate} onChange={(e) => setConfirmDate(e.target.value)} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Administered By</label>
+                      <StaffSelect value={confirmVet} onChange={setConfirmVet} placeholder="— Select staff —" />
                     </div>
                     <div className="form-group">
                       <label className="form-label">Lot Number</label>
