@@ -336,7 +336,10 @@ export async function fetchMedical(animalId?: string): Promise<MedicalRecord[]> 
 
 export async function createMedical(record: Partial<MedicalRecord>): Promise<MedicalRecord> {
   const id = `M-${genId()}`;
-  const { data, error } = await supabase.from("medical_records").insert({ ...record, id, ...demoTag() }).select().single();
+  const payload = { ...record, id, ...demoTag() };
+  console.log("[createMedical] inserting:", JSON.stringify(payload, null, 2));
+  const { data, error } = await supabase.from("medical_records").insert(payload).select().single();
+  console.log("[createMedical] response data:", data, "error:", error);
   if (error) throw error;
   return data as MedicalRecord;
 }

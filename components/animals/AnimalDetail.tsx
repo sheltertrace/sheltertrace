@@ -101,6 +101,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [medTestedBy, setMedTestedBy]   = useState("");
   const [medSaving, setMedSaving] = useState(false);
   const [medSaved, setMedSaved] = useState(false);
+  const [medErr, setMedErr]     = useState("");       // visible save error
   const [medRecords, setMedRecords] = useState<MedicalRecord[]>(medical);
   const [editMedRecord, setEditMedRecord] = useState<MedicalRecord | null>(null);
 
@@ -305,26 +306,31 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
 
   const handleAddMedical = async () => {
     setMedSaving(true);
+    setMedErr("");
+    const isDiag = isDiagnosticTest(medType);
+    const payload = {
+      animal_id:    animal.id,
+      animal_name:  animal.name,
+      type:         medType,
+      description:  medDesc || medType,   // fall back to type name so description is never blank
+      date:         medDate,
+      vet:          medVet || undefined,
+      next_due:     medNextDue || undefined,
+      lot_number:   medLotNumber || undefined,
+      manufacturer: medManufacturer || undefined,
+      route:        medRoute || undefined,
+      dosage:       medDosage || undefined,
+      notes:        medNotes || undefined,
+      result:       medResult || undefined,
+      cost:         medCost !== "" ? parseFloat(medCost) : null,
+      status:       medStatus || undefined,
+      test_result:  isDiag ? medTestResult : undefined,
+      tested_by:    (isDiag && medTestedBy) ? medTestedBy : undefined,
+    };
+    console.log("[MedSave] Saving medical record:", JSON.stringify(payload, null, 2));
     try {
-      const rec = await createMedical({
-        animal_id: animal.id,
-        animal_name: animal.name,
-        type: medType,
-        description: medDesc,
-        date: medDate,
-        vet: medVet || undefined,
-        next_due: medNextDue || undefined,
-        lot_number: medLotNumber || undefined,
-        manufacturer: medManufacturer || undefined,
-        route: medRoute || undefined,
-        dosage: medDosage || undefined,
-        notes: medNotes || undefined,
-        result: medResult || undefined,
-        cost: medCost !== "" ? parseFloat(medCost) : null,
-        status: medStatus || undefined,
-        test_result: isDiagnosticTest(medType) ? medTestResult : undefined,
-        tested_by: (isDiagnosticTest(medType) && medTestedBy) ? medTestedBy : undefined,
-      });
+      const rec = await createMedical(payload);
+      console.log("[MedSave] Saved successfully, id:", rec.id);
       setMedRecords((prev) => [rec, ...prev]);
       setMedSaved(true);
       setTimeout(() => {
@@ -334,7 +340,19 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         setMedRoute(""); setMedDosage(""); setMedNotes(""); setMedResult(""); setMedCost(""); setMedStatus("");
         setMedTestResult("Pending"); setMedTestedBy("");
       }, 800);
-    } finally { setMedSaving(false); }
+    } catch (err: unknown) {
+      const e = err as { message?: string; hint?: string; code?: string; details?: string };
+      const detail = [e.message, e.hint, e.details].filter(Boolean).join(" — ");
+      console.error("[MedSave] Save failed:", e.code, detail);
+      // 42703 = column does not exist → migration not run yet
+      if (e.code === "42703") {
+        setMedErr(`Column missing: ${detail}. Run the diagnostic tests migration (add_diagnostic_tests.sql) in Supabase.`);
+      } else {
+        setMedErr(`Save failed: ${detail || "Unknown error"}`);
+      }
+    } finally {
+      setMedSaving(false);
+    }
   };
 
   const openConfirm = (record: MedicalRecord, action: "administered" | "declined" | "skipped") => {
@@ -960,11 +978,16 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     <textarea className="form-textarea" rows={2} value={medNotes} onChange={(e) => setMedNotes(e.target.value)} placeholder="Any additional notes…" />
                   </div>
                 </div>
+                {medErr && (
+                  <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 7, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: "#dc2626", lineHeight: 1.5 }}>
+                    ⚠️ {medErr}
+                  </div>
+                )}
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="btn btn-primary btn-sm" onClick={handleAddMedical} disabled={medSaving || medSaved}>
                     {medSaving ? "Saving…" : medSaved ? "✓ Saved" : "Save Record"}
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setShowAddMed(false)}>Cancel</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddMed(false); setMedErr(""); }}>Cancel</button>
                 </div>
               </div>
             )}
