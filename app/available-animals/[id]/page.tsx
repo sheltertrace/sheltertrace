@@ -219,12 +219,12 @@ export default function AnimalPublicDetailPage() {
         <div className="detail-grid">
           {/* ── Left: Photo Gallery ── */}
           <div>
-            <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", background: "#eef4fb", aspectRatio: "1/1", boxShadow: "0 4px 20px rgba(15,41,66,0.12)" }}>
+            <div style={{ position: "relative", borderRadius: 16, overflow: "hidden", background: "#f4f6f8", aspectRatio: "1/1", boxShadow: "0 4px 20px rgba(15,41,66,0.12)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {currentPhoto ? (
                 <img
                   src={currentPhoto}
                   alt={animal.name}
-                  style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+                  style={{ maxWidth: "100%", maxHeight: "100%", width: "100%", height: "100%", objectFit: "contain", display: "block" }}
                 />
               ) : (
                 <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 100 }}>
@@ -266,7 +266,7 @@ export default function AnimalPublicDetailPage() {
                       borderRadius: 10, overflow: "hidden", cursor: "pointer", padding: 0, background: "none",
                     }}
                   >
-                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                    <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain", background: "#f4f6f8", display: "block" }} />
                   </button>
                 ))}
               </div>

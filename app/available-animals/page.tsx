@@ -27,13 +27,13 @@ function AnimalCard({ animal }: { animal: Animal }) {
   return (
     <Link href={`/available-animals/${animal.id}`} style={{ textDecoration: "none" }} className="animal-card-link">
       <article className="animal-card">
-        <div style={{ position: "relative", height: 220, overflow: "hidden", background: "#eef4fb", flexShrink: 0 }}>
+        <div style={{ position: "relative", height: 240, background: "#f4f6f8", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
           {photo ? (
             <img
               src={photo}
               alt={animal.name}
               loading="lazy"
-              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }}
+              style={{ maxWidth: "100%", maxHeight: "100%", width: "100%", height: "100%", objectFit: "contain", display: "block" }}
             />
           ) : (
             <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 80 }}>
