@@ -26,7 +26,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     section: "Shelter",
     items: [
-      { href: "/",         label: "Dashboard",   perm: "dashboard", icon: "⊞"  },
+      { href: "/dashboard", label: "Dashboard",   perm: "dashboard", icon: "⊞"  },
       { href: "/animals",  label: "Animals",     perm: "animals",   icon: "🐾" },
       { href: "/kennels",  label: "Kennels",     perm: "kennels",   icon: "🏠" },
       { href: "/medical",  label: "Medical",     perm: "medical",   icon: "💊" },
@@ -179,7 +179,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 {group.section}
               </div>
               {visible.map((item) => {
-                const isActive = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
+                const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 const msgBadge    = item.href === "/messages"        && unreadMsgs  > 0 ? unreadMsgs  : 0;
                 const reportBadge = item.href === "/citizen-reports" && newReports   > 0 ? newReports  : 0;
                 return (
