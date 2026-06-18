@@ -146,6 +146,13 @@ export interface MedicalRecord {
   updated_at?: string;
   updated_by?: string;
   created_at?: string;
+  // IDEXX VetConnect PLUS fields
+  idexx_order_id?:         string;
+  idexx_accession_number?: string;
+  idexx_status?:           string;   // Pending | Resulted | Error
+  idexx_result_data?:      Record<string, unknown> | null;
+  idexx_ordered_at?:       string;
+  idexx_resulted_at?:      string;
 }
 
 export interface AdoptionRecord {

@@ -4,10 +4,13 @@ import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/lib/supabase";
 import type { StaffAccount, CourtSettings, ShelterSettings } from "@/lib/types";
 import { genId, today } from "@/lib/utils";
-import { fetchAnimals, fetchCalls, fetchPeople, fetchCourtSettings, saveCourtSettings, fetchShelterSettings, saveShelterSettings } from "@/lib/data";
-import type { Animal, DispatchCall, Person } from "@/lib/types";
+import { fetchAnimals, fetchCalls, fetchPeople, fetchCourtSettings, saveCourtSettings, fetchShelterSettings, saveShelterSettings, fetchIdexxConfig, saveIdexxConfig, fetchIdexxOrders } from "@/lib/data";
+import type { Animal, DispatchCall, Person, MedicalRecord } from "@/lib/types";
+import type { IdexxConfig } from "@/lib/idexx";
+import { IDEXX_TEST_CODES } from "@/lib/idexx";
 import { useAuth } from "@/app/providers";
 import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE_DOTS, COURT_MAGISTRATE, COURT_STATE } from "@/lib/shelterInfo";
+import { IS_DEMO } from "@/lib/demo";
 
 const PRESET_ROLES = ["Administrator", "Shelter Manager", "Officer", "Dispatcher", "Vet Tech", "Front Desk", "Court Clerk", "Judge", "Volunteer", "Veterinarian", "Adoption Counselor", "Animal Care Tech", "Field Officer", "Volunteer Coordinator"];
 const ALL_PERMS = ["animals", "dispatch", "medical", "people", "adoptions", "foster", "kennels", "receipts", "citations", "court", "reports", "volunteers", "admin"];
@@ -78,9 +81,24 @@ function PermButtons({ perms, onChange }: { perms: string[]; onChange: (p: strin
   );
 }
 
+const IDEXX_DEFAULTS: IdexxConfig = {
+  practice_id: "", api_key: "", api_secret: "", account_number: "",
+  vetconnect_username: "", vetconnect_password: "", auto_sync: true,
+  use_sandbox: false, webhook_secret: "",
+};
+
+const DEMO_IDEXX_CONFIG: Partial<IdexxConfig> = {
+  practice_id:         "DEMO-12345",
+  api_key:             "demo-api-key-xxxx",
+  api_secret:          "demo-secret-xxxx",
+  account_number:      "DEMO-ACC-001",
+  vetconnect_username: "demo@sheltertrace.com",
+  vetconnect_password: "demo-password",
+};
+
 export default function AdminPage() {
   const { user: currentUser } = useAuth();
-  const [tab, setTab] = useState<"staff" | "address" | "court" | "shelter">("staff");
+  const [tab, setTab] = useState<"staff" | "address" | "court" | "shelter" | "integrations">("staff");
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<StaffAccount | null>(null);
@@ -100,6 +118,18 @@ export default function AdminPage() {
   const [shelterSaving, setShelterSaving] = useState(false);
   const [shelterSaved, setShelterSaved] = useState(false);
 
+  // IDEXX integration state
+  const [idexxConfig, setIdexxConfig] = useState<IdexxConfig>(IS_DEMO ? { ...IDEXX_DEFAULTS, ...DEMO_IDEXX_CONFIG } : IDEXX_DEFAULTS);
+  const [idexxSaving, setIdexxSaving] = useState(false);
+  const [idexxSaved, setIdexxSaved] = useState(false);
+  const [idexxTesting, setIdexxTesting] = useState(false);
+  const [idexxTestResult, setIdexxTestResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [idexxOrders, setIdexxOrders] = useState<MedicalRecord[]>([]);
+  const [idexxOrdersLoading, setIdexxOrdersLoading] = useState(false);
+  const [idexxOrderFilter, setIdexxOrderFilter] = useState<"all" | "Pending" | "Resulted" | "Error">("all");
+  const [idexxManualResult, setIdexxManualResult] = useState<{ recordId: string; value: string } | null>(null);
+  const [idexxShowSecret, setIdexxShowSecret] = useState<Record<string, boolean>>({});
+
   // Address lookup state
   const [addrQuery, setAddrQuery] = useState("");
   const [addrAnimals, setAddrAnimals] = useState<Animal[]>([]);
@@ -110,10 +140,11 @@ export default function AdminPage() {
 
   const load = useCallback(async () => {
     try {
-      const [{ data }, cs, ss] = await Promise.all([
+      const [{ data }, cs, ss, idexx] = await Promise.all([
         supabase.from("staff_accounts").select("*").order("created_at"),
         fetchCourtSettings(),
         fetchShelterSettings(),
+        fetchIdexxConfig(),
       ]);
       setStaff(((data as StaffAccount[]) || []).map((s) => ({
         ...s,
@@ -122,8 +153,21 @@ export default function AdminPage() {
       })));
       setCourtSettings(cs);
       setShelterSettings(ss);
+      if (!IS_DEMO) setIdexxConfig(idexx);
     } catch { } finally { setLoading(false); }
   }, []);
+
+  const loadIdexxOrders = useCallback(async () => {
+    setIdexxOrdersLoading(true);
+    try {
+      const orders = await fetchIdexxOrders();
+      setIdexxOrders(orders);
+    } catch { } finally { setIdexxOrdersLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    if (tab === "integrations") loadIdexxOrders();
+  }, [tab, loadIdexxOrders]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -137,6 +181,54 @@ export default function AdminPage() {
       const err = e as { message?: string };
       alert(`Failed to save court settings: ${err?.message || "Unknown error"}`);
     } finally { setCourtSaving(false); }
+  };
+
+  const handleSaveIdexxConfig = async () => {
+    if (IS_DEMO) { alert("Demo mode — IDEXX config is read-only."); return; }
+    setIdexxSaving(true);
+    try {
+      await saveIdexxConfig(idexxConfig);
+      setIdexxSaved(true);
+      setTimeout(() => setIdexxSaved(false), 3000);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      alert(`Failed to save IDEXX config: ${err?.message || "Unknown error"}`);
+    } finally { setIdexxSaving(false); }
+  };
+
+  const handleTestIdexx = async () => {
+    setIdexxTesting(true);
+    setIdexxTestResult(null);
+    try {
+      const res = await fetch("/api/idexx/test-connection", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: IS_DEMO ? undefined : idexxConfig }),
+      });
+      const result = await res.json() as { ok: boolean; message: string };
+      setIdexxTestResult(result);
+    } catch (e: unknown) {
+      const err = e as Error;
+      setIdexxTestResult({ ok: false, message: err.message || "Request failed" });
+    } finally { setIdexxTesting(false); }
+  };
+
+  const handleManualResult = async (recordId: string, result: string) => {
+    if (!result) return;
+    try {
+      await supabase.from("medical_records").update({
+        test_result:   result,
+        idexx_status:  "Resulted",
+        idexx_resulted_at: new Date().toISOString(),
+        status:        "Administered",
+        updated_at:    new Date().toISOString(),
+      }).eq("id", recordId);
+      setIdexxOrders((prev) => prev.map((r) => r.id === recordId ? { ...r, test_result: result, idexx_status: "Resulted" } : r));
+      setIdexxManualResult(null);
+    } catch (e: unknown) {
+      const err = e as { message?: string };
+      alert(`Failed: ${err?.message}`);
+    }
   };
 
   const handleSaveShelterSettings = async () => {
@@ -251,7 +343,7 @@ export default function AdminPage() {
     <AppShell title="Staff Administration">
       {/* Tabs */}
       <div style={{ display: "flex", gap: 4, marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 0 }}>
-        {([["staff", "👤 Staff Accounts"], ["shelter", "🏛️ Shelter Settings"], ["court", "⚖️ Court Settings"], ["address", "🔍 Address Lookup"]] as const).map(([id, label]) => (
+        {([["staff", "👤 Staff Accounts"], ["shelter", "🏛️ Shelter Settings"], ["court", "⚖️ Court Settings"], ["address", "🔍 Address Lookup"], ["integrations", "🔬 Integrations"]] as const).map(([id, label]) => (
           <button key={id} onClick={() => setTab(id)}
             style={{ padding: "8px 18px", border: "none", background: "none", fontWeight: tab === id ? 700 : 400, color: tab === id ? "var(--teal)" : "var(--text-secondary)", borderBottom: tab === id ? "2px solid var(--teal)" : "2px solid transparent", cursor: "pointer", fontSize: 13 }}>
             {label}
@@ -517,6 +609,227 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {tab === "integrations" && (
+        <div style={{ maxWidth: 860 }}>
+          <h3 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Integrations</h3>
+          <p style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
+            Connect ShelterTrace to external laboratory and diagnostic services.
+          </p>
+
+          {/* IDEXX Configuration */}
+          <div className="card" style={{ padding: 20, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+              <div style={{ background: "#1a3a6b", color: "#fff", borderRadius: 8, padding: "4px 10px", fontSize: 13, fontWeight: 800, letterSpacing: 0.5 }}>
+                IDEXX
+              </div>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>IDEXX VetConnect PLUS</div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Two-way diagnostic test ordering and automatic result sync</div>
+              </div>
+              {IS_DEMO && (
+                <span style={{ marginLeft: "auto", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
+                  DEMO — Read-only credentials
+                </span>
+              )}
+            </div>
+
+            <div className="grid-2">
+              {([
+                ["IDEXX Practice ID", "practice_id", "text"],
+                ["IDEXX Account Number", "account_number", "text"],
+                ["IDEXX API Key", "api_key", "password"],
+                ["IDEXX API Secret", "api_secret", "password"],
+                ["VetConnect PLUS Username", "vetconnect_username", "text"],
+                ["VetConnect PLUS Password", "vetconnect_password", "password"],
+              ] as [string, keyof IdexxConfig, string][]).map(([label, key, type]) => (
+                <div className="form-group" key={key}>
+                  <label className="form-label">{label}</label>
+                  <div style={{ position: "relative" }}>
+                    <input
+                      className="form-input"
+                      type={type === "password" && !idexxShowSecret[key] ? "password" : "text"}
+                      value={(idexxConfig[key] as string) || ""}
+                      onChange={(e) => setIdexxConfig((c) => ({ ...c, [key]: e.target.value }))}
+                      readOnly={IS_DEMO}
+                      style={{ paddingRight: type === "password" ? 36 : undefined }}
+                    />
+                    {type === "password" && (
+                      <button
+                        type="button"
+                        onClick={() => setIdexxShowSecret((s) => ({ ...s, [key]: !s[key] }))}
+                        style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-muted)" }}
+                        title={idexxShowSecret[key] ? "Hide" : "Show"}
+                      >
+                        {idexxShowSecret[key] ? "🙈" : "👁"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: "flex", gap: 24, marginTop: 4, marginBottom: 16 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={idexxConfig.auto_sync}
+                  onChange={(e) => setIdexxConfig((c) => ({ ...c, auto_sync: e.target.checked }))}
+                  disabled={IS_DEMO}
+                />
+                Auto-sync results every 30 min
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                <input
+                  type="checkbox"
+                  checked={idexxConfig.use_sandbox}
+                  onChange={(e) => setIdexxConfig((c) => ({ ...c, use_sandbox: e.target.checked }))}
+                  disabled={IS_DEMO}
+                />
+                Use Sandbox (testing)
+              </label>
+            </div>
+
+            {/* Webhook Secret */}
+            <div className="form-group" style={{ marginBottom: 16 }}>
+              <label className="form-label">Webhook Secret <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text-muted)" }}>(shared with IDEXX to verify incoming results)</span></label>
+              <input
+                className="form-input"
+                type={idexxShowSecret.webhook_secret ? "text" : "password"}
+                value={idexxConfig.webhook_secret || ""}
+                onChange={(e) => setIdexxConfig((c) => ({ ...c, webhook_secret: e.target.value }))}
+                readOnly={IS_DEMO}
+                placeholder="Generate a random secret and share with IDEXX support"
+              />
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
+                Webhook URL for IDEXX to push results: <code style={{ background: "#f1f5f9", padding: "1px 5px", borderRadius: 3 }}>{typeof window !== "undefined" ? window.location.origin : ""}/api/idexx/webhook</code>
+              </div>
+            </div>
+
+            {/* Test result banner */}
+            {idexxTestResult && (
+              <div style={{ background: idexxTestResult.ok ? "#f0fdf4" : "#fee2e2", border: `1px solid ${idexxTestResult.ok ? "#86efac" : "#fca5a5"}`, borderRadius: 7, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: idexxTestResult.ok ? "#15803d" : "#dc2626", fontWeight: 600 }}>
+                {idexxTestResult.ok ? "✅" : "⚠️"} {idexxTestResult.message}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <button className="btn btn-secondary" onClick={handleTestIdexx} disabled={idexxTesting}>
+                {idexxTesting ? "Testing…" : "🔌 Test Connection"}
+              </button>
+              {!IS_DEMO && (
+                <button className="btn btn-primary" onClick={handleSaveIdexxConfig} disabled={idexxSaving}>
+                  {idexxSaving ? "Saving…" : "Save IDEXX Settings"}
+                </button>
+              )}
+              {idexxSaved && <span style={{ fontSize: 13, color: "#15803d", fontWeight: 600 }}>✓ Saved</span>}
+            </div>
+          </div>
+
+          {/* Test Code Reference */}
+          <div className="card" style={{ padding: 16, marginBottom: 20, background: "#f8fafc" }}>
+            <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, color: "var(--teal)" }}>🧪 IDEXX SNAP Test Code Mapping</div>
+            <table className="data-table">
+              <thead><tr><th>ShelterTrace Test Type</th><th>IDEXX Test Code</th></tr></thead>
+              <tbody>
+                {Object.entries(IDEXX_TEST_CODES).map(([type, code]) => (
+                  <tr key={type}><td>{type}</td><td><code style={{ background: "#e0f2fe", color: "#0369a1", padding: "1px 6px", borderRadius: 4, fontSize: 11 }}>{code}</code></td></tr>
+                ))}
+                <tr><td style={{ color: "var(--text-muted)" }}>Fecal Test, Urinalysis</td><td style={{ color: "var(--text-muted)" }}>Manual code entry in order form</td></tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Order History */}
+          <div className="card" style={{ padding: 0, overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", background: "#f8fafc", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div style={{ fontWeight: 700, fontSize: 13 }}>📋 IDEXX Order History</div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {(["all", "Pending", "Resulted", "Error"] as const).map((f) => (
+                  <button key={f} onClick={() => setIdexxOrderFilter(f)}
+                    style={{ padding: "3px 12px", borderRadius: 20, border: "1px solid var(--border)", background: idexxOrderFilter === f ? "#0f2942" : "#fff", color: idexxOrderFilter === f ? "#fff" : "var(--text-secondary)", cursor: "pointer", fontSize: 12, fontWeight: idexxOrderFilter === f ? 700 : 400 }}>
+                    {f === "all" ? "All" : f}
+                  </button>
+                ))}
+                <button className="btn btn-ghost btn-sm" onClick={loadIdexxOrders} disabled={idexxOrdersLoading} style={{ fontSize: 12 }}>
+                  {idexxOrdersLoading ? "Loading…" : "↻ Refresh"}
+                </button>
+              </div>
+            </div>
+
+            {idexxOrdersLoading ? (
+              <div style={{ padding: "24px 16px", color: "var(--text-muted)", fontSize: 13 }}>Loading orders…</div>
+            ) : idexxOrders.length === 0 ? (
+              <div style={{ padding: "24px 16px", color: "var(--text-muted)", fontSize: 13 }}>No IDEXX orders found. Orders appear here after staff send diagnostic tests via IDEXX.</div>
+            ) : (
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Date Ordered</th>
+                    <th>Animal</th>
+                    <th>Test Type</th>
+                    <th>Accession #</th>
+                    <th>Status</th>
+                    <th>Result</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {idexxOrders
+                    .filter((r) => idexxOrderFilter === "all" || r.idexx_status === idexxOrderFilter)
+                    .map((r) => {
+                      const statusColor = r.idexx_status === "Resulted" ? "#15803d" : r.idexx_status === "Error" ? "#dc2626" : "#b45309";
+                      const statusBg    = r.idexx_status === "Resulted" ? "#dcfce7" : r.idexx_status === "Error" ? "#fee2e2" : "#fef3c7";
+                      const resultColor = r.test_result === "Positive" ? "#dc2626" : r.test_result === "Negative" ? "#15803d" : r.test_result === "Inconclusive" ? "#b45309" : "#64748b";
+                      return (
+                        <tr key={r.id}>
+                          <td style={{ fontSize: 12 }}>{r.idexx_ordered_at ? new Date(r.idexx_ordered_at).toLocaleDateString() : "—"}</td>
+                          <td>
+                            <a href={`/animals/${r.animal_id}`} target="_blank" rel="noreferrer" style={{ fontWeight: 600, color: "var(--teal)", textDecoration: "none" }}>
+                              {r.animal_name}
+                            </a>
+                          </td>
+                          <td style={{ fontSize: 12 }}>{r.type}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: 11 }}>{r.idexx_accession_number || "—"}</td>
+                          <td>
+                            <span style={{ background: statusBg, color: statusColor, padding: "2px 8px", borderRadius: 10, fontSize: 11, fontWeight: 700 }}>
+                              {r.idexx_status || "Pending"}
+                            </span>
+                          </td>
+                          <td style={{ fontWeight: 700, color: resultColor, fontSize: 12 }}>
+                            {r.test_result || "—"}
+                          </td>
+                          <td>
+                            {r.idexx_status !== "Resulted" && (
+                              idexxManualResult?.recordId === r.id ? (
+                                <div style={{ display: "flex", gap: 4 }}>
+                                  <select
+                                    style={{ fontSize: 11, padding: "2px 6px", borderRadius: 4, border: "1px solid var(--border)" }}
+                                    value={idexxManualResult.value}
+                                    onChange={(e) => setIdexxManualResult({ recordId: r.id, value: e.target.value })}
+                                  >
+                                    <option value="">— Select —</option>
+                                    {["Positive","Negative","Inconclusive"].map((v) => <option key={v}>{v}</option>)}
+                                  </select>
+                                  <button className="btn btn-sm btn-primary" style={{ fontSize: 11, padding: "2px 8px" }} onClick={() => handleManualResult(r.id, idexxManualResult.value)}>Save</button>
+                                  <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setIdexxManualResult(null)}>✕</button>
+                                </div>
+                              ) : (
+                                <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setIdexxManualResult({ recordId: r.id, value: "" })}>
+                                  Enter Result
+                                </button>
+                              )
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            )}
+          </div>
         </div>
       )}
 

@@ -8,7 +8,7 @@ import {
   STATUSES, SUB_STATUSES, BEHAVIOR_FLAGS, EUTH_DRUGS, EUTH_REASONS,
   CIRCUMSTANCE_TYPES, COAT_TYPES, EAR_TYPES, EYE_COLORS, SIZE_OPTIONS,
   ALL_BREEDS_DOG, ALL_BREEDS_CAT, ALL_COLORS,
-  MEDICAL_TYPES, MEDICAL_DESC_MAP, isDiagnosticTest, TEST_RESULT_OPTIONS,
+  MEDICAL_TYPES, MEDICAL_DESC_MAP, isDiagnosticTest, TEST_RESULT_OPTIONS, DIAGNOSTIC_TEST_TYPES,
 } from "@/lib/constants";
 import StaffSelect from "@/components/ui/StaffSelect";
 import { useKennels } from "@/app/providers";
@@ -20,9 +20,11 @@ import {
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
   fetchTransfersByAnimal, safeJsonArray, safeJsonObject, safeArray,
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
-  lookupMicrochip, fetchLicensesByAnimal,
+  lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled,
   type AnimalDocument,
 } from "@/lib/data";
+import { IS_DEMO } from "@/lib/demo";
+import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult } from "@/lib/idexx";
 import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
 import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
@@ -105,6 +107,13 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [medErr, setMedErr]     = useState("");       // visible save error
   const [medRecords, setMedRecords] = useState<MedicalRecord[]>(medical);
   const [editMedRecord, setEditMedRecord] = useState<MedicalRecord | null>(null);
+  // IDEXX ordering
+  const [idexxEnabled, setIdexxEnabled] = useState(false);
+  const [medIdexxOrder, setMedIdexxOrder] = useState(false);
+  const [medIdexxManualCode, setMedIdexxManualCode] = useState("");
+  const [idexxOrdering, setIdexxOrdering] = useState(false);
+  const [idexxOrderErr, setIdexxOrderErr] = useState("");
+  const [expandedIdexx, setExpandedIdexx] = useState<string | null>(null);
 
   // Vaccine confirmation
   const [confirmVaccine, setConfirmVaccine] = useState<{ record: MedicalRecord; action: "administered" | "declined" | "skipped" } | null>(null);
@@ -169,6 +178,26 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchDepartureReceiptsByAnimal(animal.id).then(setDepartureReceipts);
     fetchAdoptionsByAnimal(animal.id).then(setAdoptionRecords);
     fetchLicensesByAnimal(animal.id).then(setAnimalLicenses);
+    fetchIdexxEnabled().then(setIdexxEnabled).catch(() => {});
+  }, [animal.id]);
+
+  // Realtime subscription — auto-refresh medical records when IDEXX updates them
+  useEffect(() => {
+    const channel = supabase
+      .channel(`idexx-results-${animal.id}`)
+      .on("postgres_changes", {
+        event:  "UPDATE",
+        schema: "public",
+        table:  "medical_records",
+        filter: `animal_id=eq.${animal.id}`,
+      }, (payload: { new: Record<string, unknown> }) => {
+        const updated = payload.new as unknown as MedicalRecord;
+        if (updated.idexx_status === "Resulted") {
+          setMedRecords((prev) => prev.map((r) => r.id === updated.id ? { ...r, ...updated } : r));
+        }
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [animal.id]);
 
   const save = useCallback(async (
@@ -309,6 +338,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const handleAddMedical = async () => {
     setMedSaving(true);
     setMedErr("");
+    setIdexxOrderErr("");
     const isDiag = isDiagnosticTest(medType);
     const payload = {
       animal_id:    animal.id,
@@ -330,14 +360,18 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       tested_by:    (isDiag && medTestedBy) ? medTestedBy : undefined,
     };
     console.log("[MedSave] Saving medical record:", JSON.stringify(payload, null, 2));
+    let savedRec: MedicalRecord | null = null;
     try {
       const rec = await createMedical(payload);
       console.log("[MedSave] Saved successfully, id:", rec.id);
+      savedRec = rec;
       setMedRecords((prev) => [rec, ...prev]);
       setMedSaved(true);
       setTimeout(() => {
         setShowAddMed(false);
         setMedSaved(false);
+        setMedIdexxOrder(false);
+        setMedIdexxManualCode("");
         setMedDesc(""); setMedMedName(""); setMedNextDue(""); setMedLotNumber(""); setMedManufacturer("");
         setMedRoute(""); setMedDosage(""); setMedNotes(""); setMedResult(""); setMedCost(""); setMedStatus("");
         setMedTestResult("Pending"); setMedTestedBy("");
@@ -346,7 +380,6 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       const e = err as { message?: string; hint?: string; code?: string; details?: string };
       const detail = [e.message, e.hint, e.details].filter(Boolean).join(" — ");
       console.error("[MedSave] Save failed:", e.code, detail);
-      // 42703 = column does not exist → migration not run yet
       if (e.code === "42703") {
         setMedErr(`Column missing: ${detail}. Run the diagnostic tests migration (add_diagnostic_tests.sql) in Supabase.`);
       } else {
@@ -354,6 +387,79 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       }
     } finally {
       setMedSaving(false);
+    }
+
+    // ── IDEXX ordering (non-blocking — local save already done) ───────────────
+    if (savedRec && isDiag && medIdexxOrder && (idexxEnabled || IS_DEMO)) {
+      setIdexxOrdering(true);
+      const testCode = getIdexxTestCode(medType) || medIdexxManualCode.trim();
+      if (!testCode) {
+        setIdexxOrderErr("Enter an IDEXX test code to order via IDEXX.");
+        setIdexxOrdering(false);
+        return;
+      }
+      try {
+        if (IS_DEMO) {
+          // Simulate order immediately; result arrives after 30s
+          const order = demoSimulateOrder(savedRec.id);
+          await supabase.from("medical_records").update({
+            idexx_order_id:         order.order_id,
+            idexx_accession_number: order.accession_number,
+            idexx_status:           "Pending",
+            idexx_ordered_at:       new Date().toISOString(),
+          }).eq("id", savedRec.id);
+          setMedRecords((prev) => prev.map((r) => r.id === savedRec!.id
+            ? { ...r, idexx_order_id: order.order_id, idexx_accession_number: order.accession_number, idexx_status: "Pending", idexx_ordered_at: new Date().toISOString() }
+            : r));
+          // Simulate result after 30 seconds
+          setTimeout(async () => {
+            const result = demoSimulateResult(order.accession_number);
+            const mapped = mapIdexxResult(result.result);
+            await supabase.from("medical_records").update({
+              test_result:       mapped,
+              idexx_status:      "Resulted",
+              idexx_result_data: result.result_data,
+              idexx_resulted_at: result.resulted_at,
+              status:            "Administered",
+              updated_at:        new Date().toISOString(),
+            }).eq("id", savedRec!.id);
+            setMedRecords((prev) => prev.map((r) => r.id === savedRec!.id
+              ? { ...r, test_result: mapped, idexx_status: "Resulted", idexx_result_data: result.result_data, idexx_resulted_at: result.resulted_at, status: "Administered" }
+              : r));
+          }, 30_000);
+        } else {
+          const currentUser = typeof window !== "undefined"
+            ? JSON.parse(sessionStorage.getItem("shelter_user") || "{}") as { firstName?: string; lastName?: string }
+            : {};
+          const staffName = [currentUser.firstName, currentUser.lastName].filter(Boolean).join(" ") || "Staff";
+          const res = await fetch("/api/idexx/order", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              medical_record_id: savedRec.id,
+              test_code: testCode,
+              requesting_staff: staffName,
+              animal: {
+                name:    animal.name,
+                species: animal.species,
+                breed:   animal.breed || "Unknown",
+                age:     animal.age || "0",
+                sex:     animal.sex || "Unknown",
+              },
+            }),
+          });
+          const data = await res.json() as { order_id?: string; accession_number?: string; error?: string };
+          if (!res.ok || data.error) throw new Error(data.error || "Order failed");
+          setMedRecords((prev) => prev.map((r) => r.id === savedRec!.id
+            ? { ...r, idexx_order_id: data.order_id, idexx_accession_number: data.accession_number, idexx_status: "Pending" }
+            : r));
+        }
+      } catch (err: unknown) {
+        const e = err as Error;
+        setIdexxOrderErr(`IDEXX order failed: ${e.message}. Record saved locally — enter results manually.`);
+      } finally {
+        setIdexxOrdering(false);
+      }
     }
   };
 
@@ -1004,16 +1110,58 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     <textarea className="form-textarea" rows={2} value={medNotes} onChange={(e) => setMedNotes(e.target.value)} placeholder="Any additional notes…" />
                   </div>
                 </div>
+                {/* IDEXX ordering toggle — shown for diagnostic tests when IDEXX is configured */}
+                {isDiagnosticTest(medType) && (idexxEnabled || IS_DEMO) && (
+                  <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 7, padding: "10px 12px", marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: medIdexxOrder ? 8 : 0 }}>
+                      <div style={{ background: "#1a3a6b", color: "#fff", borderRadius: 5, padding: "2px 8px", fontSize: 11, fontWeight: 800 }}>IDEXX</div>
+                      <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>Order via IDEXX VetConnect PLUS</span>
+                      {IS_DEMO && <span style={{ fontSize: 10, color: "#b45309", background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 4, padding: "1px 6px", fontWeight: 700 }}>DEMO</span>}
+                      <button
+                        type="button"
+                        onClick={() => setMedIdexxOrder((v) => !v)}
+                        style={{ padding: "4px 14px", borderRadius: 20, border: "none", cursor: "pointer", fontWeight: 700, fontSize: 12, background: medIdexxOrder ? "#1a3a6b" : "#e2e8f0", color: medIdexxOrder ? "#fff" : "#64748b", transition: "all 0.15s" }}
+                      >
+                        {medIdexxOrder ? "ON" : "OFF"}
+                      </button>
+                    </div>
+                    {medIdexxOrder && (
+                      <div style={{ fontSize: 12, color: "#1e40af" }}>
+                        {getIdexxTestCode(medType) ? (
+                          <span>Test code: <code style={{ background: "#dbeafe", padding: "1px 5px", borderRadius: 3 }}>{getIdexxTestCode(medType)}</code> — will be sent to IDEXX on save{IS_DEMO ? " (simulated)" : ""}</span>
+                        ) : (
+                          <div>
+                            <div style={{ marginBottom: 4 }}>No automatic code for this test type — enter manually:</div>
+                            <input
+                              className="form-input"
+                              style={{ fontSize: 12 }}
+                              placeholder="IDEXX test code (e.g. FELV_ONLY)"
+                              value={medIdexxManualCode}
+                              onChange={(e) => setMedIdexxManualCode(e.target.value)}
+                            />
+                          </div>
+                        )}
+                        {IS_DEMO && <div style={{ marginTop: 4, color: "#92400e", fontSize: 11 }}>Demo: result will auto-populate after ~30 seconds to simulate the workflow.</div>}
+                      </div>
+                    )}
+                  </div>
+                )}
                 {medErr && (
                   <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 7, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: "#dc2626", lineHeight: 1.5 }}>
                     ⚠️ {medErr}
                   </div>
                 )}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button className="btn btn-primary btn-sm" onClick={handleAddMedical} disabled={medSaving || medSaved}>
-                    {medSaving ? "Saving…" : medSaved ? "✓ Saved" : "Save Record"}
+                {idexxOrderErr && (
+                  <div style={{ background: "#fff7ed", border: "1px solid #fed7aa", borderRadius: 7, padding: "8px 12px", marginBottom: 8, fontSize: 12, color: "#c2410c", lineHeight: 1.5 }}>
+                    ⚠️ {idexxOrderErr}
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <button className="btn btn-primary btn-sm" onClick={handleAddMedical} disabled={medSaving || medSaved || idexxOrdering}>
+                    {medSaving ? "Saving…" : medSaved ? "✓ Saved" : idexxOrdering ? "Ordering…" : "Save Record"}
                   </button>
-                  <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddMed(false); setMedErr(""); }}>Cancel</button>
+                  <button className="btn btn-ghost btn-sm" onClick={() => { setShowAddMed(false); setMedErr(""); setIdexxOrderErr(""); }}>Cancel</button>
+                  {idexxOrdering && <span style={{ fontSize: 12, color: "#1a3a6b", fontWeight: 600 }}>Sending to IDEXX…</span>}
                 </div>
               </div>
             )}
@@ -1145,8 +1293,35 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                         </td>
                         <td><span className="badge" style={{ background: isDiag ? "#f3e8ff" : "#e0f2fe", color: isDiag ? "#7c3aed" : "#0369a1" }}>{m.type}</span></td>
                         <td style={{ fontWeight: isScheduled ? 700 : 600 }}>
-                          <div>{m.description}</div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span>{m.description}</span>
+                            {m.idexx_order_id && (
+                              <span style={{ background: "#1a3a6b", color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: 10, fontWeight: 800, letterSpacing: 0.3 }}>IDEXX</span>
+                            )}
+                            {m.idexx_status === "Pending" && (
+                              <span style={{ background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", borderRadius: 8, padding: "1px 7px", fontSize: 10, fontWeight: 700 }}>
+                                ⏳ Awaiting Results
+                              </span>
+                            )}
+                            {m.idexx_status === "Resulted" && m.idexx_result_data && (
+                              <button
+                                type="button"
+                                onClick={() => setExpandedIdexx(expandedIdexx === m.id ? null : m.id)}
+                                style={{ background: "#eff6ff", color: "#1d4ed8", border: "1px solid #93c5fd", borderRadius: 8, padding: "1px 7px", fontSize: 10, fontWeight: 700, cursor: "pointer" }}
+                              >
+                                {expandedIdexx === m.id ? "▲ Hide Report" : "▼ View Report"}
+                              </button>
+                            )}
+                            {IS_DEMO && m.idexx_status === "Resulted" && (
+                              <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>DEMO</span>
+                            )}
+                          </div>
                           {isDiag && <div style={{ marginTop: 3 }}>{testResultBadge}</div>}
+                          {isDiag && m.idexx_accession_number && (
+                            <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 1 }}>
+                              Accession: <span style={{ fontFamily: "monospace" }}>{m.idexx_accession_number}</span>
+                            </div>
+                          )}
                           {isDiag && m.tested_by && <div style={{ fontSize: 10, color: "var(--text-muted)" }}>Tested by {m.tested_by}</div>}
                           {isScheduled && <div style={{ fontSize: 10, color: "#d97706", fontWeight: 600 }}>Not yet confirmed as given</div>}
                           {m.updated_by && !isScheduled
@@ -1155,6 +1330,46 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                               ? <div style={{ fontSize: 10, color: "var(--text-muted)", fontWeight: 400 }}>Updated {formatDate(m.updated_at.slice(0, 10))}</div>
                               : null
                           }
+                          {/* Expandable IDEXX result panel */}
+                          {expandedIdexx === m.id && m.idexx_result_data && (
+                            <div style={{ marginTop: 8, background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 6, padding: "10px 12px", fontSize: 12 }}>
+                              <div style={{ fontWeight: 700, color: "#0369a1", marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                                <span style={{ background: "#1a3a6b", color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: 10 }}>IDEXX</span>
+                                Full Result Report
+                                {IS_DEMO && <span style={{ background: "#fef3c7", color: "#92400e", borderRadius: 4, padding: "1px 5px", fontSize: 9, fontWeight: 700 }}>DEMO — Simulated IDEXX Result</span>}
+                              </div>
+                              {m.idexx_resulted_at && (
+                                <div style={{ color: "var(--text-muted)", marginBottom: 6 }}>
+                                  Resulted: {new Date(m.idexx_resulted_at).toLocaleString()}
+                                </div>
+                              )}
+                              {Array.isArray((m.idexx_result_data as Record<string, unknown>).panels) && (
+                                <table style={{ width: "100%", fontSize: 11, borderCollapse: "collapse" }}>
+                                  <thead>
+                                    <tr style={{ background: "#e0f2fe" }}>
+                                      <th style={{ padding: "4px 8px", textAlign: "left" }}>Panel</th>
+                                      <th style={{ padding: "4px 8px", textAlign: "left" }}>Result</th>
+                                      <th style={{ padding: "4px 8px", textAlign: "left" }}>Note</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {((m.idexx_result_data as Record<string, unknown>).panels as Array<{ name: string; result: string; note?: string }>).map((p, i) => (
+                                      <tr key={i} style={{ borderTop: "1px solid #bae6fd" }}>
+                                        <td style={{ padding: "4px 8px" }}>{p.name}</td>
+                                        <td style={{ padding: "4px 8px", fontWeight: 700, color: p.result === "POSITIVE" ? "#dc2626" : p.result === "NEGATIVE" ? "#15803d" : "#b45309" }}>{p.result}</td>
+                                        <td style={{ padding: "4px 8px", color: "var(--text-muted)" }}>{p.note || "—"}</td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                </table>
+                              )}
+                              {!!(m.idexx_result_data as Record<string, unknown>).performed_by && (
+                                <div style={{ marginTop: 6, color: "var(--text-muted)", fontSize: 11 }}>
+                                  Performed by: {String((m.idexx_result_data as Record<string, unknown>).performed_by)}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </td>
                         <td style={{ fontSize: 12 }}>{formatDate(m.date)}</td>
                         <td style={{ fontSize: 12 }}>{m.vet || (isDiag ? m.tested_by : undefined) || "—"}</td>

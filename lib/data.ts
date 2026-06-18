@@ -1796,3 +1796,39 @@ export async function createDrugReconciliation(entry: Partial<DrugReconciliation
   if (error) throw error;
   return data as DrugReconciliation;
 }
+
+// ── IDEXX VetConnect PLUS Config (stored in shelter_config id=6) ──────────────
+
+import type { IdexxConfig } from "./idexx";
+
+export async function fetchIdexxEnabled(): Promise<boolean> {
+  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).single();
+  const cfg = data?.config_data as IdexxConfig | null;
+  return !!(cfg?.practice_id);
+}
+
+export async function fetchIdexxConfig(): Promise<IdexxConfig> {
+  const defaults: IdexxConfig = {
+    practice_id: "", api_key: "", api_secret: "", account_number: "",
+    vetconnect_username: "", vetconnect_password: "", auto_sync: true,
+    use_sandbox: false, webhook_secret: "",
+  };
+  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).single();
+  return { ...defaults, ...(data?.config_data as Partial<IdexxConfig> ?? {}) };
+}
+
+export async function saveIdexxConfig(config: IdexxConfig): Promise<void> {
+  await supabase.from("shelter_config").upsert({
+    id: 6, config_data: config as unknown as Record<string, unknown>, updated_at: new Date().toISOString(),
+  });
+}
+
+export async function fetchIdexxOrders(): Promise<MedicalRecord[]> {
+  const { data } = await supabase
+    .from("medical_records")
+    .select("*")
+    .not("idexx_order_id", "is", null)
+    .order("idexx_ordered_at", { ascending: false });
+  return (data || []) as MedicalRecord[];
+}
+
