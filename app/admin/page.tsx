@@ -97,6 +97,7 @@ const DEMO_IDEXX_CONFIG: Partial<IdexxConfig> = {
 };
 
 export default function AdminPage() {
+  console.log("[AdminPage] rendering — tabs: staff | shelter | court | address | integrations");
   const { user: currentUser } = useAuth();
   const [tab, setTab] = useState<"staff" | "address" | "court" | "shelter" | "integrations">("staff");
   const [staff, setStaff] = useState<StaffAccount[]>([]);

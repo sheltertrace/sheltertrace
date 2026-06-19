@@ -1,6 +1,7 @@
 "use client";
 import { supabase } from "./supabase";
 import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation } from "./types";
+import type { IdexxConfig } from "./idexx";
 import { genId, genReceiptId, today } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
 
@@ -1798,8 +1799,6 @@ export async function createDrugReconciliation(entry: Partial<DrugReconciliation
 }
 
 // ── IDEXX VetConnect PLUS Config (stored in shelter_config id=6) ──────────────
-
-import type { IdexxConfig } from "./idexx";
 
 export async function fetchIdexxEnabled(): Promise<boolean> {
   const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).single();
