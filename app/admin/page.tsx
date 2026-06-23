@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/lib/supabase";
@@ -916,3 +916,4 @@ export default function AdminPage() {
     </AppShell>
   );
 }
+
