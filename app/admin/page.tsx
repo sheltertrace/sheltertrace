@@ -141,21 +141,26 @@ export default function AdminPage() {
 
   const load = useCallback(async () => {
     try {
-      const [{ data }, cs, ss, idexx] = await Promise.all([
+      const [staffResult, cs, ss, idexx] = await Promise.allSettled([
         supabase.from("staff_accounts").select("*").order("created_at"),
         fetchCourtSettings(),
         fetchShelterSettings(),
         fetchIdexxConfig(),
       ]);
-      setStaff(((data as StaffAccount[]) || []).map((s) => ({
-        ...s,
-        firstName: s.first_name || s.firstName,
-        lastName: s.last_name || s.lastName,
-      })));
-      setCourtSettings(cs);
-      setShelterSettings(ss);
-      if (!IS_DEMO) setIdexxConfig(idexx);
-    } catch { } finally { setLoading(false); }
+      if (staffResult.status === "fulfilled") {
+        const { data } = staffResult.value as { data: StaffAccount[] | null };
+        setStaff(((data as StaffAccount[]) || []).map((s) => ({
+          ...s,
+          firstName: s.first_name || s.firstName,
+          lastName: s.last_name || s.lastName,
+        })));
+      }
+      if (cs.status === "fulfilled") setCourtSettings(cs.value);
+      if (ss.status === "fulfilled") setShelterSettings(ss.value);
+      if (idexx.status === "fulfilled" && !IS_DEMO) setIdexxConfig(idexx.value);
+    } catch (e) {
+      console.error("[AdminPage] load error:", e);
+    } finally { setLoading(false); }
   }, []);
 
   const loadIdexxOrders = useCallback(async () => {

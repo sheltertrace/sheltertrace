@@ -773,9 +773,11 @@ export async function fetchShelterSettings(): Promise<import("./types").ShelterS
     shelter_phone: "706.752.1195",
     gda_license_number: "",
   };
-  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 3).single();
-  if (!data?.config_data) return defaults;
-  return { ...defaults, ...(data.config_data as object) };
+  try {
+    const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 3).maybeSingle();
+    if (!data?.config_data) return defaults;
+    return { ...defaults, ...(data.config_data as object) };
+  } catch { return defaults; }
 }
 
 export async function saveShelterSettings(settings: import("./types").ShelterSettings): Promise<void> {
@@ -785,9 +787,11 @@ export async function saveShelterSettings(settings: import("./types").ShelterSet
 // ── Court Settings (stored in shelter_config id=2) ────────────────────────────
 export async function fetchCourtSettings(): Promise<import("./types").CourtSettings> {
   const defaults = { magistrate_email: "", municipal_email: "", portal_url: "https://sheltertrace.com/court" };
-  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 2).single();
-  if (!data?.config_data) return defaults;
-  return { ...defaults, ...(data.config_data as object) };
+  try {
+    const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 2).maybeSingle();
+    if (!data?.config_data) return defaults;
+    return { ...defaults, ...(data.config_data as object) };
+  } catch { return defaults; }
 }
 
 export async function saveCourtSettings(settings: import("./types").CourtSettings): Promise<void> {
@@ -1192,8 +1196,10 @@ export async function genNextPid(): Promise<string> {
 
 // ── Volunteer Announcements ───────────────────────────────────────────────────
 export async function fetchVolunteerAnnouncements(): Promise<string> {
-  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 5).single();
-  return (data as { config_data: { text?: string } } | null)?.config_data?.text || "";
+  try {
+    const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 5).maybeSingle();
+    return (data as { config_data: { text?: string } } | null)?.config_data?.text || "";
+  } catch { return ""; }
 }
 
 export async function saveVolunteerAnnouncements(text: string): Promise<void> {
@@ -1801,9 +1807,11 @@ export async function createDrugReconciliation(entry: Partial<DrugReconciliation
 // ── IDEXX VetConnect PLUS Config (stored in shelter_config id=6) ──────────────
 
 export async function fetchIdexxEnabled(): Promise<boolean> {
-  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).single();
-  const cfg = data?.config_data as IdexxConfig | null;
-  return !!(cfg?.practice_id);
+  try {
+    const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).maybeSingle();
+    const cfg = data?.config_data as IdexxConfig | null;
+    return !!(cfg?.practice_id);
+  } catch { return false; }
 }
 
 export async function fetchIdexxConfig(): Promise<IdexxConfig> {
@@ -1812,8 +1820,10 @@ export async function fetchIdexxConfig(): Promise<IdexxConfig> {
     vetconnect_username: "", vetconnect_password: "", auto_sync: true,
     use_sandbox: false, webhook_secret: "",
   };
-  const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).single();
-  return { ...defaults, ...(data?.config_data as Partial<IdexxConfig> ?? {}) };
+  try {
+    const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).maybeSingle();
+    return { ...defaults, ...(data?.config_data as Partial<IdexxConfig> ?? {}) };
+  } catch { return defaults; }
 }
 
 export async function saveIdexxConfig(config: IdexxConfig): Promise<void> {
@@ -1823,11 +1833,13 @@ export async function saveIdexxConfig(config: IdexxConfig): Promise<void> {
 }
 
 export async function fetchIdexxOrders(): Promise<MedicalRecord[]> {
-  const { data } = await supabase
-    .from("medical_records")
-    .select("*")
-    .not("idexx_order_id", "is", null)
-    .order("idexx_ordered_at", { ascending: false });
-  return (data || []) as MedicalRecord[];
+  try {
+    const { data } = await supabase
+      .from("medical_records")
+      .select("*")
+      .not("idexx_order_id", "is", null)
+      .order("idexx_ordered_at", { ascending: false });
+    return (data || []) as MedicalRecord[];
+  } catch { return []; }
 }
 
