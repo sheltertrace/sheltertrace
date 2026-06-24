@@ -80,16 +80,20 @@ export default function TransfersPage() {
   const handleSaveGroup = async () => {
     if (!groupForm.organization_name?.trim()) return;
     setSavingGroup(true);
+    console.log("[RescueGroup] Saving:", JSON.stringify(groupForm));
     try {
       if (editingGroup) {
         const updated = await updateRescueGroup(editingGroup.id, groupForm);
+        console.log("[RescueGroup] Updated:", updated.id);
         setGroups((prev) => prev.map((g) => g.id === updated.id ? updated : g));
       } else {
         const created = await createRescueGroup(groupForm as Omit<RescueGroup, "id" | "created_at" | "updated_at">);
+        console.log("[RescueGroup] Created:", created.id);
         setGroups((prev) => [...prev, created].sort((a, b) => a.organization_name.localeCompare(b.organization_name)));
       }
       setShowGroupModal(false);
     } catch (err: unknown) {
+      console.error("[RescueGroup] Save error:", err);
       alert(`Save failed: ${(err as { message?: string }).message || "Unknown error"}`);
     } finally { setSavingGroup(false); }
   };

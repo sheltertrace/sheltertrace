@@ -865,13 +865,25 @@ export async function fetchRescueGroups(): Promise<import("./types").RescueGroup
 }
 
 export async function createRescueGroup(group: Omit<import("./types").RescueGroup, "id" | "created_at" | "updated_at">): Promise<import("./types").RescueGroup> {
-  const { data, error } = await supabase.from("rescue_groups").insert(group).select().single();
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(group)) {
+    if (k === "id" || k === "created_at" || k === "updated_at") continue;
+    clean[k] = typeof v === "string" && v.trim() === "" ? null : v;
+  }
+  if (!clean.organization_name) throw new Error("Organization name is required");
+  const { data, error } = await supabase.from("rescue_groups").insert(clean).select().single();
   if (error) throw error;
   return data as import("./types").RescueGroup;
 }
 
 export async function updateRescueGroup(id: string, updates: Partial<import("./types").RescueGroup>): Promise<import("./types").RescueGroup> {
-  const { data, error } = await supabase.from("rescue_groups").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+  const clean: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(updates)) {
+    if (k === "id" || k === "created_at") continue;
+    clean[k] = typeof v === "string" && v.trim() === "" ? null : v;
+  }
+  clean.updated_at = new Date().toISOString();
+  const { data, error } = await supabase.from("rescue_groups").update(clean).eq("id", id).select().single();
   if (error) throw error;
   return data as import("./types").RescueGroup;
 }
