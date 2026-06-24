@@ -210,6 +210,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         })}
       </div>
 
+      {user.is_super_admin && (
+        <div style={{ padding: "0 12px 6px" }}>
+          <Link href="/superadmin" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: "rgba(255,255,255,0.35)", textDecoration: "none", padding: "4px 6px", borderRadius: 4 }}>
+            🔑 Platform Admin
+          </Link>
+        </div>
+      )}
       <div className="sidebar-user">
         <div className="user-avatar">{user.avatar}</div>
         <div className="user-info">

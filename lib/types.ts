@@ -547,6 +547,8 @@ export interface StaffAccount {
   permissions: string[];
   theme_preference?: "light" | "dark";
   account_type?: string;
+  is_super_admin?: boolean;
+  platform_customer_id?: string;
 }
 
 export interface ShelterRoom {

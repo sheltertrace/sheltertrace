@@ -25,6 +25,8 @@ function normalizeAccount(row: Record<string, unknown>): StaffAccount {
     created_at: row.created_at as string,
     theme_preference: (row.theme_preference as "light" | "dark") || "light",
     account_type: (row.account_type as string) || "shelter",
+    is_super_admin: !!row.is_super_admin,
+    platform_customer_id: (row.platform_customer_id as string) || undefined,
   };
 }
 
