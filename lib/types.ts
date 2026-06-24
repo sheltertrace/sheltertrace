@@ -549,6 +549,7 @@ export interface StaffAccount {
   account_type?: string;
   is_super_admin?: boolean;
   platform_customer_id?: string;
+  signature_data?: string;
 }
 
 export interface ShelterRoom {

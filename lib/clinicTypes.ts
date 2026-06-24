@@ -139,6 +139,52 @@ export interface ClinicEmail {
   created_at?: string;
 }
 
+export interface ClinicRabiesCertificate {
+  id: string;
+  clinic_account_id: string;
+  client_id?: string;
+  animal_id?: string;
+  certificate_number?: string;
+  medical_record_id?: string;
+  animal_name?: string;
+  species?: string;
+  breed?: string;
+  color?: string;
+  sex?: string;
+  age?: string;
+  weight?: string;
+  microchip?: string;
+  owner_name?: string;
+  vaccine_brand?: string;
+  lot_number?: string;
+  vaccine_expiration?: string;
+  date_administered?: string;
+  route?: string;
+  duration?: string;
+  next_due?: string;
+  rabies_tag?: string;
+  vet_name?: string;
+  vet_license?: string;
+  vet_signature_data?: string;
+  issued_at?: string;
+  voided: boolean;
+  void_reason?: string;
+}
+
+export interface ClinicSettings {
+  clinic_name: string;
+  vet_name: string;
+  vet_credentials: string;
+  license_number: string;
+  clinic_address: string;
+  clinic_phone: string;
+  clinic_email: string;
+  logo_url: string;
+  tax_rate: number;
+  invoice_prefix: string;
+  email_signature: string;
+}
+
 export const APPOINTMENT_TYPES = [
   "Wellness Exam", "Spay/Neuter", "Vaccination", "Surgery",
   "Dental", "Follow-up", "Emergency", "Other",
