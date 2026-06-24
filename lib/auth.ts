@@ -24,6 +24,7 @@ function normalizeAccount(row: Record<string, unknown>): StaffAccount {
     active: row.active as boolean,
     created_at: row.created_at as string,
     theme_preference: (row.theme_preference as "light" | "dark") || "light",
+    account_type: (row.account_type as string) || "shelter",
   };
 }
 

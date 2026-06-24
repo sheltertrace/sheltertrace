@@ -10,9 +10,11 @@ export default function LoginPage() {
   const { login, demoLogin, user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // If already logged in, go straight to dashboard
+  // If already logged in, go to appropriate portal
   useEffect(() => {
-    if (!authLoading && user) router.replace("/dashboard");
+    if (!authLoading && user) {
+      router.replace(user.account_type === "clinic" ? "/clinic-portal" : "/dashboard");
+    }
   }, [user, authLoading, router]);
 
   // In demo mode, /login redirects to / where DemoWelcomePage lives
@@ -50,7 +52,7 @@ export default function LoginPage() {
     setLoading(true);
     const account = await login(username.trim(), password);
     if (account) {
-      router.replace("/dashboard");
+      router.replace(account.account_type === "clinic" ? "/clinic-portal" : "/dashboard");
     } else {
       setError("Invalid username or password. Please try again.");
       setShake(true);

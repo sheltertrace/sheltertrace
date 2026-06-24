@@ -546,6 +546,7 @@ export interface StaffAccount {
   created_at?: string;
   permissions: string[];
   theme_preference?: "light" | "dark";
+  account_type?: string;
 }
 
 export interface ShelterRoom {

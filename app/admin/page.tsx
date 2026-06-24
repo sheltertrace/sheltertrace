@@ -268,6 +268,7 @@ export default function AdminPage() {
         phone: (editData.phone || "").trim() || null,
         badge: (editData.badge || "").trim() || null,
         permissions: finalPerms,
+        account_type: (editData as Record<string, unknown>).account_type || "shelter",
       };
       if ((editData.newPassword || "").trim()) {
         updates.password_hash = editData.newPassword!.trim();
@@ -866,6 +867,16 @@ export default function AdminPage() {
                     setEditData((d) => ({ ...d, role: v, ...(autoPerms ? { permissions: autoPerms } : {}) }));
                   }} />
                 </div>
+              </div>
+              <div className="form-group" style={{ marginTop: 8 }}>
+                <label className="form-label">Account Type</label>
+                <select className="form-select" value={(editData as Record<string, unknown>).account_type as string || "shelter"} onChange={(e) => setEditData((d) => ({ ...d, account_type: e.target.value }))}>
+                  <option value="shelter">Shelter Staff</option>
+                  <option value="clinic">Veterinarian / Clinic</option>
+                </select>
+                {(editData as Record<string, unknown>).account_type === "clinic" && (
+                  <div style={{ fontSize: 11, color: "#0369a1", marginTop: 4 }}>This account will see the Clinic Portal instead of the shelter dashboard.</div>
+                )}
               </div>
               <div className="form-group" style={{ marginTop: 8 }}>
                 <label className="form-label">Permissions</label>
