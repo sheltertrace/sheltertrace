@@ -320,11 +320,33 @@ export async function uploadPersonPhotoId(personId: string, file: File): Promise
   return url;
 }
 
-export async function deletePersonPhotoId(personId: string, photoUrl: string): Promise<void> {
+export async function uploadPersonPhotoIdBack(personId: string, file: File): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `people/${personId}/photo-id-back.${ext}`;
+  await supabase.storage.from("documents").remove([
+    `people/${personId}/photo-id-back.jpg`,
+    `people/${personId}/photo-id-back.jpeg`,
+    `people/${personId}/photo-id-back.png`,
+  ]);
+  const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: file.type, upsert: true });
+  if (error) throw error;
+  const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
+  const url = urlData.publicUrl;
+  await updatePerson(personId, { photo_id_back_url: url });
+  return url;
+}
+
+export async function deletePersonPhotoId(personId: string, photoUrl: string, side: "front" | "back" = "front"): Promise<void> {
   const prefix = `${SUPABASE_STORAGE_BASE}/documents/`;
   const path = photoUrl.startsWith(prefix) ? photoUrl.slice(prefix.length) : null;
   if (path) await supabase.storage.from("documents").remove([path]);
-  await updatePerson(personId, { photo_id_url: undefined });
+  await updatePerson(personId, side === "back" ? { photo_id_back_url: undefined } : { photo_id_url: undefined });
+}
+
+export async function uploadPersonPhotoIdFromBlob(personId: string, blob: Blob, side: "front" | "back" = "front"): Promise<string> {
+  const file = new File([blob], `photo-id-${side}-cropped.jpg`, { type: "image/jpeg" });
+  if (side === "back") return uploadPersonPhotoIdBack(personId, file);
+  return uploadPersonPhotoId(personId, file);
 }
 
 // ── Medical Records ──────────────────────────────────────────────────────────

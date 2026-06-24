@@ -6,10 +6,12 @@ import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import {
   fetchPerson, updatePerson, addPersonNote, fetchPersonNotes, togglePersonNotePopup,
-  uploadPersonPhotoId, deletePersonPhotoId, fetchFormsByLinked,
+  uploadPersonPhotoId, uploadPersonPhotoIdBack, uploadPersonPhotoIdFromBlob, deletePersonPhotoId, fetchFormsByLinked,
   fetchAdoptionsByPerson, fetchReceiptsByPerson,
   fetchCallsByPerson, fetchCitationsByPerson, fetchLicensesByPerson,
 } from "@/lib/data";
+import dynamic from "next/dynamic";
+const CropIdPhotoModal = dynamic(() => import("@/components/ui/CropIdPhotoModal"), { ssr: false });
 import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation, PetLicense } from "@/lib/types";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
@@ -66,8 +68,13 @@ export default function PersonDetailPage() {
   const [notePopup, setNotePopup] = useState(false);
   const [scanKey, setScanKey] = useState(0);
   const [uploadingId, setUploadingId] = useState(false);
+  const [uploadingIdBack, setUploadingIdBack] = useState(false);
   const [deletingId, setDeletingId] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState(false);
+  const [confirmDeleteIdBack, setConfirmDeleteIdBack] = useState(false);
+  const [cropImageUrl, setCropImageUrl] = useState<string | null>(null);
+  const [cropSide, setCropSide] = useState<"front" | "back">("front");
+  const [cropOriginalFile, setCropOriginalFile] = useState<File | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -146,25 +153,102 @@ export default function PersonDetailPage() {
   const handlePhotoIdFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file || !person) return;
-    setUploadingId(true);
-    try {
-      const url = await uploadPersonPhotoId(person.id, file);
-      setPerson((p) => p ? { ...p, photo_id_url: url } : p);
-    } catch (err: unknown) {
-      alert(`Upload failed: ${(err as { message?: string })?.message || "Unknown error"}`);
-    } finally {
-      setUploadingId(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+    if (fileInputRef.current) fileInputRef.current.value = "";
+    if (file.type === "application/pdf") {
+      setUploadingId(true);
+      try {
+        const url = await uploadPersonPhotoId(person.id, file);
+        setPerson((p) => p ? { ...p, photo_id_url: url } : p);
+      } catch (err: unknown) {
+        alert(`Upload failed: ${(err as { message?: string })?.message || "Unknown error"}`);
+      } finally { setUploadingId(false); }
+      return;
+    }
+    setCropOriginalFile(file);
+    setCropSide("front");
+    setCropImageUrl(URL.createObjectURL(file));
+  };
+
+  const handlePhotoIdBackFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !person) return;
+    if ((e.target as HTMLInputElement).value) (e.target as HTMLInputElement).value = "";
+    if (file.type === "application/pdf") {
+      setUploadingIdBack(true);
+      try {
+        const url = await uploadPersonPhotoIdBack(person.id, file);
+        setPerson((p) => p ? { ...p, photo_id_back_url: url } : p);
+      } catch (err: unknown) {
+        alert(`Upload failed: ${(err as { message?: string })?.message || "Unknown error"}`);
+      } finally { setUploadingIdBack(false); }
+      return;
+    }
+    setCropOriginalFile(file);
+    setCropSide("back");
+    setCropImageUrl(URL.createObjectURL(file));
+  };
+
+  const handleCropApply = async (blob: Blob) => {
+    if (!person) return;
+    setCropImageUrl(null);
+    if (cropSide === "back") {
+      setUploadingIdBack(true);
+      try {
+        const url = await uploadPersonPhotoIdFromBlob(person.id, blob, "back");
+        setPerson((p) => p ? { ...p, photo_id_back_url: url } : p);
+      } catch (err: unknown) {
+        alert(`Upload failed: ${(err as { message?: string })?.message || "Unknown error"}`);
+      } finally { setUploadingIdBack(false); }
+    } else {
+      setUploadingId(true);
+      try {
+        const url = await uploadPersonPhotoIdFromBlob(person.id, blob, "front");
+        setPerson((p) => p ? { ...p, photo_id_url: url } : p);
+      } catch (err: unknown) {
+        alert(`Upload failed: ${(err as { message?: string })?.message || "Unknown error"}`);
+      } finally { setUploadingId(false); }
     }
   };
 
-  const handleDeletePhotoId = async () => {
-    if (!person?.photo_id_url) return;
+  const handleCropUseOriginal = async () => {
+    if (!person || !cropOriginalFile) return;
+    setCropImageUrl(null);
+    if (cropSide === "back") {
+      setUploadingIdBack(true);
+      try {
+        const url = await uploadPersonPhotoIdBack(person.id, cropOriginalFile);
+        setPerson((p) => p ? { ...p, photo_id_back_url: url } : p);
+      } catch (err: unknown) {
+        alert(`Upload failed: ${(err as { message?: string })?.message || "Unknown error"}`);
+      } finally { setUploadingIdBack(false); }
+    } else {
+      setUploadingId(true);
+      try {
+        const url = await uploadPersonPhotoId(person.id, cropOriginalFile);
+        setPerson((p) => p ? { ...p, photo_id_url: url } : p);
+      } catch (err: unknown) {
+        alert(`Upload failed: ${(err as { message?: string })?.message || "Unknown error"}`);
+      } finally { setUploadingId(false); }
+    }
+  };
+
+  const handleRecrop = (side: "front" | "back") => {
+    const url = side === "back" ? person?.photo_id_back_url : person?.photo_id_url;
+    if (!url) return;
+    setCropSide(side);
+    setCropOriginalFile(null);
+    setCropImageUrl(url);
+  };
+
+  const handleDeletePhotoId = async (side: "front" | "back" = "front") => {
+    const url = side === "back" ? person?.photo_id_back_url : person?.photo_id_url;
+    if (!url || !person) return;
     setDeletingId(true);
     try {
-      await deletePersonPhotoId(person.id, person.photo_id_url);
-      setPerson((p) => p ? { ...p, photo_id_url: undefined } : p);
-      setConfirmDeleteId(false);
+      await deletePersonPhotoId(person.id, url, side);
+      setPerson((p) => p ? { ...p, [side === "back" ? "photo_id_back_url" : "photo_id_url"]: undefined } : p);
+      if (side === "front") setConfirmDeleteId(false);
+      else setConfirmDeleteIdBack(false);
     } catch { } finally { setDeletingId(false); }
   };
 
@@ -449,52 +533,86 @@ export default function PersonDetailPage() {
                 </F>
               </div>
 
-              {/* Photo ID */}
+              {/* Photo ID — Front & Back */}
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border-light)" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                   <span style={{ fontWeight: 700, fontSize: 12, color: "var(--text-secondary)", textTransform: "uppercase", letterSpacing: 0.5 }}>Photo ID</span>
-                  {person.photo_id_url && (
-                    <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>✓ On File</span>
-                  )}
+                  {person.photo_id_url && <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>✓ Front</span>}
+                  {person.photo_id_back_url && <span style={{ fontSize: 11, background: "#dcfce7", color: "#15803d", fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>✓ Back</span>}
                 </div>
-                {person.photo_id_url ? (
-                  <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-                    <PhotoIdThumb url={person.photo_id_url} name={fullName} size={90} />
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>Click the thumbnail to view full size.</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <button className="btn btn-secondary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={uploadingId}>
-                          {uploadingId ? "Uploading…" : "🔄 Replace"}
-                        </button>
-                        {!confirmDeleteId ? (
-                          <button className="btn btn-ghost btn-sm" style={{ color: "#dc2626" }} onClick={() => setConfirmDeleteId(true)}>🗑 Delete</button>
-                        ) : (
-                          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                            <span style={{ fontSize: 12, color: "#dc2626", fontWeight: 600 }}>Delete?</span>
-                            <button className="btn btn-sm" style={{ background: "#dc2626", color: "#fff" }} onClick={handleDeletePhotoId} disabled={deletingId}>
-                              {deletingId ? "…" : "Yes"}
-                            </button>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setConfirmDeleteId(false)}>Cancel</button>
-                          </div>
-                        )}
+                <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+                  {/* Front */}
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase" }}>Front</div>
+                    {person.photo_id_url ? (
+                      <div>
+                        <PhotoIdThumb url={person.photo_id_url} name={fullName} size={90} />
+                        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => handleRecrop("front")}>✂️ Recrop</button>
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => fileInputRef.current?.click()} disabled={uploadingId}>
+                            {uploadingId ? "…" : "🔄"}
+                          </button>
+                          {!confirmDeleteId ? (
+                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: "#dc2626" }} onClick={() => setConfirmDeleteId(true)}>🗑</button>
+                          ) : (
+                            <>
+                              <button className="btn btn-sm" style={{ background: "#dc2626", color: "#fff", fontSize: 11 }} onClick={() => handleDeletePhotoId("front")} disabled={deletingId}>Delete?</button>
+                              <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setConfirmDeleteId(false)}>Cancel</button>
+                            </>
+                          )}
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div>
+                        <div style={{ width: 72, height: 72, border: "2px dashed var(--border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 22, marginBottom: 6 }}>🪪</div>
+                        <button className="btn btn-primary btn-sm" style={{ fontSize: 11 }} onClick={() => fileInputRef.current?.click()} disabled={uploadingId}>
+                          {uploadingId ? "Uploading…" : "📎 Upload Front"}
+                        </button>
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <div style={{ width: 72, height: 72, border: "2px dashed var(--border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 26, flexShrink: 0 }}>
-                      🪪
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 8 }}>No photo ID on file.</div>
-                      <button className="btn btn-primary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={uploadingId}>
-                        {uploadingId ? "Uploading…" : "📎 Upload Photo ID"}
-                      </button>
-                    </div>
+                  {/* Back */}
+                  <div style={{ flex: 1, minWidth: 180 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase" }}>Back</div>
+                    {person.photo_id_back_url ? (
+                      <div>
+                        <PhotoIdThumb url={person.photo_id_back_url} name={`${fullName} (back)`} size={90} />
+                        <div style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => handleRecrop("back")}>✂️ Recrop</button>
+                          {!confirmDeleteIdBack ? (
+                            <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: "#dc2626" }} onClick={() => setConfirmDeleteIdBack(true)}>🗑</button>
+                          ) : (
+                            <>
+                              <button className="btn btn-sm" style={{ background: "#dc2626", color: "#fff", fontSize: 11 }} onClick={() => handleDeletePhotoId("back")} disabled={deletingId}>Delete?</button>
+                              <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => setConfirmDeleteIdBack(false)}>Cancel</button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <div style={{ width: 72, height: 72, border: "2px dashed var(--border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 22, marginBottom: 6 }}>🪪</div>
+                        <label className="btn btn-secondary btn-sm" style={{ fontSize: 11, cursor: "pointer" }}>
+                          {uploadingIdBack ? "Uploading…" : "📎 Upload Back"}
+                          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display: "none" }} onChange={handlePhotoIdBackFile} disabled={uploadingIdBack} />
+                        </label>
+                      </div>
+                    )}
                   </div>
-                )}
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display: "none" }} onChange={handlePhotoIdFile} />
+                </div>
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" style={{ display: "none" }} onChange={handlePhotoIdFile} />
               </div>
+
+              {/* Crop modal */}
+              {cropImageUrl && (
+                <CropIdPhotoModal
+                  imageUrl={cropImageUrl}
+                  title={`Crop Photo ID — ${cropSide === "back" ? "Back" : "Front"}`}
+                  onApply={handleCropApply}
+                  onUseOriginal={handleCropUseOriginal}
+                  onClose={() => setCropImageUrl(null)}
+                />
+              )}
             </CollapsibleSection>
 
             {/* ── Physical Description ─────────────────────────────────── */}

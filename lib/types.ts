@@ -90,6 +90,7 @@ export interface Person {
   id_expiration?: string;
   date_added?: string;
   photo_id_url?: string;
+  photo_id_back_url?: string;
   emergency_contact_name?: string;
   emergency_contact_phone?: string;
   barcode_id?: string;
