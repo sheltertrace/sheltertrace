@@ -26,6 +26,7 @@ import {
 import { IS_DEMO } from "@/lib/demo";
 import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult } from "@/lib/idexx";
 import { buildTestResultsSectionHTML, hasPositiveTest } from "@/lib/testResultsPrint";
+import DragDropUpload from "@/components/ui/DragDropUpload";
 import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
 import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
@@ -268,6 +269,44 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       reader.readAsDataURL(file);
     } finally { setPhotoUploading(false); e.target.value = ""; }
   }, [animal.id, save]);
+
+  const handleProfilePhotoDrop = useCallback(async (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+    setPhotoUploading(true);
+    try {
+      const path = `${animal.id}/${Date.now()}-${file.name}`;
+      const { error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
+      await save({ photo_url: urlData.publicUrl });
+    } catch {
+      const reader = new FileReader();
+      reader.onload = (ev) => { save({ photo_url: ev.target?.result as string }); };
+      reader.readAsDataURL(file);
+    } finally { setPhotoUploading(false); }
+  }, [animal.id, save]);
+
+  const handleGalleryPhotoDrop = useCallback(async (files: File[]) => {
+    for (const file of files) {
+      setPubPhotoUploading(true);
+      try {
+        const path = `public/${animal.id}/${Date.now()}-${file.name}`;
+        const { error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: true });
+        if (error) throw error;
+        const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
+        const newUrl = urlData.publicUrl;
+        const existing = safeArray(animal.photo_urls);
+        const newPhotos = [...existing, newUrl];
+        await save({
+          photo_urls: newPhotos,
+          featured_photo_url: animal.featured_photo_url || newUrl,
+        });
+      } catch (err) {
+        console.error("[GalleryDrop] upload failed:", err);
+      } finally { setPubPhotoUploading(false); }
+    }
+  }, [animal.id, animal.photo_urls, animal.featured_photo_url, save]);
 
   const handlePublicPhotoUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -752,19 +791,28 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         {/* Left column — photo + quick info */}
         <div>
           <div style={{ marginBottom: 12 }}>
-            {animal.photo_url ? (
-              <img src={animal.photo_url} alt={animal.name} style={{ width: "100%", aspectRatio: "1/1", borderRadius: 12, objectFit: "cover", border: "2px solid var(--border)" }} />
-            ) : (
-              <div style={{ width: "100%", aspectRatio: "1/1", borderRadius: 12, background: "#f1f5f9", border: "2px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 48 }}>
-                {animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾"}
-              </div>
-            )}
+            <DragDropUpload
+              onFiles={handleProfilePhotoDrop}
+              accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
+              maxSizeMB={10}
+              disabled={photoUploading}
+              capture="environment"
+            >
+              {animal.photo_url ? (
+                <img src={animal.photo_url} alt={animal.name} style={{ width: "100%", aspectRatio: "1/1", borderRadius: 12, objectFit: "cover", border: "2px solid var(--border)" }} />
+              ) : (
+                <div style={{ width: "100%", aspectRatio: "1/1", borderRadius: 12, background: "#f1f5f9", border: "2px dashed var(--border)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, fontSize: 14, color: "var(--text-muted)" }}>
+                  <span style={{ fontSize: 48 }}>{animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾"}</span>
+                  <span style={{ fontSize: 11 }}>Drop photo here</span>
+                </div>
+              )}
+            </DragDropUpload>
             <div style={{ display: "flex", gap: 4, marginTop: 6 }}>
               <label style={{ flex: 1 }}>
                 <span className="btn btn-secondary btn-sm" style={{ cursor: "pointer", display: "flex", justifyContent: "center" }}>
                   {photoUploading ? "Uploading…" : "📷 Change"}
                 </span>
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhotoUpload} />
+                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handlePhotoUpload} />
               </label>
               {animal.photo_url && (
                 <button
@@ -1526,12 +1574,20 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <div className="grid-2">
                   <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                     <label className="form-label">File *</label>
-                    <input
-                      type="file"
-                      className="form-input"
-                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt"
-                      onChange={(e) => setDocFile(e.target.files?.[0] || null)}
-                    />
+                    {!docFile ? (
+                      <DragDropUpload
+                        onFiles={(files) => setDocFile(files[0] || null)}
+                        accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.gif,.txt,.xls,.xlsx,.csv"
+                        compact
+                        label="Drop file here or click to browse"
+                      />
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "var(--bg-muted)", borderRadius: 8 }}>
+                        <span style={{ fontSize: 18 }}>{docFile.type.startsWith("image/") ? "🖼️" : "📄"}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, flex: 1 }}>{docFile.name}</span>
+                        <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: "#dc2626" }} onClick={() => setDocFile(null)}>✕</button>
+                      </div>
+                    )}
                   </div>
                   <div className="form-group">
                     <label className="form-label">Category</label>
@@ -1962,12 +2018,22 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   }}>
                     <span style={{ fontSize: 22 }}>{pubPhotoUploading ? "⏳" : "📷"}</span>
                     <span style={{ fontWeight: 600 }}>{pubPhotoUploading ? "Uploading…" : "Add Photo"}</span>
-                    <input type="file" accept="image/*" style={{ display: "none" }} onChange={handlePublicPhotoUpload} disabled={pubPhotoUploading} />
+                    <input type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }} onChange={handlePublicPhotoUpload} disabled={pubPhotoUploading} />
                   </label>
                 </div>
 
-                <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6 }}>
-                  Click ⭐ to set as the featured card thumbnail. Multiple photos appear as a gallery on the public detail page.
+                <DragDropUpload
+                  onFiles={handleGalleryPhotoDrop}
+                  accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
+                  multiple
+                  maxSizeMB={10}
+                  compact
+                  disabled={pubPhotoUploading}
+                  label="Drop photos here to add to gallery"
+                  capture="environment"
+                />
+                <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6, marginTop: 6 }}>
+                  Click ⭐ to set as featured. Drag &amp; drop multiple photos to add them to the gallery.
                 </div>
               </div>
 

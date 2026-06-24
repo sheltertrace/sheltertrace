@@ -13,6 +13,7 @@ import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/providers";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
+import DragDropUpload from "@/components/ui/DragDropUpload";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import { formatDate } from "@/lib/utils";
@@ -782,11 +783,16 @@ function CallDetailPageInner() {
         const existingEvidence = (call.evidence || []) as EvidenceItem[];
         return (
           <div>
-            <label style={{ display: "inline-flex", alignItems: "center", gap: 8, cursor: "pointer", marginBottom: 14 }}>
-              <span className="btn btn-secondary">📎 Attach Evidence Files</span>
-              <input type="file" multiple accept="image/*,video/*,.pdf,.doc,.docx" style={{ display: "none" }}
-                onChange={(e) => { Array.from(e.target.files || []).forEach((f) => setEvidenceFiles((prev) => [...prev, { id: genId(), file: f, notes: "" }])); e.target.value = ""; }} />
-            </label>
+            <div style={{ marginBottom: 14 }}>
+              <DragDropUpload
+                onFiles={(files) => files.forEach((f) => setEvidenceFiles((prev) => [...prev, { id: genId(), file: f, notes: "" }]))}
+                accept="image/*,video/*,.pdf,.doc,.docx"
+                multiple
+                compact
+                label="Drop evidence files here or click to browse"
+                capture="environment"
+              />
+            </div>
 
             {existingEvidence.length > 0 && (
               <div style={{ marginBottom: 16 }}>
