@@ -7,6 +7,12 @@ import type { ClinicClient } from "@/lib/clinicTypes";
 import { BILLING_TYPES } from "@/lib/clinicTypes";
 import DateInput from "@/components/ui/DateInput";
 
+function F({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="form-group"><label className="form-label">{label}</label>{children}</div>
+  );
+}
+
 const EMPTY: Partial<ClinicClient> = {
   county_name: "", agency_name: "", contact_person: "", contact_email: "", contact_phone: "",
   address: "", city: "", state: "GA", zip: "", billing_type: "per_visit", notes: "", active: true,
@@ -49,10 +55,6 @@ export default function ClinicClientsPage() {
     const diff = Math.ceil((new Date(d).getTime() - Date.now()) / 86400000);
     return diff;
   };
-
-  const F = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div className="form-group"><label className="form-label">{label}</label>{children}</div>
-  );
 
   return (
     <div>

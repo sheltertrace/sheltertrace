@@ -4,6 +4,16 @@ import { useAuth } from "@/app/providers";
 import { fetchClinicSettings, saveClinicSettings, saveVetSignature, fetchVetSignature } from "@/lib/clinicData";
 import type { ClinicSettings } from "@/lib/clinicTypes";
 
+function F({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
+  return (
+    <div className="form-group">
+      <label className="form-label">{label}</label>
+      {children}
+      {hint && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{hint}</div>}
+    </div>
+  );
+}
+
 export default function ClinicSettingsPage() {
   const { user } = useAuth();
   const [settings, setSettings] = useState<ClinicSettings>({
@@ -103,14 +113,6 @@ export default function ClinicSettingsPage() {
     await saveVetSignature(user.id, "");
     setSignature(null);
   };
-
-  const F = ({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) => (
-    <div className="form-group">
-      <label className="form-label">{label}</label>
-      {children}
-      {hint && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{hint}</div>}
-    </div>
-  );
 
   return (
     <div style={{ maxWidth: 720 }}>

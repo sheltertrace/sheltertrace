@@ -6,6 +6,14 @@ import type { PlatformCustomer } from "@/lib/superAdminTypes";
 import { CUSTOMER_STATUSES, CUSTOMER_TYPES, BILLING_PLANS, BILLING_CYCLES, FEATURE_FLAGS, STATUS_COLORS } from "@/lib/superAdminTypes";
 import DateInput from "@/components/ui/DateInput";
 
+function F({ label, children, span }: { label: string; children: React.ReactNode; span?: boolean }) {
+  return (
+    <div className="form-group" style={span ? { gridColumn: "1 / -1" } : undefined}>
+      <label className="form-label">{label}</label>{children}
+    </div>
+  );
+}
+
 const EMPTY: Partial<PlatformCustomer> = {
   account_name: "", account_type: "shelter", contact_name: "", contact_email: "", contact_phone: "",
   address: "", city: "", state: "", zip: "", county: "", status: "trial", billing_plan: "",
@@ -63,12 +71,6 @@ export default function CustomersPage() {
     setCustomers((prev) => prev.map((x) => x.id === updated.id ? updated : x));
     await logAuditAction(user.id, `Changed Status to ${newStatus}`, "customer", c.id, { from: c.status, to: newStatus });
   };
-
-  const F = ({ label, children, span }: { label: string; children: React.ReactNode; span?: boolean }) => (
-    <div className="form-group" style={span ? { gridColumn: "1 / -1" } : undefined}>
-      <label className="form-label">{label}</label>{children}
-    </div>
-  );
 
   const flagToggle = (key: string) => {
     const flags = { ...(form.feature_flags || {}) };
