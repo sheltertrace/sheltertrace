@@ -608,12 +608,13 @@ export async function fetchOfficers(): Promise<Officer[]> {
 }
 
 // ── Animal Notes ──────────────────────────────────────────────────────────────
-export async function addAnimalNote(animalId: string, text: string, type: string): Promise<void> {
+export async function addAnimalNote(animalId: string, text: string, type: string, popup = false): Promise<void> {
   const now = new Date();
   await supabase.from("animal_notes").insert({
     animal_id: animalId,
     text,
     type,
+    popup,
     date: now.toISOString().split("T")[0],
     time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
   });
@@ -628,13 +629,18 @@ export async function fetchAnimalNotes(animalId: string) {
   return data || [];
 }
 
+export async function toggleAnimalNotePopup(noteId: string, popup: boolean): Promise<void> {
+  await supabase.from("animal_notes").update({ popup }).eq("id", noteId);
+}
+
 // ── People Notes ──────────────────────────────────────────────────────────────
-export async function addPersonNote(personId: string, text: string, type: string): Promise<void> {
+export async function addPersonNote(personId: string, text: string, type: string, popup = false): Promise<void> {
   const now = new Date();
   await supabase.from("people_notes").insert({
     person_id: personId,
     text,
     type,
+    popup,
     date: now.toISOString().split("T")[0],
     time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
   });
@@ -647,6 +653,10 @@ export async function fetchPersonNotes(personId: string) {
     .eq("person_id", personId)
     .order("created_at", { ascending: false });
   return data || [];
+}
+
+export async function togglePersonNotePopup(noteId: string, popup: boolean): Promise<void> {
+  await supabase.from("people_notes").update({ popup }).eq("id", noteId);
 }
 
 // ── Animal Documents ──────────────────────────────────────────────────────────

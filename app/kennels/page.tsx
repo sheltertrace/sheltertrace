@@ -14,7 +14,7 @@ import { buildTestResultsSectionHTML, buildTestResultsBadgesHTML } from "@/lib/t
 // Whitelist approach: unknown outcome statuses from imports are automatically excluded.
 const FLOORPLAN_STATUSES = new Set([...IN_SHELTER_STATUSES, ...FOSTER_STATUSES]);
 
-function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: MedicalRecord[]): string {
+function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: MedicalRecord[], popupNoteCount = 0): string {
   const todayStr = new Date().toISOString().split("T")[0];
   const activeFlags = BEHAVIOR_FLAGS.filter((f) => (animal.behavior_flags || {})[f.id as string]);
   // Only show records that were explicitly confirmed as administered.
@@ -53,6 +53,7 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
     animal.is_dangerous ? `<div style="background:#fee2e2;border:2px solid #dc2626;border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;margin-bottom:6px;">🚨 DANGEROUS ANIMAL — HANDLE WITH EXTREME CAUTION</div>` : "",
     animal.is_cruelty_case ? `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;color:#b45309;margin-bottom:6px;">⚠️ CRUELTY CASE — EVIDENCE HOLD — DO NOT RELEASE WITHOUT AUTHORIZATION</div>` : "",
     positiveTests.length > 0 ? `<div style="background:#fee2e2;border:2px solid #dc2626;border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;margin-bottom:6px;">⚠️ POSITIVE TEST: ${positiveTests.map((m) => m.type).join(", ")} — INFORM VETERINARIAN BEFORE HANDLING</div>` : "",
+    popupNoteCount > 0 ? `<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:5px;padding:5px 10px;font-size:11px;font-weight:700;color:#b45309;margin-bottom:6px;print-color-adjust:exact;-webkit-print-color-adjust:exact;">⚠️ SEE NOTES — ${popupNoteCount} important note${popupNoteCount > 1 ? "s" : ""} flagged for this animal</div>` : "",
   ].filter(Boolean).join("");
 
   const statusColor = { Available: "#15803d", Adopted: "#6366f1", "Medical Hold": "#b45309", Quarantine: "#dc2626", Foster: "#0369a1", Pending: "#0369a1", Euthanized: "#dc2626" }[animal.status] || "#475569";

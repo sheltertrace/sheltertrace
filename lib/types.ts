@@ -111,6 +111,7 @@ export interface PersonNote {
   type: string;
   date: string;
   time: string;
+  popup?: boolean;
   created_at?: string;
 }
 
@@ -121,6 +122,7 @@ export interface AnimalNote {
   type: string;
   date: string;
   time: string;
+  popup?: boolean;
   created_at?: string;
 }
 

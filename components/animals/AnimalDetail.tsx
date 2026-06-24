@@ -20,7 +20,7 @@ import {
   fetchAnimalDocuments, uploadAnimalDocument, deleteAnimalDocument, fetchFormsByLinked,
   fetchTransfersByAnimal, safeJsonArray, safeJsonObject, safeArray,
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
-  lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled,
+  lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled, toggleAnimalNotePopup,
   type AnimalDocument,
 } from "@/lib/data";
 import { IS_DEMO } from "@/lib/demo";
@@ -69,7 +69,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showAdoptionModal, setShowAdoptionModal] = useState(false);
   const [showRedemptionWizard, setShowRedemptionWizard] = useState(false);
-  const [notes, setNotes] = useState<Array<{id: string; text: string; type: string; date: string; time: string}>>([]);
+  const [notes, setNotes] = useState<Array<{id: string; text: string; type: string; date: string; time: string; popup?: boolean}>>([]);
+  const [popupDismissed, setPopupDismissed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [showCropModal, setShowCropModal] = useState(false);
@@ -84,6 +85,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   // Note form
   const [newNote, setNewNote] = useState("");
   const [noteType, setNoteType] = useState("General");
+  const [notePopup, setNotePopup] = useState(false);
 
   // Medical form
   const [showAddMed, setShowAddMed] = useState(false);
@@ -324,17 +326,32 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
 
   const handleAddNote = async () => {
     if (!newNote.trim()) return;
-    await addAnimalNote(animal.id, newNote.trim(), noteType);
+    await addAnimalNote(animal.id, newNote.trim(), noteType, notePopup);
     const n = {
       id: genId(),
       text: newNote.trim(),
       type: noteType,
       date: today(),
       time: nowTime(),
+      popup: notePopup,
     };
     setNotes((prev) => [n, ...prev]);
     setNewNote("");
+    setNotePopup(false);
   };
+
+  const handleToggleNotePopup = async (noteId: string, currentPopup: boolean) => {
+    const newVal = !currentPopup;
+    await toggleAnimalNotePopup(noteId, newVal);
+    setNotes((prev) => prev.map((n) => n.id === noteId ? { ...n, popup: newVal } : n));
+  };
+
+  const popupNotes = notes.filter((n) => n.popup);
+  const sortedNotes = [...notes].sort((a, b) => {
+    if (a.popup && !b.popup) return -1;
+    if (!a.popup && b.popup) return 1;
+    return 0;
+  });
 
   const handleAddMedical = async () => {
     setMedSaving(true);
@@ -599,6 +616,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       ${animal.is_dangerous ? `<div style="background:#fee2e2;border:2px solid #dc2626;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;">🚨 DANGEROUS ANIMAL — HANDLE WITH EXTREME CAUTION</div>` : ""}
       ${animal.is_cruelty_case ? `<div style="background:#fef3c7;border:2px solid #f59e0b;padding:5px 10px;font-size:11px;font-weight:700;color:#b45309;">⚠️ CRUELTY CASE — EVIDENCE HOLD — DO NOT RELEASE WITHOUT AUTHORIZATION</div>` : ""}
       ${hasPositiveTest(animalMed) ? `<div style="background:#fee2e2;border:2px solid #dc2626;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;print-color-adjust:exact;-webkit-print-color-adjust:exact;">⚠️ POSITIVE TEST — USE CAUTION — See test results below</div>` : ""}
+      ${popupNotes.length > 0 ? `<div style="background:#fef3c7;border:2px solid #f59e0b;padding:5px 10px;font-size:11px;font-weight:700;color:#b45309;print-color-adjust:exact;-webkit-print-color-adjust:exact;">⚠️ SEE NOTES — ${popupNotes.length} important note${popupNotes.length > 1 ? "s" : ""} flagged for this animal</div>` : ""}
       <div style="border:2px solid #0f2942;border-top:none;border-radius:0 0 6px 6px;padding:14px;margin-bottom:10px;">
         <div style="display:flex;gap:16px;align-items:flex-start;">
           <div style="flex-shrink:0;width:200px;">
@@ -646,6 +664,41 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
 
   return (
     <div className="animal-detail">
+      {/* Popup alert modal for flagged notes */}
+      {popupNotes.length > 0 && !popupDismissed && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div style={{ background: "#fff", borderRadius: 12, maxWidth: 560, width: "100%", maxHeight: "90vh", overflow: "auto", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ background: "#dc2626", color: "#fff", padding: "14px 20px", borderRadius: "12px 12px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
+              <span style={{ fontSize: 22 }}>⚠️</span>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800 }}>Alert — Important Note{popupNotes.length > 1 ? "s" : ""}</div>
+                <div style={{ fontSize: 12, opacity: 0.9 }}>{animal.name} ({animal.id})</div>
+              </div>
+            </div>
+            <div style={{ padding: "16px 20px" }}>
+              {popupNotes.map((n, i) => (
+                <div key={n.id} style={{ padding: "12px 14px", background: i % 2 === 0 ? "#fef2f2" : "#fffbeb", border: "1px solid #fca5a5", borderRadius: 8, marginBottom: i < popupNotes.length - 1 ? 10 : 0 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", lineHeight: 1.5, marginBottom: 6 }}>{n.text}</div>
+                  <div style={{ fontSize: 11, color: "#64748b" }}>
+                    <span className="badge" style={{ background: "#f1f5f9", color: "#475569", marginRight: 6 }}>{n.type}</span>
+                    {n.date} {n.time}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{ padding: "12px 20px 16px", borderTop: "1px solid #e5e7eb", textAlign: "center" }}>
+              <button
+                className="btn btn-primary"
+                onClick={() => setPopupDismissed(true)}
+                style={{ background: "#dc2626", borderColor: "#dc2626", padding: "10px 32px", fontSize: 14, fontWeight: 700 }}
+              >
+                Acknowledge &amp; Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Historical record banner */}
       {isImported(animal) && (
         <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 16px", marginBottom: 14, fontSize: 13, color: "#92400e", display: "flex", alignItems: "center", gap: 10 }}>
@@ -1430,18 +1483,33 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 rows={2}
                 style={{ marginBottom: 6 }}
               />
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <select className="form-select" value={noteType} onChange={(e) => setNoteType(e.target.value)} style={{ maxWidth: 160, fontSize: 12 }}>
                   {["General", "Medical", "Behavioral", "Intake", "Adoption", "Administrative"].map((t) => <option key={t}>{t}</option>)}
                 </select>
+                <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 12, color: notePopup ? "#b45309" : "var(--text-secondary)", fontWeight: notePopup ? 700 : 400, background: notePopup ? "#fef3c7" : "transparent", border: notePopup ? "1px solid #fde68a" : "1px solid transparent", borderRadius: 6, padding: "3px 10px" }}>
+                  <input type="checkbox" checked={notePopup} onChange={(e) => setNotePopup(e.target.checked)} />
+                  ⚠️ Popup alert
+                </label>
                 <button className="btn btn-primary btn-sm" onClick={handleAddNote}>Add Note</button>
               </div>
             </div>
-            {notes.map((n) => (
-              <div key={n.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border-light)" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 2 }}>
-                  <span className="badge" style={{ background: "#f1f5f9", color: "#475569" }}>{n.type}</span>
-                  <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{n.date} {n.time}</span>
+            {sortedNotes.map((n) => (
+              <div key={n.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--border-light)", background: n.popup ? "#fffbeb" : undefined, marginLeft: n.popup ? -8 : 0, marginRight: n.popup ? -8 : 0, paddingLeft: n.popup ? 8 : 0, paddingRight: n.popup ? 8 : 0, borderLeft: n.popup ? "3px solid #f59e0b" : undefined }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 2, gap: 6 }}>
+                  <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                    <span className="badge" style={{ background: "#f1f5f9", color: "#475569" }}>{n.type}</span>
+                    {n.popup && <span style={{ background: "#fee2e2", color: "#dc2626", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 8, border: "1px solid #fca5a5" }}>POPUP ALERT</span>}
+                  </div>
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{n.date} {n.time}</span>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 10, padding: "1px 6px", color: n.popup ? "#f59e0b" : "var(--text-muted)" }}
+                      onClick={() => handleToggleNotePopup(n.id, !!n.popup)}
+                      title={n.popup ? "Remove popup alert" : "Set as popup alert"}
+                    >{n.popup ? "🔔" : "🔕"}</button>
+                  </div>
                 </div>
                 <div style={{ fontSize: 13 }}>{n.text}</div>
               </div>
