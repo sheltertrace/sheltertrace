@@ -25,6 +25,7 @@ import {
 } from "@/lib/data";
 import { IS_DEMO } from "@/lib/demo";
 import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult } from "@/lib/idexx";
+import { buildTestResultsSectionHTML, hasPositiveTest } from "@/lib/testResultsPrint";
 import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
 import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
@@ -597,6 +598,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       </div>
       ${animal.is_dangerous ? `<div style="background:#fee2e2;border:2px solid #dc2626;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;">🚨 DANGEROUS ANIMAL — HANDLE WITH EXTREME CAUTION</div>` : ""}
       ${animal.is_cruelty_case ? `<div style="background:#fef3c7;border:2px solid #f59e0b;padding:5px 10px;font-size:11px;font-weight:700;color:#b45309;">⚠️ CRUELTY CASE — EVIDENCE HOLD — DO NOT RELEASE WITHOUT AUTHORIZATION</div>` : ""}
+      ${hasPositiveTest(animalMed) ? `<div style="background:#fee2e2;border:2px solid #dc2626;padding:5px 10px;font-size:11px;font-weight:700;color:#dc2626;print-color-adjust:exact;-webkit-print-color-adjust:exact;">⚠️ POSITIVE TEST — USE CAUTION — See test results below</div>` : ""}
       <div style="border:2px solid #0f2942;border-top:none;border-radius:0 0 6px 6px;padding:14px;margin-bottom:10px;">
         <div style="display:flex;gap:16px;align-items:flex-start;">
           <div style="flex-shrink:0;width:200px;">
@@ -625,6 +627,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           </div>
         </div>
       </div>
+      ${buildTestResultsSectionHTML(animalMed)}
       <div style="border:1.5px solid #e2e8f0;border-radius:6px;overflow:hidden;">
         <div style="background:#1e3a5f;color:#fff;padding:7px 14px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;">Medical Summary · ${animalMed.length} record${animalMed.length !== 1 ? "s" : ""} on file</div>
         <div style="padding:10px 12px;">

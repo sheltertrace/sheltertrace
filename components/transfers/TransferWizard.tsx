@@ -7,6 +7,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { BEHAVIOR_FLAGS } from "@/lib/constants";
 import DateInput from "@/components/ui/DateInput";
 import { AGENCY_NAME, AGENCY_ADDRESS } from "@/lib/shelterInfo";
+import { buildTestResultsSectionHTML, hasPositiveTest } from "@/lib/testResultsPrint";
 
 interface Props {
   animals: Animal[];
@@ -70,6 +71,7 @@ export function printTransferReceipt(
         </div>
         ${a.is_dangerous ? `<div style="background:#fee2e2;border:2px solid #dc2626;padding:4px 10px;font-size:10px;font-weight:700;color:#dc2626;">🚨 DANGEROUS ANIMAL — HANDLE WITH EXTREME CAUTION</div>` : ""}
         ${a.is_cruelty_case ? `<div style="background:#fef3c7;border:2px solid #f59e0b;padding:4px 10px;font-size:10px;font-weight:700;color:#b45309;">⚠️ CRUELTY CASE — EVIDENCE HOLD</div>` : ""}
+        ${hasPositiveTest(med) ? `<div style="background:#fee2e2;border:2px solid #dc2626;padding:4px 10px;font-size:10px;font-weight:700;color:#dc2626;print-color-adjust:exact;-webkit-print-color-adjust:exact;">⚠️ POSITIVE TEST — USE CAUTION — See test results section</div>` : ""}
         <div style="border:1px solid #cbd5e1;border-top:none;border-radius:0 0 6px 6px;padding:14px;margin-bottom:14px;">
           <div style="display:flex;gap:16px;">
             ${a.photo_url
@@ -102,6 +104,7 @@ export function printTransferReceipt(
           ${a.intake_behavior ? `<div style="margin-top:6px;font-size:10px;"><strong>Intake Behavior:</strong> ${a.intake_behavior}</div>` : ""}
           ${a.injuries ? `<div style="margin-top:4px;font-size:10px;"><strong>Known Injuries:</strong> ${a.injuries}</div>` : ""}
         </div>
+        ${buildTestResultsSectionHTML(med)}
         <div style="margin-bottom:14px;">
           <div style="background:#1e3a5f;color:#fff;padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;border-radius:4px 4px 0 0;">
             Medical History (${med.length} record${med.length !== 1 ? "s" : ""})

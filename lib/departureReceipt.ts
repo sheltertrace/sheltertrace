@@ -1,5 +1,6 @@
-﻿import type { Animal, DepartureReceipt, Person } from "./types";
+﻿import type { Animal, DepartureReceipt, Person, MedicalRecord } from "./types";
 import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "./shelterInfo";
+import { buildTestResultsTableHTML } from "./testResultsPrint";
 
 const MCAS_NAME    = AGENCY_NAME;
 const MCAS_ADDR    = AGENCY_ADDRESS;
@@ -69,7 +70,7 @@ export function buildDepartureReceiptPayload(
   };
 }
 
-export function buildAdoptionReceiptHTML(receipt: DepartureReceipt): string {
+export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?: MedicalRecord[]): string {
   const a  = (receipt.animal_info_snapshot || {}) as Record<string, unknown>;
   const p  = (receipt.person_info_snapshot || {}) as Record<string, unknown>;
 
@@ -160,6 +161,9 @@ export function buildAdoptionReceiptHTML(receipt: DepartureReceipt): string {
     </div>
   </div>
 
+  <!-- Test Results -->
+  ${medRecords ? buildTestResultsTableHTML(medRecords) : ""}
+
   <!-- Fees -->
   ${sh("Fees")}
   <table style="margin-bottom:6px">
@@ -214,23 +218,23 @@ export function buildAdoptionReceiptHTML(receipt: DepartureReceipt): string {
   </body></html>`;
 }
 
-export function printAdoptionReceipt(receipt: DepartureReceipt): void {
+export function printAdoptionReceipt(receipt: DepartureReceipt, medRecords?: MedicalRecord[]): void {
   const w = window.open("", "_blank", "width=760,height=1060");
   if (!w) return;
-  w.document.write(buildAdoptionReceiptHTML(receipt));
+  w.document.write(buildAdoptionReceiptHTML(receipt, medRecords));
   w.document.close();
   setTimeout(() => w.print(), 400);
 }
 
-export function writeReceiptToWindow(w: Window, receipt: DepartureReceipt): void {
-  w.document.write(buildAdoptionReceiptHTML(receipt));
+export function writeReceiptToWindow(w: Window, receipt: DepartureReceipt, medRecords?: MedicalRecord[]): void {
+  w.document.write(buildAdoptionReceiptHTML(receipt, medRecords));
   w.document.close();
   setTimeout(() => w.print(), 400);
 }
 
-export function printDepartureReceipt(receipt: DepartureReceipt): void {
+export function printDepartureReceipt(receipt: DepartureReceipt, medRecords?: MedicalRecord[]): void {
   if (receipt.departure_type === "Adoption") {
-    printAdoptionReceipt(receipt);
+    printAdoptionReceipt(receipt, medRecords);
     return;
   }
   const w = window.open("", "_blank", "width=760,height=1060");
@@ -324,6 +328,9 @@ export function printDepartureReceipt(receipt: DepartureReceipt): void {
     ${fl("Microchip #", microchip)}
     ${fl("Rabies Tag #", rabiesTag)}
   </div>
+
+  <!-- Test Results -->
+  ${medRecords ? buildTestResultsTableHTML(medRecords) : ""}
 
   <!-- Departure Info -->
   ${sh("Departure Information")}

@@ -8,6 +8,7 @@ import { DEFAULT_SHELTER_CONFIG, STATUS_COLORS, BEHAVIOR_FLAGS, DIAGNOSTIC_TEST_
 import { useAuth, useKennels } from "@/app/providers";
 import { useRouter } from "next/navigation";
 import { genId, displayAge, isImported, IN_SHELTER_STATUSES, FOSTER_STATUSES } from "@/lib/utils";
+import { buildTestResultsSectionHTML, buildTestResultsBadgesHTML } from "@/lib/testResultsPrint";
 
 // All statuses that should appear on the floorplan (in shelter + fostered).
 // Whitelist approach: unknown outcome statuses from imports are automatically excluded.
@@ -122,6 +123,9 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
         </div>
       </div>
     </div>
+
+    <!-- Test Results -->
+    ${buildTestResultsSectionHTML(medRecords)}
 
     <!-- Medical Section -->
     <div style="border:1.5px solid #e2e8f0;border-radius:6px;overflow:hidden;">
