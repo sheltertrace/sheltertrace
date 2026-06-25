@@ -128,3 +128,78 @@ export async function fetchPlatformStats() {
     trialsExpiring: trialsExpiring.length,
   };
 }
+
+// ── Payments ─────────────────────────────────────────────────────────────────
+
+export interface PlatformPayment {
+  id: string;
+  customer_id: string;
+  payment_date: string;
+  amount: number;
+  payment_method?: string;
+  notes?: string;
+  recorded_by?: string;
+  created_at?: string;
+}
+
+export async function fetchPayments(customerId?: string): Promise<PlatformPayment[]> {
+  let q = supabase.from("platform_payments").select("*");
+  if (customerId) q = q.eq("customer_id", customerId);
+  const { data } = await q.order("payment_date", { ascending: false });
+  return (data || []) as PlatformPayment[];
+}
+
+export async function createPayment(payment: Omit<PlatformPayment, "id" | "created_at">): Promise<PlatformPayment> {
+  const { data, error } = await supabase.from("platform_payments").insert(payment).select().single();
+  if (error) throw error;
+  return data as PlatformPayment;
+}
+
+// ── Platform Settings ────────────────────────────────────────────────────────
+
+export interface PlatformSettingsData {
+  platform_name: string;
+  support_email: string;
+  platform_website: string;
+  default_trial_days: number;
+  default_feature_flags: Record<string, boolean>;
+  notification_preferences: Record<string, boolean>;
+  branding: { logo_url?: string; primary_color?: string; secondary_color?: string };
+}
+
+const SETTINGS_DEFAULTS: PlatformSettingsData = {
+  platform_name: "ShelterTrace",
+  support_email: "info@sheltertrace.com",
+  platform_website: "sheltertrace.com",
+  default_trial_days: 30,
+  default_feature_flags: {},
+  notification_preferences: {},
+  branding: { primary_color: "#1B3A5C", secondary_color: "#2E86AB" },
+};
+
+export async function fetchPlatformSettings(): Promise<PlatformSettingsData> {
+  try {
+    const { data } = await supabase.from("platform_settings").select("*").eq("id", 1).maybeSingle();
+    if (!data) return SETTINGS_DEFAULTS;
+    return {
+      platform_name: data.platform_name || SETTINGS_DEFAULTS.platform_name,
+      support_email: data.support_email || SETTINGS_DEFAULTS.support_email,
+      platform_website: data.platform_website || SETTINGS_DEFAULTS.platform_website,
+      default_trial_days: data.default_trial_days ?? SETTINGS_DEFAULTS.default_trial_days,
+      default_feature_flags: (data.default_feature_flags as Record<string, boolean>) || {},
+      notification_preferences: (data.notification_preferences as Record<string, boolean>) || {},
+      branding: (data.branding as PlatformSettingsData["branding"]) || SETTINGS_DEFAULTS.branding,
+    };
+  } catch { return SETTINGS_DEFAULTS; }
+}
+
+export async function savePlatformSettings(settings: PlatformSettingsData, updatedBy: string): Promise<void> {
+  await supabase.from("platform_settings").upsert({
+    id: 1, ...settings, updated_at: new Date().toISOString(), updated_by: updatedBy,
+  });
+}
+
+export async function fetchSuperAdmins(): Promise<StaffAccount[]> {
+  const { data } = await supabase.from("staff_accounts").select("*").eq("is_super_admin", true);
+  return (data || []) as StaffAccount[];
+}
