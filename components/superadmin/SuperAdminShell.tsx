@@ -15,48 +15,94 @@ const NAV = [
   { href: "/superadmin/settings",     label: "Settings",       icon: "⚙️" },
 ];
 
+const DEFAULT_PRIMARY   = "#1B3A5C";
+const DEFAULT_SECONDARY = "#2E86AB";
+
+function loadCachedBranding(): { primary: string; secondary: string; logo: string } {
+  try {
+    const raw = localStorage.getItem("st_branding");
+    if (raw) {
+      const b = JSON.parse(raw) as { primary_color?: string; secondary_color?: string; logo_url?: string };
+      return {
+        primary:   b.primary_color || DEFAULT_PRIMARY,
+        secondary: b.secondary_color || DEFAULT_SECONDARY,
+        logo:      b.logo_url || "",
+      };
+    }
+  } catch { }
+  return { primary: DEFAULT_PRIMARY, secondary: DEFAULT_SECONDARY, logo: "" };
+}
+
 export default function SuperAdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
-  const [logoUrl, setLogoUrl] = useState<string>("");
-  const [primaryColor, setPrimaryColor] = useState("#18181b");
+
+  const cached = typeof window !== "undefined" ? loadCachedBranding() : { primary: DEFAULT_PRIMARY, secondary: DEFAULT_SECONDARY, logo: "" };
+  const [primary, setPrimary]     = useState(cached.primary);
+  const [secondary, setSecondary] = useState(cached.secondary);
+  const [logoUrl, setLogoUrl]     = useState(cached.logo);
 
   useEffect(() => {
     if (user && !user.is_super_admin) router.replace("/dashboard");
   }, [user, router]);
 
   useEffect(() => {
-    // Load from cache instantly
-    try {
-      const cached = localStorage.getItem("st_branding");
-      if (cached) {
-        const b = JSON.parse(cached) as { logo_url?: string; primary_color?: string };
-        if (b.logo_url) setLogoUrl(b.logo_url);
-      }
-    } catch { }
-    // Then fetch from DB
     fetchPlatformSettings().then((s) => {
-      if (s.branding.logo_url) setLogoUrl(s.branding.logo_url);
-      document.documentElement.style.setProperty("--sa-primary", s.branding.primary_color || "#1B3A5C");
-      document.documentElement.style.setProperty("--sa-secondary", s.branding.secondary_color || "#2E86AB");
+      const p = s.branding.primary_color || DEFAULT_PRIMARY;
+      const sc = s.branding.secondary_color || DEFAULT_SECONDARY;
+      const l = s.branding.logo_url || "";
+      setPrimary(p);
+      setSecondary(sc);
+      setLogoUrl(l);
     }).catch(() => {});
+
+    // Listen for live updates from the settings page
+    const handler = (e: StorageEvent) => {
+      if (e.key === "st_branding" && e.newValue) {
+        try {
+          const b = JSON.parse(e.newValue);
+          setPrimary(b.primary_color || DEFAULT_PRIMARY);
+          setSecondary(b.secondary_color || DEFAULT_SECONDARY);
+          setLogoUrl(b.logo_url || "");
+        } catch { }
+      }
+    };
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
+
+  // Listen for custom event from settings page (same-tab updates)
+  useEffect(() => {
+    const handler = () => {
+      const b = loadCachedBranding();
+      setPrimary(b.primary);
+      setSecondary(b.secondary);
+      setLogoUrl(b.logo);
+    };
+    window.addEventListener("st-branding-update", handler);
+    return () => window.removeEventListener("st-branding-update", handler);
   }, []);
 
   if (!user) { router.replace("/login"); return null; }
   if (!user.is_super_admin) return null;
 
+  // Derived colors
+  const sidebarBg = primary;
+  const accentColor = secondary;
+  const sidebarBorder = `${primary}88`;
+
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
-      <nav style={{ width: 220, background: "#18181b", color: "#fff", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 100 }}>
-        <div style={{ padding: "16px", borderBottom: "1px solid #333", display: "flex", alignItems: "center", gap: 10 }}>
+      <nav style={{ width: 220, background: sidebarBg, color: "#fff", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 100, transition: "background 0.2s" }}>
+        <div style={{ padding: "16px", borderBottom: `1px solid ${sidebarBorder}`, display: "flex", alignItems: "center", gap: 10 }}>
           {logoUrl ? (
             <img src={logoUrl} alt="" style={{ height: 32, borderRadius: 4, flexShrink: 0 }} />
           ) : null}
           <div>
             <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: 0.5 }}>ShelterTrace</div>
-            <div style={{ fontSize: 10, color: "#a1a1aa", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Platform Admin</div>
+            <div style={{ fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Platform Admin</div>
           </div>
         </div>
 
@@ -66,9 +112,10 @@ export default function SuperAdminShell({ children }: { children: React.ReactNod
             return (
               <Link key={item.href} href={item.href} style={{
                 display: "flex", alignItems: "center", gap: 10, padding: "9px 16px", fontSize: 13,
-                color: active ? "#fff" : "#a1a1aa", fontWeight: active ? 700 : 400,
-                background: active ? "#27272a" : "transparent", textDecoration: "none",
-                borderLeft: active ? "3px solid #f59e0b" : "3px solid transparent",
+                color: active ? "#fff" : "rgba(255,255,255,0.6)", fontWeight: active ? 700 : 400,
+                background: active ? "rgba(255,255,255,0.12)" : "transparent", textDecoration: "none",
+                borderLeft: active ? `3px solid ${accentColor}` : "3px solid transparent",
+                transition: "all 0.12s",
               }}>
                 <span style={{ fontSize: 14, width: 18, textAlign: "center" }}>{item.icon}</span>
                 <span>{item.label}</span>
@@ -77,19 +124,19 @@ export default function SuperAdminShell({ children }: { children: React.ReactNod
           })}
         </div>
 
-        <div style={{ padding: "8px 16px", borderTop: "1px solid #333" }}>
-          <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", fontSize: 12, color: "#71717a", textDecoration: "none" }}>
+        <div style={{ padding: "8px 16px", borderTop: `1px solid ${sidebarBorder}` }}>
+          <Link href="/dashboard" style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", fontSize: 12, color: "rgba(255,255,255,0.4)", textDecoration: "none" }}>
             ← Back to Shelter
           </Link>
         </div>
 
-        <div style={{ padding: "12px 16px", borderTop: "1px solid #333", display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ padding: "12px 16px", borderTop: `1px solid ${sidebarBorder}`, display: "flex", alignItems: "center", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, fontWeight: 700 }}>{user.firstName} {user.lastName}</div>
-            <div style={{ fontSize: 10, color: "#f59e0b" }}>Super Admin</div>
+            <div style={{ fontSize: 10, color: accentColor }}>Super Admin</div>
           </div>
-          <button onClick={toggleTheme} style={{ background: "none", border: "none", color: "#71717a", cursor: "pointer", fontSize: 14 }}>{theme === "dark" ? "☀️" : "🌙"}</button>
-          <button onClick={logout} style={{ background: "none", border: "none", color: "#71717a", cursor: "pointer", fontSize: 15 }}>⏻</button>
+          <button onClick={toggleTheme} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 14 }}>{theme === "dark" ? "☀️" : "🌙"}</button>
+          <button onClick={logout} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.4)", cursor: "pointer", fontSize: 15 }}>⏻</button>
         </div>
       </nav>
 
