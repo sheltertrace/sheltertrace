@@ -5,6 +5,7 @@ import type {
   ClinicInvoice, ClinicMedicalRecord, ClinicProcedure, ClinicEmail,
   ClinicRabiesCertificate, ClinicSettings,
 } from "./clinicTypes";
+import type { StaffAccount } from "./types";
 
 // ── Clients ──────────────────────────────────────────────────────────────────
 
@@ -256,4 +257,40 @@ export async function saveVetSignature(userId: string, signatureData: string): P
 export async function fetchVetSignature(userId: string): Promise<string | null> {
   const { data } = await supabase.from("staff_accounts").select("signature_data").eq("id", userId).limit(1);
   return (data?.[0] as { signature_data?: string } | undefined)?.signature_data || null;
+}
+
+// ── Password Change ──────────────────────────────────────────────────────────
+
+export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
+  const { data } = await supabase.from("staff_accounts").select("password_hash").eq("id", userId).limit(1);
+  const stored = (data?.[0] as { password_hash?: string } | undefined)?.password_hash?.trim();
+  if (!stored || stored !== currentPassword.trim()) return { ok: false, error: "Current password is incorrect" };
+  if (newPassword.length < 8) return { ok: false, error: "New password must be at least 8 characters" };
+  if (!/\d/.test(newPassword)) return { ok: false, error: "New password must contain at least one number" };
+  const { error } = await supabase.from("staff_accounts").update({ password_hash: newPassword }).eq("id", userId);
+  if (error) return { ok: false, error: error.message };
+  return { ok: true };
+}
+
+// ── Clinic Employee Management ───────────────────────────────────────────────
+
+export async function fetchClinicEmployees(platformCustomerId: string): Promise<StaffAccount[]> {
+  const { data } = await supabase.from("staff_accounts").select("*").eq("platform_customer_id", platformCustomerId).order("first_name");
+  return (data || []) as StaffAccount[];
+}
+
+export async function createClinicEmployee(employee: Record<string, unknown>): Promise<StaffAccount> {
+  const { data, error } = await supabase.from("staff_accounts").insert(employee).select().single();
+  if (error) throw error;
+  return data as StaffAccount;
+}
+
+export async function updateClinicEmployee(id: string, updates: Record<string, unknown>): Promise<void> {
+  const { error } = await supabase.from("staff_accounts").update(updates).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateMyProfile(userId: string, updates: { first_name?: string; last_name?: string; email?: string; phone?: string }): Promise<void> {
+  const { error } = await supabase.from("staff_accounts").update(updates).eq("id", userId);
+  if (error) throw error;
 }

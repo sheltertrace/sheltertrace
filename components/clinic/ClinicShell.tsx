@@ -37,7 +37,9 @@ const NAV_ITEMS = [
   { href: "/clinic-portal/invoices",     label: "Invoicing & Billing", icon: "💰" },
   { href: "/clinic-portal/email",        label: "Email",               icon: "📧" },
   { href: "/clinic-portal/documents",    label: "Documents & Reports", icon: "📄" },
+  { href: "/clinic-portal/team",         label: "My Team",             icon: "👥" },
   { href: "/clinic-portal/settings",     label: "Clinic Settings",     icon: "⚙️" },
+  { href: "/clinic-portal/profile",      label: "My Profile",          icon: "👤" },
 ];
 
 export default function ClinicShell({ children }: { children: React.ReactNode }) {
