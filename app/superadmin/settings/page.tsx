@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useAuth } from "@/app/providers";
 import { fetchPlatformSettings, savePlatformSettings, fetchSuperAdmins, updateUser, logAuditAction, type PlatformSettingsData } from "@/lib/superAdminData";
 import { FEATURE_FLAGS } from "@/lib/superAdminTypes";
 import type { StaffAccount } from "@/lib/types";
+import { supabase } from "@/lib/supabase";
 
 function F({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
@@ -31,10 +32,31 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    Promise.all([fetchPlatformSettings(), fetchSuperAdmins()]).then(([s, a]) => { setSettings(s); setSuperAdmins(a); }).finally(() => setLoading(false));
+    // Load from cache first for instant rendering
+    try {
+      const cached = localStorage.getItem("st_branding");
+      if (cached) {
+        const b = JSON.parse(cached) as PlatformSettingsData["branding"];
+        applyBranding(b);
+      }
+    } catch { }
+    Promise.all([fetchPlatformSettings(), fetchSuperAdmins()]).then(([s, a]) => {
+      setSettings(s);
+      setSuperAdmins(a);
+      applyBranding(s.branding);
+      try { localStorage.setItem("st_branding", JSON.stringify(s.branding)); } catch { }
+    }).finally(() => setLoading(false));
   }, []);
+
+  function applyBranding(b: PlatformSettingsData["branding"]) {
+    const root = document.documentElement;
+    root.style.setProperty("--sa-primary", b.primary_color || "#1B3A5C");
+    root.style.setProperty("--sa-secondary", b.secondary_color || "#2E86AB");
+  }
 
   const handleSave = async () => {
     if (!settings || !user?.id) return;
@@ -42,10 +64,28 @@ export default function SettingsPage() {
     try {
       await savePlatformSettings(settings, user.id);
       await logAuditAction(user.id, "Settings Updated", "settings", "platform");
+      applyBranding(settings.branding);
+      try { localStorage.setItem("st_branding", JSON.stringify(settings.branding)); } catch { }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: unknown) { alert(`Failed: ${(e as { message?: string }).message}`); }
     finally { setSaving(false); }
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (logoInputRef.current) logoInputRef.current.value = "";
+    setLogoUploading(true);
+    try {
+      const path = `branding/logo-${Date.now()}.${file.name.split(".").pop() || "png"}`;
+      const { error } = await supabase.storage.from("documents").upload(path, file, { upsert: true });
+      if (error) throw error;
+      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
+      setSettings((s) => s ? { ...s, branding: { ...s.branding, logo_url: urlData.publicUrl } } : s);
+    } catch (err: unknown) {
+      alert(`Upload failed: ${(err as { message?: string }).message}`);
+    } finally { setLogoUploading(false); }
   };
 
   const handleRemoveSuperAdmin = async (adminId: string) => {
@@ -110,20 +150,62 @@ export default function SettingsPage() {
 
       {/* Branding */}
       <div className="card" style={{ padding: 20, marginBottom: 20 }}>
-        <div style={{ fontWeight: 700, fontSize: 14, color: "#f59e0b", marginBottom: 14 }}>Platform Branding</div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+          <div style={{ fontWeight: 700, fontSize: 14, color: "#f59e0b" }}>Platform Branding</div>
+          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11 }} onClick={() => {
+            setSettings((s) => s ? { ...s, branding: { primary_color: "#1B3A5C", secondary_color: "#2E86AB", logo_url: "" } } : s);
+          }}>Reset to Defaults</button>
+        </div>
+
+        {/* Logo */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Platform Logo</div>
+          <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            {settings.branding.logo_url ? (
+              <div style={{ position: "relative" }}>
+                <img src={settings.branding.logo_url} alt="Logo" style={{ height: 48, borderRadius: 6, border: "1px solid var(--border)" }} />
+                <button onClick={() => setSettings((s) => s ? { ...s, branding: { ...s.branding, logo_url: "" } } : s)}
+                  style={{ position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: "50%", background: "#dc2626", color: "#fff", border: "none", cursor: "pointer", fontSize: 10, display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
+              </div>
+            ) : (
+              <div style={{ width: 48, height: 48, borderRadius: 6, border: "2px dashed var(--border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, color: "var(--text-muted)" }}>📷</div>
+            )}
+            <div>
+              <label className="btn btn-secondary btn-sm" style={{ cursor: "pointer" }}>
+                {logoUploading ? "Uploading…" : settings.branding.logo_url ? "Replace Logo" : "Upload Logo"}
+                <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/svg+xml,image/webp" style={{ display: "none" }} onChange={handleLogoUpload} disabled={logoUploading} />
+              </label>
+              <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 3 }}>JPG, PNG, SVG, or WebP</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Colors */}
         <div className="grid-2">
-          <F label="Primary Color">
+          <F label="Primary Color" hint="Sidebar and headers">
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input type="color" value={settings.branding.primary_color || "#1B3A5C"} onChange={(e) => setSettings((s) => s ? { ...s, branding: { ...s.branding, primary_color: e.target.value } } : s)} />
-              <input className="form-input" value={settings.branding.primary_color || "#1B3A5C"} onChange={(e) => setSettings((s) => s ? { ...s, branding: { ...s.branding, primary_color: e.target.value } } : s)} style={{ maxWidth: 100 }} />
+              <input type="color" value={settings.branding.primary_color || "#1B3A5C"} onChange={(e) => setSettings((s) => s ? { ...s, branding: { ...s.branding, primary_color: e.target.value } } : s)} style={{ width: 40, height: 32, border: "none", padding: 0, cursor: "pointer" }} />
+              <input className="form-input" value={settings.branding.primary_color || "#1B3A5C"} onChange={(e) => setSettings((s) => s ? { ...s, branding: { ...s.branding, primary_color: e.target.value } } : s)} style={{ maxWidth: 100, fontFamily: "monospace" }} />
+              <div style={{ width: 24, height: 24, borderRadius: 4, background: settings.branding.primary_color || "#1B3A5C", border: "1px solid var(--border)" }} />
             </div>
           </F>
-          <F label="Secondary Color">
+          <F label="Secondary Color" hint="Accents and buttons">
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <input type="color" value={settings.branding.secondary_color || "#2E86AB"} onChange={(e) => setSettings((s) => s ? { ...s, branding: { ...s.branding, secondary_color: e.target.value } } : s)} />
-              <input className="form-input" value={settings.branding.secondary_color || "#2E86AB"} onChange={(e) => setSettings((s) => s ? { ...s, branding: { ...s.branding, secondary_color: e.target.value } } : s)} style={{ maxWidth: 100 }} />
+              <input type="color" value={settings.branding.secondary_color || "#2E86AB"} onChange={(e) => setSettings((s) => s ? { ...s, branding: { ...s.branding, secondary_color: e.target.value } } : s)} style={{ width: 40, height: 32, border: "none", padding: 0, cursor: "pointer" }} />
+              <input className="form-input" value={settings.branding.secondary_color || "#2E86AB"} onChange={(e) => setSettings((s) => s ? { ...s, branding: { ...s.branding, secondary_color: e.target.value } } : s)} style={{ maxWidth: 100, fontFamily: "monospace" }} />
+              <div style={{ width: 24, height: 24, borderRadius: 4, background: settings.branding.secondary_color || "#2E86AB", border: "1px solid var(--border)" }} />
             </div>
           </F>
+        </div>
+
+        {/* Preview */}
+        <div style={{ marginTop: 12, padding: 12, borderRadius: 8, border: "1px solid var(--border)", background: "#f8fafc" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", marginBottom: 6, textTransform: "uppercase" }}>Preview</div>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div style={{ width: 120, height: 40, borderRadius: 6, background: settings.branding.primary_color || "#1B3A5C", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700 }}>Primary</div>
+            <div style={{ width: 120, height: 40, borderRadius: 6, background: settings.branding.secondary_color || "#2E86AB", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 11, fontWeight: 700 }}>Secondary</div>
+            {settings.branding.logo_url && <img src={settings.branding.logo_url} alt="Logo" style={{ height: 36, borderRadius: 4 }} />}
+          </div>
         </div>
       </div>
 

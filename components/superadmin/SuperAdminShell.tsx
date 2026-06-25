@@ -1,8 +1,9 @@
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth, useTheme } from "@/app/providers";
+import { fetchPlatformSettings } from "@/lib/superAdminData";
 
 const NAV = [
   { href: "/superadmin",              label: "Dashboard",      icon: "📊" },
@@ -19,10 +20,29 @@ export default function SuperAdminShell({ children }: { children: React.ReactNod
   const router = useRouter();
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const [logoUrl, setLogoUrl] = useState<string>("");
+  const [primaryColor, setPrimaryColor] = useState("#18181b");
 
   useEffect(() => {
     if (user && !user.is_super_admin) router.replace("/dashboard");
   }, [user, router]);
+
+  useEffect(() => {
+    // Load from cache instantly
+    try {
+      const cached = localStorage.getItem("st_branding");
+      if (cached) {
+        const b = JSON.parse(cached) as { logo_url?: string; primary_color?: string };
+        if (b.logo_url) setLogoUrl(b.logo_url);
+      }
+    } catch { }
+    // Then fetch from DB
+    fetchPlatformSettings().then((s) => {
+      if (s.branding.logo_url) setLogoUrl(s.branding.logo_url);
+      document.documentElement.style.setProperty("--sa-primary", s.branding.primary_color || "#1B3A5C");
+      document.documentElement.style.setProperty("--sa-secondary", s.branding.secondary_color || "#2E86AB");
+    }).catch(() => {});
+  }, []);
 
   if (!user) { router.replace("/login"); return null; }
   if (!user.is_super_admin) return null;
@@ -30,9 +50,14 @@ export default function SuperAdminShell({ children }: { children: React.ReactNod
   return (
     <div style={{ display: "flex", minHeight: "100vh" }}>
       <nav style={{ width: 220, background: "#18181b", color: "#fff", display: "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, zIndex: 100 }}>
-        <div style={{ padding: "16px", borderBottom: "1px solid #333" }}>
-          <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: 0.5 }}>ShelterTrace</div>
-          <div style={{ fontSize: 10, color: "#a1a1aa", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Platform Admin</div>
+        <div style={{ padding: "16px", borderBottom: "1px solid #333", display: "flex", alignItems: "center", gap: 10 }}>
+          {logoUrl ? (
+            <img src={logoUrl} alt="" style={{ height: 32, borderRadius: 4, flexShrink: 0 }} />
+          ) : null}
+          <div>
+            <div style={{ fontSize: 15, fontWeight: 900, letterSpacing: 0.5 }}>ShelterTrace</div>
+            <div style={{ fontSize: 10, color: "#a1a1aa", fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase" }}>Platform Admin</div>
+          </div>
         </div>
 
         <div style={{ flex: 1, padding: "8px 0", overflow: "auto" }}>
