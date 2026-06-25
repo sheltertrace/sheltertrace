@@ -594,13 +594,13 @@ export default function PersonDetailPage() {
                         <div style={{ width: 72, height: 72, border: "2px dashed var(--border)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 22, marginBottom: 6 }}>🪪</div>
                         <label className="btn btn-secondary btn-sm" style={{ fontSize: 11, cursor: "pointer" }}>
                           {uploadingIdBack ? "Uploading…" : "📎 Upload Back"}
-                          <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf" style={{ display: "none" }} onChange={handlePhotoIdBackFile} disabled={uploadingIdBack} />
+                          <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" style={{ display: "none" }} onChange={handlePhotoIdBackFile} disabled={uploadingIdBack} />
                         </label>
                       </div>
                     )}
                   </div>
                 </div>
-                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" capture="environment" style={{ display: "none" }} onChange={handlePhotoIdFile} />
+                <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" style={{ display: "none" }} onChange={handlePhotoIdFile} />
               </div>
 
               {/* Crop modal */}

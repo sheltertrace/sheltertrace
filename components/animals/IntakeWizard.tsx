@@ -233,7 +233,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                     <span style={{ fontSize: 9, color: "var(--text-muted)" }}>Upload Photo</span>
                   </div>
                 )}
-                <input type="file" accept="image/*" style={{ display: "none" }} onChange={handlePhoto} />
+                <input type="file" accept="image/*,image/heic,image/heif" style={{ display: "none" }} onChange={handlePhoto} />
               </label>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>

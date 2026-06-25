@@ -451,7 +451,7 @@ function CitationNewInner() {
             <input
               ref={photoIdRef}
               type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
+              accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
               style={{ display: "none" }}
               onChange={async (e) => {
                 const file = e.target.files?.[0];

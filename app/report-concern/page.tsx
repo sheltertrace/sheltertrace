@@ -402,8 +402,8 @@ export default function ReportConcernPage() {
               </button>
             )}
           </div>
-          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handlePhotoSelect} />
-          <div style={{ fontSize: 11, color: "#64748b" }}>Up to 5 photos · JPG, PNG, WEBP · Max 10MB each</div>
+          <input ref={fileRef} type="file" accept="image/*,image/heic,image/heif" multiple style={{ display: "none" }} onChange={handlePhotoSelect} />
+          <div style={{ fontSize: 11, color: "#64748b" }}>Up to 5 photos · JPG, PNG, WEBP, HEIC · Max 10MB each</div>
         </div>
 
         {/* ── Reporter Information ─────────────────────────────────────────────── */}

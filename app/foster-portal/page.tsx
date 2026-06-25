@@ -212,7 +212,7 @@ function AnimalCard({
               </div>
               <div style={{ flex: 2 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: "#374151", display: "block", marginBottom: 4 }}>Add a photo</label>
-                <input type="file" accept="image/*" capture="environment" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} style={{ width: "100%", fontSize: 12 }} />
+                <input type="file" accept="image/*,image/heic,image/heif" onChange={(e) => setPhotoFile(e.target.files?.[0] ?? null)} style={{ width: "100%", fontSize: 12 }} />
               </div>
             </div>
 

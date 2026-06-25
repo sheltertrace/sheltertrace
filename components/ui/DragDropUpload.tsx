@@ -24,7 +24,7 @@ interface Props {
   children?: React.ReactNode;
 }
 
-const DEFAULT_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,image/heic,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv";
+const DEFAULT_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv";
 
 function formatSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;

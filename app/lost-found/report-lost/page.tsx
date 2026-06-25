@@ -206,7 +206,7 @@ export default function ReportLostPage() {
             <F label="Photos (up to 5 — very helpful!)">
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,image/heic,image/heif"
                 multiple
                 onChange={(e) => {
                   const newFiles = Array.from(e.target.files ?? []);

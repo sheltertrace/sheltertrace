@@ -786,11 +786,10 @@ function CallDetailPageInner() {
             <div style={{ marginBottom: 14 }}>
               <DragDropUpload
                 onFiles={(files) => files.forEach((f) => setEvidenceFiles((prev) => [...prev, { id: genId(), file: f, notes: "" }]))}
-                accept="image/*,video/*,.pdf,.doc,.docx"
+                accept="image/*,image/heic,image/heif,video/*,.pdf,.doc,.docx"
                 multiple
                 compact
                 label="Drop evidence files here or click to browse"
-                capture="environment"
               />
             </div>
 

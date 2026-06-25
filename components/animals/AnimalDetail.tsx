@@ -793,10 +793,9 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           <div style={{ marginBottom: 12 }}>
             <DragDropUpload
               onFiles={handleProfilePhotoDrop}
-              accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
+              accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif"
               maxSizeMB={10}
               disabled={photoUploading}
-              capture="environment"
             >
               {animal.photo_url ? (
                 <img src={animal.photo_url} alt={animal.name} style={{ width: "100%", aspectRatio: "1/1", borderRadius: 12, objectFit: "cover", border: "2px solid var(--border)" }} />
@@ -812,7 +811,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <span className="btn btn-secondary btn-sm" style={{ cursor: "pointer", display: "flex", justifyContent: "center" }}>
                   {photoUploading ? "Uploading…" : "📷 Change"}
                 </span>
-                <input type="file" accept="image/*" capture="environment" style={{ display: "none" }} onChange={handlePhotoUpload} />
+                <input type="file" accept="image/*,image/heic,image/heif" style={{ display: "none" }} onChange={handlePhotoUpload} />
               </label>
               {animal.photo_url && (
                 <button
@@ -2018,19 +2017,18 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   }}>
                     <span style={{ fontSize: 22 }}>{pubPhotoUploading ? "⏳" : "📷"}</span>
                     <span style={{ fontWeight: 600 }}>{pubPhotoUploading ? "Uploading…" : "Add Photo"}</span>
-                    <input type="file" accept="image/*" multiple capture="environment" style={{ display: "none" }} onChange={handlePublicPhotoUpload} disabled={pubPhotoUploading} />
+                    <input type="file" accept="image/*,image/heic,image/heif" multiple style={{ display: "none" }} onChange={handlePublicPhotoUpload} disabled={pubPhotoUploading} />
                   </label>
                 </div>
 
                 <DragDropUpload
                   onFiles={handleGalleryPhotoDrop}
-                  accept="image/jpeg,image/png,image/gif,image/webp,image/heic"
+                  accept="image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif"
                   multiple
                   maxSizeMB={10}
                   compact
                   disabled={pubPhotoUploading}
                   label="Drop photos here to add to gallery"
-                  capture="environment"
                 />
                 <div style={{ fontSize: 11, color: "var(--text-muted)", lineHeight: 1.6, marginTop: 6 }}>
                   Click ⭐ to set as featured. Drag &amp; drop multiple photos to add them to the gallery.
