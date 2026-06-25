@@ -6,6 +6,7 @@ import { fetchClinicAppointments, fetchClinicMedical, fetchClinicProcedures, fet
 import type { ClinicAppointment, ClinicMedicalRecord, ClinicProcedure, ClinicSettings } from "@/lib/clinicTypes";
 import { APPOINTMENT_TYPES } from "@/lib/clinicTypes";
 import DateInput from "@/components/ui/DateInput";
+import { printVisitSummary as printVisitDoc } from "@/lib/visitSummaryPrint";
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="form-group" style={{ marginBottom: 0 }}><label className="form-label" style={{ marginBottom: 2 }}>{label}</label>{children}</div>;
@@ -125,54 +126,20 @@ export default function PastVisitsPage() {
     const procs = procByApptDate.get(key) || [];
     const clientName = clientMap.get(a.client_id || "") || "—";
     const vetLine = settings ? [settings.vet_name, settings.vet_credentials].filter(Boolean).join(", ") : "";
-
-    const serviceRows = [
-      ...meds.map((m) => `<tr><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${m.type || "—"}</td><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${m.description || "—"}</td><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${m.vet_notes || m.lot_number || "—"}</td></tr>`),
-      ...procs.map((p) => `<tr><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${p.procedure_type || "—"}</td><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${p.outcome || "Completed"}</td><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${p.notes || "—"}</td></tr>`),
-    ].join("");
-
-    const w = window.open("", "_blank", "width=820,height=1060");
-    if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>Visit Summary — ${a.animal_name}</title>
-    <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;padding:24px;font-size:11px;}@media print{@page{margin:0.5in;}}</style>
-    </head><body>
-    <div style="border-bottom:2px solid #1a3a6b;padding-bottom:12px;margin-bottom:16px;display:flex;justify-content:space-between;">
-      <div>
-        ${settings?.logo_url ? `<img src="${settings.logo_url}" style="height:40px;margin-bottom:6px;" />` : ""}
-        <div style="font-size:16px;font-weight:800;color:#1a3a6b;">${settings?.clinic_name || "Veterinary Clinic"}</div>
-        <div style="font-size:11px;color:#475569;">${vetLine}</div>
-        ${settings?.license_number ? `<div style="font-size:10px;color:#64748b;">License: ${settings.license_number}</div>` : ""}
-        <div style="font-size:10px;color:#64748b;">${settings?.clinic_address || ""} · ${settings?.clinic_phone || ""}</div>
-      </div>
-      <div style="text-align:right;">
-        <div style="font-size:14px;font-weight:800;color:#1a3a6b;">VISIT SUMMARY</div>
-        <div style="font-size:11px;color:#475569;">${fmtDate(a.appointment_date)}</div>
-      </div>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
-      <div>
-        <div style="font-size:10px;font-weight:700;color:#1a3a6b;text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid #cbd5e1;padding-bottom:3px;">Animal</div>
-        <div style="font-size:13px;font-weight:700;">${a.animal_name || "—"}</div>
-      </div>
-      <div>
-        <div style="font-size:10px;font-weight:700;color:#1a3a6b;text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid #cbd5e1;padding-bottom:3px;">Client</div>
-        <div style="font-size:13px;font-weight:700;">${clientName}</div>
-      </div>
-    </div>
-    <div style="font-size:10px;font-weight:700;color:#1a3a6b;text-transform:uppercase;margin-bottom:6px;">Visit Type: ${a.appointment_type || "—"}</div>
-    ${a.notes ? `<div style="margin-bottom:12px;font-size:11px;color:#374151;">Notes: ${a.notes}</div>` : ""}
-    <div style="font-size:10px;font-weight:700;color:#1a3a6b;text-transform:uppercase;margin:12px 0 6px;border-bottom:1px solid #cbd5e1;padding-bottom:3px;">Services Rendered</div>
-    ${serviceRows ? `<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f3f4f6;"><th style="padding:4px 8px;text-align:left;font-size:10px;border:1px solid #d1d5db;">Service</th><th style="padding:4px 8px;text-align:left;font-size:10px;border:1px solid #d1d5db;">Details</th><th style="padding:4px 8px;text-align:left;font-size:10px;border:1px solid #d1d5db;">Notes</th></tr></thead><tbody>${serviceRows}</tbody></table>` : `<div style="color:#94a3b8;font-style:italic;">No services recorded for this visit.</div>`}
-    <div style="margin-top:30px;display:grid;grid-template-columns:1fr 1fr;gap:30px;">
-      <div><div style="border-bottom:1.5px solid #000;height:40px;"></div><div style="font-size:10px;color:#64748b;margin-top:4px;">${vetLine}</div></div>
-      <div><div style="font-size:10px;color:#64748b;">Date: ${fmtDate(a.appointment_date)}</div></div>
-    </div>
-    <div style="margin-top:24px;text-align:center;font-size:9px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px;">
-      ${settings?.clinic_name || ""} · ShelterTrace Clinic Portal · Printed ${new Date().toLocaleString()}
-    </div>
-    </body></html>`);
-    w.document.close();
-    setTimeout(() => w.print(), 400);
+    printVisitDoc({
+      clinicName: settings?.clinic_name || "Veterinary Clinic",
+      logoUrl: settings?.logo_url,
+      vetLine,
+      licenseNumber: settings?.license_number,
+      addressLine: [settings?.clinic_address, settings?.clinic_phone].filter(Boolean).join(" · "),
+      animalName: a.animal_name || "—",
+      clientName,
+      visitDate: a.appointment_date || "",
+      visitType: a.appointment_type,
+      notes: a.notes,
+      medRecords: meds,
+      procedures: procs,
+    });
   };
 
   return (

@@ -6,6 +6,7 @@ import { fetchClinicVisits, updateAnimal, fetchPeople, fetchMedical, type Clinic
 import type { Person, MedicalRecord } from "@/lib/types";
 import { today, formatDate, displayAge } from "@/lib/utils";
 import { AGENCY_NAME } from "@/lib/shelterInfo";
+import { printVisitSummary as printVisitDoc } from "@/lib/visitSummaryPrint";
 import ClinicWizard from "@/components/clinic/ClinicWizard";
 import CheckoutModal from "@/components/clinic/CheckoutModal";
 import DateInput from "@/components/ui/DateInput";
@@ -250,25 +251,15 @@ export default function ClinicPage() {
 
   function printPastVisitSummary(v: ClinicVisitRecord) {
     const med = getMedForVisit(v);
-    const rows = med.map((m) => `<tr><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${m.type || "—"}</td><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${m.description || "—"}</td><td style="padding:4px 8px;border:1px solid #d1d5db;font-size:11px;">${m.vet || "—"}</td></tr>`).join("");
-    const w = window.open("", "_blank", "width=820,height=1060");
-    if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>Visit Summary — ${v.name}</title>
-    <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;box-sizing:border-box;margin:0;padding:0;}body{font-family:Arial,sans-serif;padding:24px;font-size:11px;}@media print{@page{margin:0.5in;}}</style>
-    </head><body>
-    <div style="border-bottom:2px solid #0f2942;padding-bottom:12px;margin-bottom:16px;"><div style="font-size:16px;font-weight:800;color:#0f2942;">${AGENCY_NAME}</div><div style="font-size:11px;color:#475569;">Clinic Visit Summary</div></div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
-      <div><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Animal</div><div style="font-size:14px;font-weight:700;">${v.name}</div><div style="font-size:11px;color:#475569;">${v.species || "—"} · ${v.breed || "—"} · ${v.sex || "—"} · ${displayAge(v.age)}</div></div>
-      <div><div style="font-size:10px;font-weight:700;color:#64748b;text-transform:uppercase;">Visit Date</div><div style="font-size:14px;font-weight:700;">${fmtD(v.intake_date)}</div><div style="font-size:11px;color:#475569;">ID: ${v.id}</div></div>
-    </div>
-    <div style="font-size:10px;font-weight:700;color:#0f2942;text-transform:uppercase;margin-bottom:6px;border-bottom:1px solid #cbd5e1;padding-bottom:3px;">Services Rendered</div>
-    ${rows ? `<table style="width:100%;border-collapse:collapse;"><thead><tr style="background:#f3f4f6;"><th style="padding:4px 8px;text-align:left;font-size:10px;border:1px solid #d1d5db;">Type</th><th style="padding:4px 8px;text-align:left;font-size:10px;border:1px solid #d1d5db;">Description</th><th style="padding:4px 8px;text-align:left;font-size:10px;border:1px solid #d1d5db;">Vet/Staff</th></tr></thead><tbody>${rows}</tbody></table>` : `<div style="color:#94a3b8;font-style:italic;">No services recorded.</div>`}
-    <div style="margin-top:30px;border-bottom:1.5px solid #000;width:250px;height:40px;"></div>
-    <div style="font-size:10px;color:#64748b;">Staff Signature & Date</div>
-    <div style="margin-top:20px;text-align:center;font-size:9px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:8px;">ShelterTrace · Printed ${new Date().toLocaleString()}</div>
-    </body></html>`);
-    w.document.close();
-    setTimeout(() => w.print(), 400);
+    printVisitDoc({
+      clinicName: AGENCY_NAME,
+      clinicSubtitle: "Clinic Visit Summary",
+      animalName: v.name,
+      animalDetail: `${v.species || "—"} · ${v.breed || "—"} · ${v.sex || "—"} · ${displayAge(v.age)}`,
+      animalId: v.id,
+      visitDate: v.intake_date || "",
+      medRecords: med,
+    });
   }
 
   async function handleUpdateStatus(visit: ClinicVisitRecord, status: QueueStatus) {
