@@ -54,6 +54,15 @@ export interface Animal {
   public_bio?: string;
   featured_photo_url?: string;
   photo_urls?: string[];
+  // Hold
+  hold_type?: string;
+  hold_start_date?: string;
+  hold_end_date?: string;
+  hold_reason?: string;
+  hold_placed_by?: string;
+  hold_adopter_info?: { first_name?: string; last_name?: string; phone?: string; email?: string; address?: string; city?: string; state?: string; zip?: string; notes?: string; application_on_file?: boolean; application_date?: string };
+  hold_rescue_info?: { rescue_name?: string; contact_person?: string; contact_phone?: string; expected_pickup?: string };
+  hold_legal_info?: { case_number?: string; issuing_authority?: string; court_date?: string };
   // Died in Care
   death_date?: string;
   death_time?: string;

@@ -1,8 +1,9 @@
-export const STATUSES = ["Available", "Adopted", "Foster", "Medical Hold", "Quarantine", "Pending", "Euthanized", "Died in Care", "Imported", "Transferred", "Redeemed", "Clinic Visit"] as const;
+export const STATUSES = ["Available", "Adopted", "Foster", "Hold", "Medical Hold", "Quarantine", "Pending", "Euthanized", "Died in Care", "Imported", "Transferred", "Redeemed", "Clinic Visit"] as const;
 export type AnimalStatus = typeof STATUSES[number];
 
 export const SUB_STATUSES: Record<string, string[]> = {
   Available: ["Ready for Adoption", "Awaiting Spay/Neuter", "Awaiting Medical Clearance", "Hold - Owner Looking", "Stray Hold", "Behavior Evaluation", "Photo Needed"],
+  Hold: ["Adoption Hold", "Stray Hold", "Legal Hold", "Medical Hold", "Rescue Hold", "Owner Hold", "Behavioral Hold", "Other"],
   "Medical Hold": ["Treatment in Progress", "Post-Surgery Recovery", "Awaiting Test Results", "Isolation - Illness"],
   Quarantine: ["Bite Quarantine", "Disease Exposure", "Rabies Observation", "New Intake Hold"],
   Pending: ["Pending Adoption", "Pending Transfer", "Pending Surrender", "Pending Owner Claim"],
@@ -18,6 +19,7 @@ export const STATUS_COLORS: Record<string, string> = {
   Quarantine: "#dc2626",
   Pending: "#a855f7",
   Euthanized: "#374151",
+  Hold: "#0369a1",
   "Died in Care": "#1f2937",
   Imported: "#0ea5e9",
   Transferred: "#7c3aed",

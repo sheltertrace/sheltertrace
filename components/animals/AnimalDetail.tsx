@@ -54,6 +54,7 @@ interface Props {
 
 const DEPARTURE_STATUSES_AUTO_REMOVE = ["Adopted", "Euthanized", "Transferred", "Redeemed", "Died in Care"];
 import DiedInCareModal, { type DiedInCareData } from "./DiedInCareModal";
+import HoldModal, { type HoldData } from "./HoldModal";
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -72,6 +73,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [showAdoptionModal, setShowAdoptionModal] = useState(false);
   const [showRedemptionWizard, setShowRedemptionWizard] = useState(false);
   const [showDiedInCare, setShowDiedInCare] = useState(false);
+  const [showHoldModal, setShowHoldModal] = useState(false);
+  const [holdDismissed, setHoldDismissed] = useState(false);
   const [notes, setNotes] = useState<Array<{id: string; text: string; type: string; date: string; time: string; popup?: boolean}>>([]);
   const [popupDismissed, setPopupDismissed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -740,6 +743,21 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         </div>
       )}
 
+      {/* Hold banner */}
+      {animal.status === "Hold" && animal.hold_type && (
+        <div style={{ background: "#eff6ff", border: "1px solid #93c5fd", borderRadius: 8, padding: "10px 16px", marginBottom: 14, fontSize: 13, color: "#1d4ed8", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>🔒</span>
+          <div style={{ flex: 1 }}>
+            <strong>{animal.hold_type}</strong>
+            {animal.hold_start_date && <span> — since {animal.hold_start_date}</span>}
+            {animal.hold_end_date && <span> until {animal.hold_end_date}</span>}
+            {!!(animal.hold_adopter_info && (animal.hold_adopter_info as Record<string,unknown>).first_name) && (
+              <span> · Adopter: <strong>{String((animal.hold_adopter_info as Record<string,unknown>).first_name)} {String((animal.hold_adopter_info as Record<string,unknown>).last_name)}</strong></span>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Died in Care banner */}
       {animal.status === "Died in Care" && (
         <div style={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8, padding: "10px 16px", marginBottom: 14, fontSize: 13, color: "#fff", display: "flex", alignItems: "center", gap: 10 }}>
@@ -860,6 +878,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
               value={animal.status}
               onChange={(e) => {
                 if (e.target.value === "Died in Care") { setShowDiedInCare(true); return; }
+                if (e.target.value === "Hold") { setShowHoldModal(true); return; }
                 save({ status: e.target.value, sub_status: undefined });
               }}
               style={{ fontSize: 12 }}
@@ -2101,6 +2120,82 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           }}
           onClose={() => setShowCropModal(false)}
         />
+      )}
+
+      {/* Hold Modal */}
+      {showHoldModal && (
+        <HoldModal
+          animalName={animal.name}
+          onSave={async (data: HoldData) => {
+            const parts = [`🔒 ${data.hold_type}\nStart: ${data.hold_start_date}${data.hold_end_date ? `\nEnd: ${data.hold_end_date}` : ""}\nPlaced by: ${data.hold_placed_by}\n\n${data.hold_reason}`];
+            if (data.hold_adopter_info) parts.push(`\n\nAdopter: ${data.hold_adopter_info.first_name} ${data.hold_adopter_info.last_name}\nPhone: ${data.hold_adopter_info.phone}${data.hold_adopter_info.email ? `\nEmail: ${data.hold_adopter_info.email}` : ""}`);
+            if (data.hold_rescue_info?.rescue_name) parts.push(`\n\nRescue: ${data.hold_rescue_info.rescue_name}\nContact: ${data.hold_rescue_info.contact_person} ${data.hold_rescue_info.contact_phone}`);
+            if (data.hold_legal_info?.case_number) parts.push(`\n\nCase #: ${data.hold_legal_info.case_number}\nAuthority: ${data.hold_legal_info.issuing_authority}`);
+            await addAnimalNote(animal.id, parts.join(""), "hold", true);
+            await save({
+              status: "Hold",
+              sub_status: data.hold_type,
+              hold_type: data.hold_type,
+              hold_start_date: data.hold_start_date,
+              hold_end_date: data.hold_end_date || undefined,
+              hold_reason: data.hold_reason,
+              hold_placed_by: data.hold_placed_by,
+              hold_adopter_info: data.hold_adopter_info as unknown as Animal["hold_adopter_info"],
+              hold_rescue_info: data.hold_rescue_info as unknown as Animal["hold_rescue_info"],
+              hold_legal_info: data.hold_legal_info as unknown as Animal["hold_legal_info"],
+            } as Partial<Animal>);
+            setShowHoldModal(false);
+          }}
+          onClose={() => setShowHoldModal(false)}
+        />
+      )}
+
+      {/* Hold popup alert */}
+      {animal.status === "Hold" && animal.hold_type && !holdDismissed && (
+        <div className="modal-overlay" style={{ zIndex: 9998 }}>
+          <div className="modal" style={{ maxWidth: 520 }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header" style={{ background: { "Adoption Hold": "#0d9488", "Stray Hold": "#2563eb", "Legal Hold": "#dc2626", "Medical Hold": "#f59e0b", "Rescue Hold": "#7c3aed", "Owner Hold": "#ca8a04" }[animal.hold_type] || "#475569", color: "#fff" }}>
+              <span className="modal-title" style={{ color: "#fff" }}>
+                {{"Adoption Hold":"🤝","Stray Hold":"⏳","Legal Hold":"⚖️","Medical Hold":"🏥","Rescue Hold":"🚐","Owner Hold":"👤"}[animal.hold_type] || "🔒"} {animal.hold_type} — {animal.name}
+              </span>
+            </div>
+            <div className="modal-body">
+              <div style={{ marginBottom: 10 }}>
+                <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Hold dates</div>
+                <div style={{ fontWeight: 700 }}>{animal.hold_start_date || "—"}{animal.hold_end_date ? ` → ${animal.hold_end_date}` : ""}</div>
+                {animal.hold_end_date && (() => {
+                  const days = Math.ceil((new Date(animal.hold_end_date).getTime() - Date.now()) / 86400000);
+                  return <div style={{ fontWeight: 800, fontSize: 14, color: days <= 0 ? "#dc2626" : days <= 3 ? "#f59e0b" : "#15803d", marginTop: 4 }}>{days <= 0 ? `Expired ${Math.abs(days)} day${Math.abs(days) !== 1 ? "s" : ""} ago` : `${days} day${days !== 1 ? "s" : ""} remaining`}</div>;
+                })()}
+              </div>
+              {animal.hold_reason && <div style={{ marginBottom: 10, fontSize: 13, padding: "8px 12px", background: "#f8fafc", borderRadius: 6 }}>{animal.hold_reason}</div>}
+              {animal.hold_placed_by && <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>Placed by: {animal.hold_placed_by}</div>}
+              {!!(animal.hold_adopter_info && (animal.hold_adopter_info as Record<string,unknown>).first_name) && (
+                <div style={{ background: "#f0fdfa", border: "1px solid #99f6e4", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#0d9488", marginBottom: 6 }}>🤝 Interested Adopter</div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{String((animal.hold_adopter_info as Record<string,unknown>).first_name)} {String((animal.hold_adopter_info as Record<string,unknown>).last_name)}</div>
+                  <div style={{ fontSize: 13 }}>📞 {String((animal.hold_adopter_info as Record<string,unknown>).phone)}</div>
+                  {!!(animal.hold_adopter_info as Record<string,unknown>).email && <div style={{ fontSize: 13 }}>📧 {String((animal.hold_adopter_info as Record<string,unknown>).email)}</div>}
+                </div>
+              )}
+              {!!(animal.hold_rescue_info && (animal.hold_rescue_info as Record<string,unknown>).rescue_name) && (
+                <div style={{ background: "#f5f3ff", border: "1px solid #c4b5fd", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#7c3aed", marginBottom: 6 }}>🚐 Rescue Group</div>
+                  <div style={{ fontSize: 14, fontWeight: 700 }}>{String((animal.hold_rescue_info as Record<string,unknown>).rescue_name)}</div>
+                </div>
+              )}
+              {!!(animal.hold_legal_info && (animal.hold_legal_info as Record<string,unknown>).case_number) && (
+                <div style={{ background: "#fef2f2", border: "1px solid #fca5a5", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#dc2626", marginBottom: 6 }}>⚖️ Legal Hold</div>
+                  <div style={{ fontSize: 13 }}>Case #: <strong>{String((animal.hold_legal_info as Record<string,unknown>).case_number)}</strong></div>
+                </div>
+              )}
+            </div>
+            <div className="modal-footer" style={{ textAlign: "center" }}>
+              <button className="btn btn-primary" onClick={() => setHoldDismissed(true)}>Acknowledge &amp; View Record</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Died in Care Modal */}
