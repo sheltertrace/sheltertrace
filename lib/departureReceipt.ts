@@ -8,7 +8,7 @@ const MCAS_PHONE   = AGENCY_PHONE;
 const MCAS_BLUE    = "#0f2942";
 
 export const DEPARTURE_STATUSES = new Set([
-  "Adopted", "Foster", "Euthanized", "Transferred", "Redeemed",
+  "Adopted", "Foster", "Euthanized", "Died in Care", "Transferred", "Redeemed",
   "Released", "Return to Owner", "Escaped",
 ]);
 

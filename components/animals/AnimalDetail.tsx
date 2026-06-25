@@ -52,7 +52,8 @@ interface Props {
   onUpdate: (updated: Animal) => void;
 }
 
-const DEPARTURE_STATUSES_AUTO_REMOVE = ["Adopted", "Euthanized", "Transferred", "Redeemed"];
+const DEPARTURE_STATUSES_AUTO_REMOVE = ["Adopted", "Euthanized", "Transferred", "Redeemed", "Died in Care"];
+import DiedInCareModal, { type DiedInCareData } from "./DiedInCareModal";
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -70,6 +71,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [showReturnModal, setShowReturnModal] = useState(false);
   const [showAdoptionModal, setShowAdoptionModal] = useState(false);
   const [showRedemptionWizard, setShowRedemptionWizard] = useState(false);
+  const [showDiedInCare, setShowDiedInCare] = useState(false);
   const [notes, setNotes] = useState<Array<{id: string; text: string; type: string; date: string; time: string; popup?: boolean}>>([]);
   const [popupDismissed, setPopupDismissed] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -738,6 +740,17 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         </div>
       )}
 
+      {/* Died in Care banner */}
+      {animal.status === "Died in Care" && (
+        <div style={{ background: "#1f2937", border: "1px solid #374151", borderRadius: 8, padding: "10px 16px", marginBottom: 14, fontSize: 13, color: "#fff", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 18 }}>✝</span>
+          <div>
+            <strong>This animal died in care{animal.death_date ? ` on ${animal.death_date}` : ""}.</strong>
+            {animal.cause_of_death && <span> Cause: {animal.cause_of_death}.</span>}
+          </div>
+        </div>
+      )}
+
       {/* Historical record banner */}
       {isImported(animal) && (
         <div style={{ background: "#fef3c7", border: "1px solid #fde68a", borderRadius: 8, padding: "10px 16px", marginBottom: 14, fontSize: 13, color: "#92400e", display: "flex", alignItems: "center", gap: 10 }}>
@@ -845,7 +858,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             <select
               className="form-select"
               value={animal.status}
-              onChange={(e) => save({ status: e.target.value, sub_status: undefined })}
+              onChange={(e) => {
+                if (e.target.value === "Died in Care") { setShowDiedInCare(true); return; }
+                save({ status: e.target.value, sub_status: undefined });
+              }}
               style={{ fontSize: 12 }}
             >
               {STATUSES.map((s) => <option key={s}>{s}</option>)}
@@ -2084,6 +2100,33 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             setShowCropModal(false);
           }}
           onClose={() => setShowCropModal(false)}
+        />
+      )}
+
+      {/* Died in Care Modal */}
+      {showDiedInCare && (
+        <DiedInCareModal
+          animalName={animal.name}
+          onSave={async (data: DiedInCareData) => {
+            const noteText = `✝ DIED IN CARE\nDate: ${data.death_date} ${data.death_time}\nCause: ${data.cause_of_death}\nLocation: ${data.death_location}\nDisposition: ${data.body_disposition}\nRecorded by: ${data.death_recorded_by}${data.vet_contacted ? `\nVet contacted: ${data.vet_name}` : ""}\n\n${data.death_notes}`;
+            await addAnimalNote(animal.id, noteText, "died_in_care", true);
+            await save({
+              status: "Died in Care",
+              sub_status: undefined,
+              kennel: undefined,
+              show_on_website: false,
+              death_date: data.death_date,
+              death_time: data.death_time,
+              cause_of_death: data.cause_of_death,
+              death_location: data.death_location,
+              death_notes: data.death_notes,
+              body_disposition: data.body_disposition,
+              death_recorded_by: data.death_recorded_by,
+              death_recorded_at: new Date().toISOString(),
+            } as Partial<Animal>);
+            setShowDiedInCare(false);
+          }}
+          onClose={() => setShowDiedInCare(false)}
         />
       )}
 

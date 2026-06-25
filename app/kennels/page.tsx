@@ -59,8 +59,13 @@ function buildKennelCardHTML(animal: Animal, kennel: string, medRecords: Medical
   const statusColor = { Available: "#15803d", Adopted: "#6366f1", "Medical Hold": "#b45309", Quarantine: "#dc2626", Foster: "#0369a1", Pending: "#0369a1", Euthanized: "#dc2626" }[animal.status] || "#475569";
   const statusBg = { Available: "#f0fdf4", "Medical Hold": "#fef3c7", Quarantine: "#fee2e2" }[animal.status] || "#f0f9ff";
 
+  const deceasedWatermark = animal.status === "Died in Care"
+    ? `<div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(-30deg);font-size:90px;font-weight:900;color:rgba(31,41,55,0.12);pointer-events:none;white-space:nowrap;z-index:1;letter-spacing:8px;">DECEASED</div>`
+    : "";
+
   return `
-  <div style="width:7.5in;padding:0.2in;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;page-break-after:always;page-break-inside:avoid;">
+  <div style="position:relative;width:7.5in;padding:0.2in;box-sizing:border-box;font-family:Arial,Helvetica,sans-serif;page-break-after:always;page-break-inside:avoid;">
+    ${deceasedWatermark}
 
     <!-- Header -->
     <div style="background:#0f2942;color:#fff;padding:10px 16px;border-radius:6px 6px 0 0;display:flex;justify-content:space-between;align-items:center;">

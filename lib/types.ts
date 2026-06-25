@@ -54,6 +54,15 @@ export interface Animal {
   public_bio?: string;
   featured_photo_url?: string;
   photo_urls?: string[];
+  // Died in Care
+  death_date?: string;
+  death_time?: string;
+  cause_of_death?: string;
+  death_location?: string;
+  death_notes?: string;
+  body_disposition?: string;
+  death_recorded_by?: string;
+  death_recorded_at?: string;
   created_at?: string;
   updated_at?: string;
 }
