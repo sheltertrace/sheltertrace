@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "@/app/providers";
 import { fetchCustomers, createCustomer, updateCustomer, logAuditAction } from "@/lib/superAdminData";
+import { fetchLinksForClinic, createShelterLink, removeShelterLink, type ClinicShelterLink } from "@/lib/clinicShelterLink";
 import type { PlatformCustomer } from "@/lib/superAdminTypes";
 import { CUSTOMER_STATUSES, CUSTOMER_TYPES, BILLING_PLANS, BILLING_CYCLES, FEATURE_FLAGS, STATUS_COLORS } from "@/lib/superAdminTypes";
 import DateInput from "@/components/ui/DateInput";
@@ -30,8 +31,16 @@ export default function CustomersPage() {
   const [editing, setEditing] = useState<PlatformCustomer | null>(null);
   const [form, setForm] = useState<Partial<PlatformCustomer>>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [shelterLinks, setShelterLinks] = useState<ClinicShelterLink[]>([]);
+  const [newLinkShelterId, setNewLinkShelterId] = useState("");
+  const [newLinkAccess, setNewLinkAccess] = useState("medical");
 
   useEffect(() => { fetchCustomers().then(setCustomers).finally(() => setLoading(false)); }, []);
+
+  const loadLinks = async (customerId: string) => {
+    const links = await fetchLinksForClinic(customerId);
+    setShelterLinks(links);
+  };
 
   const filtered = useMemo(() => {
     let list = customers;
@@ -43,8 +52,20 @@ export default function CustomersPage() {
     return list;
   }, [customers, search, filterStatus]);
 
-  const openAdd = () => { setEditing(null); setForm({ ...EMPTY }); setShowModal(true); };
-  const openEdit = (c: PlatformCustomer) => { setEditing(c); setForm({ ...c }); setShowModal(true); };
+  const openAdd = () => { setEditing(null); setForm({ ...EMPTY }); setShelterLinks([]); setShowModal(true); };
+  const openEdit = (c: PlatformCustomer) => { setEditing(c); setForm({ ...c }); loadLinks(c.id); setShowModal(true); };
+
+  const handleAddLink = async () => {
+    if (!newLinkShelterId || !editing) return;
+    await createShelterLink({ clinic_customer_id: editing.id, shelter_customer_id: newLinkShelterId, access_level: newLinkAccess });
+    await loadLinks(editing.id);
+    setNewLinkShelterId("");
+  };
+
+  const handleRemoveLink = async (linkId: string) => {
+    await removeShelterLink(linkId);
+    setShelterLinks((prev) => prev.filter((l) => l.id !== linkId));
+  };
 
   const handleSave = async () => {
     if (!form.account_name?.trim() || !user?.id) return;
@@ -214,6 +235,41 @@ export default function CustomersPage() {
                 <label className="form-label">Notes</label>
                 <textarea className="form-textarea" rows={2} value={form.notes || ""} onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))} />
               </div>
+
+              {/* Linked Shelters — only for clinic accounts being edited */}
+              {editing && (form.account_type === "clinic" || form.account_type === "humane_society") && (
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontWeight: 700, fontSize: 13, color: "#15803d", marginBottom: 8 }}>🏠 Linked Shelters</div>
+                  {shelterLinks.length > 0 ? (
+                    <div style={{ marginBottom: 10 }}>
+                      {shelterLinks.map((l) => (
+                        <div key={l.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 10px", background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, marginBottom: 4 }}>
+                          <span style={{ fontSize: 14 }}>🏠</span>
+                          <span style={{ flex: 1, fontWeight: 600, fontSize: 13 }}>{l.shelter_name}</span>
+                          <span className="badge" style={{ background: "#dcfce7", color: "#15803d", fontSize: 10 }}>{l.access_level}</span>
+                          <button className="btn btn-ghost btn-sm" style={{ fontSize: 11, color: "#dc2626" }} onClick={() => handleRemoveLink(l.id)}>Remove</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>No linked shelters. Add one to give this clinic access to shelter animals.</div>
+                  )}
+                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <select className="form-select" value={newLinkShelterId} onChange={(e) => setNewLinkShelterId(e.target.value)} style={{ flex: 1, fontSize: 12 }}>
+                      <option value="">— Select shelter —</option>
+                      {customers.filter((c) => c.account_type === "shelter" && c.id !== editing.id).map((c) => (
+                        <option key={c.id} value={c.id}>{c.account_name}</option>
+                      ))}
+                    </select>
+                    <select className="form-select" value={newLinkAccess} onChange={(e) => setNewLinkAccess(e.target.value)} style={{ width: 130, fontSize: 12 }}>
+                      <option value="medical">Medical Only</option>
+                      <option value="read_only">Read Only</option>
+                      <option value="full">Full Access</option>
+                    </select>
+                    <button className="btn btn-secondary btn-sm" onClick={handleAddLink} disabled={!newLinkShelterId}>Link</button>
+                  </div>
+                </div>
+              )}
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>

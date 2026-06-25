@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useAuth, useTheme } from "@/app/providers";
 import { fetchClinicClients } from "@/lib/clinicData";
 import type { ClinicClient } from "@/lib/clinicTypes";
+import { fetchLinksForClinic, type ClinicShelterLink } from "@/lib/clinicShelterLink";
 
 interface ClinicContextValue {
   clients: ClinicClient[];
@@ -13,11 +14,15 @@ interface ClinicContextValue {
   selectedClient: ClinicClient | null;
   setSelectedClientId: (id: string | null) => void;
   refreshClients: () => void;
+  shelterLinks: ClinicShelterLink[];
+  isShelterMode: boolean;
+  activeShelterLink: ClinicShelterLink | null;
 }
 
 const ClinicContext = createContext<ClinicContextValue>({
   clients: [], selectedClientId: null, selectedClient: null,
   setSelectedClientId: () => {}, refreshClients: () => {},
+  shelterLinks: [], isShelterMode: false, activeShelterLink: null,
 });
 
 export function useClinic() { return useContext(ClinicContext); }
@@ -41,6 +46,7 @@ export default function ClinicShell({ children }: { children: React.ReactNode })
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [clients, setClients] = useState<ClinicClient[]>([]);
+  const [shelterLinks, setShelterLinks] = useState<ClinicShelterLink[]>([]);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -48,11 +54,17 @@ export default function ClinicShell({ children }: { children: React.ReactNode })
     if (!user?.id) return;
     const c = await fetchClinicClients(user.id);
     setClients(c);
-  }, [user?.id]);
+    if (user.platform_customer_id) {
+      const links = await fetchLinksForClinic(user.platform_customer_id);
+      setShelterLinks(links);
+    }
+  }, [user?.id, user?.platform_customer_id]);
 
   useEffect(() => { loadClients(); }, [loadClients]);
 
   const selectedClient = selectedClientId ? clients.find((c) => c.id === selectedClientId) || null : null;
+  const activeShelterLink = selectedClientId ? shelterLinks.find((l) => l.id === selectedClientId) || null : null;
+  const isShelterMode = !!activeShelterLink;
 
   if (!user) {
     router.replace("/login");
@@ -60,7 +72,7 @@ export default function ClinicShell({ children }: { children: React.ReactNode })
   }
 
   return (
-    <ClinicContext.Provider value={{ clients, selectedClientId, selectedClient, setSelectedClientId, refreshClients: loadClients }}>
+    <ClinicContext.Provider value={{ clients, selectedClientId, selectedClient, setSelectedClientId, refreshClients: loadClients, shelterLinks, isShelterMode, activeShelterLink }}>
       <div style={{ display: "flex", minHeight: "100vh" }}>
         {/* Sidebar */}
         <nav style={{
@@ -88,6 +100,10 @@ export default function ClinicShell({ children }: { children: React.ReactNode })
               <option value="" style={{ color: "#000" }}>All Counties</option>
               {clients.filter((c) => c.active).map((c) => (
                 <option key={c.id} value={c.id} style={{ color: "#000" }}>{c.county_name}</option>
+              ))}
+              {shelterLinks.length > 0 && <option disabled style={{ color: "#999" }}>── Linked Shelters ──</option>}
+              {shelterLinks.map((l) => (
+                <option key={l.id} value={l.id} style={{ color: "#000" }}>🏠 {l.shelter_name}</option>
               ))}
             </select>
           </div>
@@ -136,13 +152,19 @@ export default function ClinicShell({ children }: { children: React.ReactNode })
 
         {/* Main */}
         <main style={{ flex: 1, marginLeft: 240, minHeight: "100vh" }}>
-          {/* County banner */}
-          {selectedClient && (
+          {/* County / Shelter banner */}
+          {isShelterMode && activeShelterLink ? (
+            <div style={{ background: "#15803d", color: "#fff", padding: "6px 24px", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+              <span>🏠</span>
+              <span>Linked Shelter: {activeShelterLink.shelter_name}</span>
+              <span style={{ fontSize: 10, opacity: 0.8, marginLeft: 8, background: "rgba(255,255,255,0.2)", padding: "1px 8px", borderRadius: 10 }}>{activeShelterLink.access_level} access</span>
+            </div>
+          ) : selectedClient ? (
             <div style={{ background: "#0369a1", color: "#fff", padding: "6px 24px", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
               <span>🏛️</span>
               <span>{selectedClient.county_name}{selectedClient.agency_name ? ` — ${selectedClient.agency_name}` : ""}</span>
             </div>
-          )}
+          ) : null}
 
           {/* Mobile header */}
           <div className="clinic-mobile-header" style={{ display: "none", padding: "10px 16px", background: "#1a3a6b", color: "#fff", alignItems: "center", justifyContent: "space-between" }}>
