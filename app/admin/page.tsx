@@ -88,9 +88,6 @@ const IDEXX_DEFAULTS: IdexxConfig = {
 };
 
 const DEMO_IDEXX_CONFIG: Partial<IdexxConfig> = {
-  practice_id:         "DEMO-12345",
-  api_key:             "demo-api-key-xxxx",
-  api_secret:          "demo-secret-xxxx",
   account_number:      "DEMO-ACC-001",
   vetconnect_username: "demo@sheltertrace.com",
   vetconnect_password: "demo-password",
@@ -633,8 +630,8 @@ export default function AdminPage() {
                 IDEXX
               </div>
               <div>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>IDEXX VetConnect PLUS</div>
-                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Two-way diagnostic test ordering and automatic result sync</div>
+                <div style={{ fontWeight: 700, fontSize: 14 }}>IDEXX VetConnect Agent</div>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Automatic result sync via IDEXX VetConnect Agent. Results from your in-house analyzer sync automatically to ShelterTrace as soon as each test completes.</div>
               </div>
               {IS_DEMO && (
                 <span style={{ marginLeft: "auto", background: "#fef3c7", color: "#92400e", border: "1px solid #fde68a", borderRadius: 6, padding: "3px 10px", fontSize: 11, fontWeight: 700 }}>
@@ -643,14 +640,24 @@ export default function AdminPage() {
               )}
             </div>
 
+            {/* Connection status */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "8px 12px", background: "#f8fafc", borderRadius: 6 }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: idexxTesting ? "#f59e0b" : idexxConfig.vetconnect_username ? "#22c55e" : "#dc2626", flexShrink: 0 }} />
+              <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                {idexxTesting ? "Connecting…" : idexxConfig.vetconnect_username ? "Credentials configured" : "Not configured — enter credentials below"}
+              </span>
+              {idexxTestResult && (
+                <span style={{ fontSize: 11, marginLeft: "auto", color: idexxTestResult.ok ? "#15803d" : "#dc2626", fontWeight: 600 }}>
+                  {idexxTestResult.ok ? "✓ Connected" : "✗ Failed"}
+                </span>
+              )}
+            </div>
+
             <div className="grid-2">
               {([
-                ["IDEXX Practice ID", "practice_id", "text"],
-                ["IDEXX Account Number", "account_number", "text"],
-                ["IDEXX API Key", "api_key", "password"],
-                ["IDEXX API Secret", "api_secret", "password"],
-                ["VetConnect PLUS Username", "vetconnect_username", "text"],
-                ["VetConnect PLUS Password", "vetconnect_password", "password"],
+                ["IDEXX Practice/Account Number", "account_number", "text"],
+                ["VetConnect Agent Username", "vetconnect_username", "text"],
+                ["VetConnect Agent Password", "vetconnect_password", "password"],
               ] as [string, keyof IdexxConfig, string][]).map(([label, key, type]) => (
                 <div className="form-group" key={key}>
                   <label className="form-label">{label}</label>
@@ -686,7 +693,7 @@ export default function AdminPage() {
                   onChange={(e) => setIdexxConfig((c) => ({ ...c, auto_sync: e.target.checked }))}
                   disabled={IS_DEMO}
                 />
-                Auto-sync results every 30 min
+                Auto-sync results
               </label>
               <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
                 <input
@@ -695,7 +702,7 @@ export default function AdminPage() {
                   onChange={(e) => setIdexxConfig((c) => ({ ...c, use_sandbox: e.target.checked }))}
                   disabled={IS_DEMO}
                 />
-                Use Sandbox (testing)
+                Use Test Mode
               </label>
             </div>
 
