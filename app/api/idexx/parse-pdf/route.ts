@@ -1,12 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Dynamic import to avoid bundling issues with pdf-parse
-async function extractText(buffer: Buffer): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const pdfParse = require("pdf-parse") as (buf: Buffer) => Promise<{ text: string }>;
-  const result = await pdfParse(buffer);
-  return result.text;
-}
+import { extractText } from "unpdf";
 
 interface ParsedResult {
   animal_name: string;
@@ -64,117 +57,85 @@ function parseDateStr(d: string): string {
   return `${year}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
 }
 
-function parsePages(text: string): ParsedResult[] {
+function parsePage(pageText: string): ParsedResult[] {
   const results: ParsedResult[] = [];
+  const lines = pageText.split("\n").map((l) => l.trim()).filter(Boolean);
 
-  // Split by form-feed or by common IDEXX page markers
-  const pages = text.split(/\f/).filter((p) => p.trim().length > 50);
-  if (pages.length === 0) {
-    // Fallback: treat entire text as one page
-    pages.push(text);
+  let animalName = "";
+  for (const line of lines) {
+    if (/^(PET OWNER|SPECIES|DATE OF|SEROLOGY|TEST|RESULT)/i.test(line)) break;
+    if (/^[A-Z][A-Z\s'-]{1,30}$/.test(line) && !/(IDEXX|SNAP|VETCONNECT|SEROLOGY|REPORT|DIAGNOSTIC)/i.test(line)) {
+      animalName = line.trim();
+    }
   }
 
-  for (const page of pages) {
-    const lines = page.split("\n").map((l) => l.trim()).filter(Boolean);
+  let species = "";
+  const speciesMatch = pageText.match(/SPECIES:\s*(.+)/i);
+  if (speciesMatch) species = speciesMatch[1].trim().split(/\s{2,}/)[0];
 
-    // Extract animal name — first all-caps word(s) before PET OWNER or SPECIES
-    let animalName = "";
-    for (const line of lines) {
-      if (/^(PET OWNER|SPECIES|DATE OF|SEROLOGY|TEST|RESULT)/i.test(line)) break;
-      if (/^[A-Z][A-Z\s'-]{1,30}$/.test(line) && !/(IDEXX|SNAP|VETCONNECT|SEROLOGY|REPORT)/i.test(line)) {
-        animalName = line.trim();
-      }
+  let resultDate = "";
+  const dateMatch = pageText.match(/DATE OF RESULT:\s*(.+)/i);
+  if (dateMatch) resultDate = parseDateStr(dateMatch[1].trim().split(/\s{2,}/)[0]);
+
+  let resultTime = "";
+  const timeMatch = pageText.match(/(\d{1,2}:\d{2}\s*[AP]M)/i);
+  if (timeMatch) resultTime = timeMatch[1].trim();
+
+  const knownTests = [
+    "Heartworm Antigen", "FIV Antibody", "FeLV Antigen", "FIV Ab/FeLV Ag",
+    "CPV Antigen", "Parvovirus", "Ehrlichia", "Lyme", "Anaplasma",
+    "Heartworm Ag", "FIV Ab", "FeLV Ag",
+  ];
+
+  const testResults: Array<{ test: string; result: string }> = [];
+
+  for (const testName of knownTests) {
+    const regex = new RegExp(testName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s+(\\S+)", "i");
+    const match = pageText.match(regex);
+    if (match) {
+      testResults.push({ test: testName, result: match[1] });
     }
+  }
 
-    // Extract species
-    let species = "";
-    const speciesMatch = page.match(/SPECIES:\s*(.+)/i);
-    if (speciesMatch) species = speciesMatch[1].trim().split(/\s{2,}/)[0];
-
-    // Extract date
-    let resultDate = "";
-    const dateMatch = page.match(/DATE OF RESULT:\s*(.+)/i);
-    if (dateMatch) resultDate = parseDateStr(dateMatch[1].trim().split(/\s{2,}/)[0]);
-
-    // Extract time
-    let resultTime = "";
-    const timeMatch = page.match(/(\d{1,2}:\d{2}\s*[AP]M)/i);
-    if (timeMatch) resultTime = timeMatch[1].trim();
-
-    // Extract test results from the serology section
-    // Look for TEST / RESULT column pattern
-    const testResults: Array<{ test: string; result: string }> = [];
-
-    // Strategy 1: Find lines after "TEST" header that contain known test names
-    const knownTests = [
-      "Heartworm Antigen", "FIV Antibody", "FeLV Antigen", "FIV Ab/FeLV Ag",
-      "CPV Antigen", "Parvovirus", "Ehrlichia", "Lyme", "Anaplasma",
-      "Heartworm Ag", "FIV Ab", "FeLV Ag",
-    ];
-
-    for (const testName of knownTests) {
-      const regex = new RegExp(testName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\s+(\\S+)", "i");
-      const match = page.match(regex);
-      if (match) {
-        testResults.push({ test: testName, result: match[1] });
-      }
-    }
-
-    // Strategy 2: If no known tests found, look for TEST/RESULT table pattern
-    if (testResults.length === 0) {
-      const tableMatch = page.match(/TEST\s+RESULT([\s\S]*?)(?:\n\s*\n|REFERENCE|DISCLAIMER|$)/i);
-      if (tableMatch) {
-        const tableText = tableMatch[1];
-        const tableLines = tableText.split("\n").map((l) => l.trim()).filter(Boolean);
-        for (const line of tableLines) {
-          const parts = line.split(/\s{2,}/);
-          if (parts.length >= 2) {
-            const lastPart = parts[parts.length - 1];
-            if (/^(Negative|Positive|StrongPositive|WeakPositive|Inconclusive|Invalid|Pending)$/i.test(lastPart)) {
-              testResults.push({ test: parts.slice(0, -1).join(" "), result: lastPart });
-            }
+  if (testResults.length === 0) {
+    const tableMatch = pageText.match(/TEST\s+RESULT([\s\S]*?)(?:\n\s*\n|REFERENCE|DISCLAIMER|$)/i);
+    if (tableMatch) {
+      const tableLines = tableMatch[1].split("\n").map((l) => l.trim()).filter(Boolean);
+      for (const line of tableLines) {
+        const parts = line.split(/\s{2,}/);
+        if (parts.length >= 2) {
+          const lastPart = parts[parts.length - 1];
+          if (/^(Negative|Positive|StrongPositive|WeakPositive|Inconclusive|Invalid|Pending)$/i.test(lastPart)) {
+            testResults.push({ test: parts.slice(0, -1).join(" "), result: lastPart });
           }
         }
       }
     }
+  }
 
-    for (const { test, result } of testResults) {
-      const { mapped, qualifier } = mapResult(result);
-      results.push({
-        animal_name: animalName,
-        species,
-        result_date: resultDate,
-        result_time: resultTime,
-        test_name: test,
-        raw_result: qualifier || result,
-        mapped_result: mapped,
-        mapped_type: mapTestName(test),
-        source: "IDEXX SNAP Pro",
-      });
-    }
-
-    // If we found an animal but no test results, still note it
-    if (animalName && testResults.length === 0) {
-      // Try a more aggressive scan for any result-like words
-      for (const line of lines) {
-        const m = line.match(/(Negative|Positive|StrongPositive|WeakPositive)/i);
-        if (m) {
-          const { mapped, qualifier } = mapResult(m[1]);
-          results.push({
-            animal_name: animalName,
-            species,
-            result_date: resultDate,
-            result_time: resultTime,
-            test_name: "Unknown Test",
-            raw_result: qualifier || m[1],
-            mapped_result: mapped,
-            mapped_type: "Diagnostic Test",
-            source: "IDEXX SNAP Pro",
-          });
-          break;
-        }
+  if (animalName && testResults.length === 0) {
+    for (const line of lines) {
+      const m = line.match(/(Negative|Positive|StrongPositive|WeakPositive)/i);
+      if (m) {
+        testResults.push({ test: "Unknown Test", result: m[1] });
+        break;
       }
     }
+  }
+
+  for (const { test, result } of testResults) {
+    const { mapped, qualifier } = mapResult(result);
+    results.push({
+      animal_name: animalName,
+      species,
+      result_date: resultDate,
+      result_time: resultTime,
+      test_name: test,
+      raw_result: qualifier || result,
+      mapped_result: mapped,
+      mapped_type: mapTestName(test),
+      source: "IDEXX SNAP Pro",
+    });
   }
 
   return results;
@@ -194,13 +155,30 @@ export async function POST(req: NextRequest) {
     }
 
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    const text = await extractText(buffer);
-    const results = parsePages(text);
+    const uint8 = new Uint8Array(bytes);
 
-    return NextResponse.json({ results, raw_text_length: text.length, pages_detected: text.split(/\f/).length });
+    let pageTexts: string[];
+    try {
+      const extracted = await extractText(uint8, { mergePages: false });
+      const textArr = extracted.text;
+      pageTexts = (Array.isArray(textArr) ? textArr : [String(textArr)]).filter((t: string) => t.length > 20);
+    } catch (extractErr: unknown) {
+      const msg = (extractErr as Error).message || "";
+      return NextResponse.json({ error: `Could not parse PDF — please make sure this is an IDEXX VetConnect PLUS result PDF. (${msg.slice(0, 100)})` }, { status: 422 });
+    }
+
+    if (pageTexts.length === 0) {
+      return NextResponse.json({ error: "Could not extract text from this PDF. It may be a scanned image — try a digital IDEXX export instead." }, { status: 422 });
+    }
+
+    const results: ParsedResult[] = [];
+    for (const pageText of pageTexts) {
+      results.push(...parsePage(pageText));
+    }
+
+    return NextResponse.json({ results, pages_detected: pageTexts.length });
   } catch (err: unknown) {
     const e = err as Error;
-    return NextResponse.json({ error: `PDF parsing failed: ${e.message}` }, { status: 500 });
+    return NextResponse.json({ error: `Could not parse PDF — please make sure this is an IDEXX VetConnect PLUS result PDF. (${e.message?.slice(0, 100) || "Unknown error"})` }, { status: 500 });
   }
 }
