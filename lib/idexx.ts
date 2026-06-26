@@ -5,15 +5,18 @@ export const IDEXX_SANDBOX_BASE = "https://api-sandbox.idexx.com/vetconnect/v1";
 export const IDEXX_PROD_BASE    = "https://api.idexx.com/vetconnect/v1";
 
 export interface IdexxConfig {
-  practice_id:          string;
-  api_key:              string;
-  api_secret:           string;
-  account_number:       string;
+  agent_username:       string;
+  agent_password:       string;
   vetconnect_username:  string;
   vetconnect_password:  string;
+  account_number:       string;
   auto_sync:            boolean;
   use_sandbox:          boolean;
   webhook_secret:       string;
+  // Legacy fields kept for backward compat with existing saved configs
+  practice_id?:         string;
+  api_key?:             string;
+  api_secret?:          string;
 }
 
 // ShelterTrace test type → IDEXX SNAP test code

@@ -1905,9 +1905,9 @@ export async function fetchIdexxEnabled(): Promise<boolean> {
 
 export async function fetchIdexxConfig(): Promise<IdexxConfig> {
   const defaults: IdexxConfig = {
-    practice_id: "", api_key: "", api_secret: "", account_number: "",
-    vetconnect_username: "", vetconnect_password: "", auto_sync: true,
-    use_sandbox: false, webhook_secret: "",
+    agent_username: "", agent_password: "",
+    vetconnect_username: "", vetconnect_password: "", account_number: "",
+    auto_sync: true, use_sandbox: false, webhook_secret: "",
   };
   try {
     const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).maybeSingle();

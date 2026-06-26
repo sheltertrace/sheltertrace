@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
   }
 
   const payload: IdexxOrderPayload = {
-    practice_id:      config.practice_id,
+    practice_id:      config.account_number || "",
     account_number:   config.account_number,
     external_id:      body.medical_record_id,
     test_code:        body.test_code,

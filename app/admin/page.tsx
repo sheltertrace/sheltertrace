@@ -82,12 +82,14 @@ function PermButtons({ perms, onChange }: { perms: string[]; onChange: (p: strin
 }
 
 const IDEXX_DEFAULTS: IdexxConfig = {
-  practice_id: "", api_key: "", api_secret: "", account_number: "",
-  vetconnect_username: "", vetconnect_password: "", auto_sync: true,
-  use_sandbox: false, webhook_secret: "",
+  agent_username: "", agent_password: "",
+  vetconnect_username: "", vetconnect_password: "", account_number: "",
+  auto_sync: true, use_sandbox: false, webhook_secret: "",
 };
 
 const DEMO_IDEXX_CONFIG: Partial<IdexxConfig> = {
+  agent_username:      "demo-agent",
+  agent_password:      "demo-agent-pw",
   account_number:      "DEMO-ACC-001",
   vetconnect_username: "demo@sheltertrace.com",
   vetconnect_password: "demo-password",
@@ -653,36 +655,45 @@ export default function AdminPage() {
               )}
             </div>
 
-            <div className="grid-2">
-              {([
-                ["IDEXX Practice/Account Number", "account_number", "text"],
-                ["VetConnect Agent Username", "vetconnect_username", "text"],
-                ["VetConnect Agent Password", "vetconnect_password", "password"],
-              ] as [string, keyof IdexxConfig, string][]).map(([label, key, type]) => (
-                <div className="form-group" key={key}>
-                  <label className="form-label">{label}</label>
-                  <div style={{ position: "relative" }}>
-                    <input
-                      className="form-input"
-                      type={type === "password" && !idexxShowSecret[key] ? "password" : "text"}
-                      value={(idexxConfig[key] as string) || ""}
-                      onChange={(e) => setIdexxConfig((c) => ({ ...c, [key]: e.target.value }))}
-                      readOnly={IS_DEMO}
-                      style={{ paddingRight: type === "password" ? 36 : undefined }}
-                    />
-                    {type === "password" && (
-                      <button
-                        type="button"
-                        onClick={() => setIdexxShowSecret((s) => ({ ...s, [key]: !s[key] }))}
-                        style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-muted)" }}
-                        title={idexxShowSecret[key] ? "Hide" : "Show"}
-                      >
-                        {idexxShowSecret[key] ? "🙈" : "👁"}
-                      </button>
-                    )}
+            {/* Section 1: VetConnect Agent */}
+            <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "var(--teal)", marginBottom: 4 }}>VetConnect Agent</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>Provided by IDEXX when you downloaded the VetConnect Agent software. Used by the analyzer computer to upload results to the cloud.</div>
+              <div className="grid-2">
+                {([
+                  ["Agent Username", "agent_username", "text"],
+                  ["Agent Password", "agent_password", "password"],
+                ] as [string, keyof IdexxConfig, string][]).map(([label, key, type]) => (
+                  <div className="form-group" key={key}>
+                    <label className="form-label">{label}</label>
+                    <div style={{ position: "relative" }}>
+                      <input className="form-input" type={type === "password" && !idexxShowSecret[key] ? "password" : "text"} value={(idexxConfig[key] as string) || ""} onChange={(e) => setIdexxConfig((c) => ({ ...c, [key]: e.target.value }))} readOnly={IS_DEMO} style={{ paddingRight: type === "password" ? 36 : undefined }} />
+                      {type === "password" && <button type="button" onClick={() => setIdexxShowSecret((s) => ({ ...s, [key]: !s[key] }))} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-muted)" }}>{idexxShowSecret[key] ? "🙈" : "👁"}</button>}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
+              </div>
+            </div>
+
+            {/* Section 2: VetConnect PLUS Account */}
+            <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: 14, marginBottom: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#0369a1", marginBottom: 4 }}>VetConnect PLUS Account</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>Your personal VetConnect PLUS login at vetconnect.idexx.com. Used by ShelterTrace to pull results automatically.</div>
+              <div className="grid-2">
+                {([
+                  ["VetConnect PLUS Username", "vetconnect_username", "text"],
+                  ["VetConnect PLUS Password", "vetconnect_password", "password"],
+                  ["IDEXX Account / Practice ID", "account_number", "text"],
+                ] as [string, keyof IdexxConfig, string][]).map(([label, key, type]) => (
+                  <div className="form-group" key={key}>
+                    <label className="form-label">{label}</label>
+                    <div style={{ position: "relative" }}>
+                      <input className="form-input" type={type === "password" && !idexxShowSecret[key] ? "password" : "text"} value={(idexxConfig[key] as string) || ""} onChange={(e) => setIdexxConfig((c) => ({ ...c, [key]: e.target.value }))} readOnly={IS_DEMO} style={{ paddingRight: type === "password" ? 36 : undefined }} />
+                      {type === "password" && <button type="button" onClick={() => setIdexxShowSecret((s) => ({ ...s, [key]: !s[key] }))} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-muted)" }}>{idexxShowSecret[key] ? "🙈" : "👁"}</button>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div style={{ display: "flex", gap: 24, marginTop: 4, marginBottom: 16 }}>
