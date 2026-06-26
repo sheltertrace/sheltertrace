@@ -21,7 +21,7 @@ import {
   fetchTransfersByAnimal, safeJsonArray, safeJsonObject, safeArray,
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
   lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled, toggleAnimalNotePopup,
-  type AnimalDocument,
+  logKennelMove, fetchKennelMoves, type KennelMove, type AnimalDocument,
 } from "@/lib/data";
 import { IS_DEMO } from "@/lib/demo";
 import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult } from "@/lib/idexx";
@@ -36,7 +36,7 @@ const CropPhotoModal = dynamic(() => import("./CropPhotoModal"), { ssr: false })
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import { supabase } from "@/lib/supabase";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getCurrentUserName, getCurrentUserId } from "@/lib/auth";
 import ReturnAnimalModal from "./ReturnAnimalModal";
 import ReceiptPreviewModal from "./ReceiptPreviewModal";
 import AdoptionFromDetailModal, { type AdoptionReceiptInfo } from "./AdoptionFromDetailModal";
@@ -75,7 +75,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [showDiedInCare, setShowDiedInCare] = useState(false);
   const [showHoldModal, setShowHoldModal] = useState(false);
   const [holdDismissed, setHoldDismissed] = useState(false);
-  const [notes, setNotes] = useState<Array<{id: string; text: string; type: string; date: string; time: string; popup?: boolean}>>([]);
+  const [notes, setNotes] = useState<Array<{id: string; text: string; type: string; date: string; time: string; popup?: boolean; created_by?: string}>>([]);
   const [popupDismissed, setPopupDismissed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -123,6 +123,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [idexxOrdering, setIdexxOrdering] = useState(false);
   const [idexxOrderErr, setIdexxOrderErr] = useState("");
   const [expandedIdexx, setExpandedIdexx] = useState<string | null>(null);
+  const [kennelMoves, setKennelMoves] = useState<KennelMove[]>([]);
 
   // Vaccine confirmation
   const [confirmVaccine, setConfirmVaccine] = useState<{ record: MedicalRecord; action: "administered" | "declined" | "skipped" } | null>(null);
@@ -188,6 +189,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchAdoptionsByAnimal(animal.id).then(setAdoptionRecords);
     fetchLicensesByAnimal(animal.id).then(setAnimalLicenses);
     fetchIdexxEnabled().then(setIdexxEnabled).catch(() => {});
+    fetchKennelMoves(animal.id).then(setKennelMoves).catch(() => {});
   }, [animal.id]);
 
   // Realtime subscription — auto-refresh medical records when IDEXX updates them
@@ -223,6 +225,18 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     }
   ) => {
     setSaving(true);
+    updates = { ...updates, updated_by: getCurrentUserName() };
+    // Log kennel moves
+    if (updates.kennel !== undefined && updates.kennel !== animal.kennel) {
+      logKennelMove({
+        animal_id: animal.id,
+        animal_name: animal.name,
+        from_kennel: animal.kennel || "Unassigned",
+        to_kennel: updates.kennel || "Unassigned",
+        moved_by: getCurrentUserName(),
+        moved_by_id: getCurrentUserId() || undefined,
+      });
+    }
     if (updates.status && DEPARTURE_STATUSES_AUTO_REMOVE.includes(updates.status) && updates.status !== animal.status) {
       updates = { ...updates, show_on_website: false };
     }
@@ -1593,10 +1607,30 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     >{n.popup ? "🔔" : "🔕"}</button>
                   </div>
                 </div>
+                {n.created_by && <div style={{ fontSize: 10, color: "var(--text-muted)", marginBottom: 2 }}>by {n.created_by}</div>}
                 <div style={{ fontSize: 13 }}>{n.text}</div>
               </div>
             ))}
           </CollapsibleSection>
+
+          {/* Kennel History */}
+          {kennelMoves.length > 0 && (
+            <CollapsibleSection title={`Kennel History (${kennelMoves.length})`} color="#64748b" defaultOpen={false}>
+              <table className="data-table">
+                <thead><tr><th>Date/Time</th><th>From</th><th>To</th><th>By</th></tr></thead>
+                <tbody>
+                  {kennelMoves.map((m) => (
+                    <tr key={m.id}>
+                      <td style={{ fontSize: 12 }}>{m.moved_at ? new Date(m.moved_at).toLocaleString() : "—"}</td>
+                      <td style={{ fontSize: 12 }}>{m.from_kennel || "—"}</td>
+                      <td style={{ fontSize: 12, fontWeight: 600 }}>{m.to_kennel || "—"}</td>
+                      <td style={{ fontSize: 12 }}>{m.moved_by || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CollapsibleSection>
+          )}
 
           {/* Documents */}
           <CollapsibleSection title={`Documents (${docs.length})`} color="#7c3aed">

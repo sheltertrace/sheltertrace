@@ -139,6 +139,22 @@ export function getCurrentUser(): StaffAccount | null {
   }
 }
 
+export function getCurrentUserName(): string {
+  const u = getCurrentUser();
+  if (!u) return "Staff";
+  const first = u.firstName || u.first_name || "";
+  const last = u.lastName || u.last_name || "";
+  return `${first} ${last}`.trim() || u.username || "Staff";
+}
+
+export function getCurrentUserBadge(): string | null {
+  return getCurrentUser()?.badge || null;
+}
+
+export function getCurrentUserId(): string | null {
+  return getCurrentUser()?.id || null;
+}
+
 export function hasPermission(user: StaffAccount | null, permission: string): boolean {
   if (!user) return false;
   return user.permissions.includes("all") || user.permissions.includes(permission);

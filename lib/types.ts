@@ -54,6 +54,7 @@ export interface Animal {
   public_bio?: string;
   featured_photo_url?: string;
   photo_urls?: string[];
+  updated_by?: string;
   // Hold
   hold_type?: string;
   hold_start_date?: string;
@@ -166,6 +167,7 @@ export interface MedicalRecord {
   tested_by?: string;
   updated_at?: string;
   updated_by?: string;
+  created_by?: string;
   created_at?: string;
   // IDEXX VetConnect PLUS fields
   idexx_order_id?:         string;

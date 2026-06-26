@@ -359,7 +359,7 @@ export async function fetchMedical(animalId?: string): Promise<MedicalRecord[]> 
 
 export async function createMedical(record: Partial<MedicalRecord>): Promise<MedicalRecord> {
   const id = `M-${genId()}`;
-  const { data, error } = await supabase.from("medical_records").insert({ ...record, id, ...demoTag() }).select().single();
+  const { data, error } = await supabase.from("medical_records").insert({ ...record, id, created_by: getSessionUserName(), ...demoTag() }).select().single();
   if (error) throw error;
   return data as MedicalRecord;
 }
@@ -630,6 +630,15 @@ export async function fetchOfficers(): Promise<Officer[]> {
 }
 
 // ── Animal Notes ──────────────────────────────────────────────────────────────
+function getSessionUserName(): string {
+  try {
+    const raw = typeof window !== "undefined" ? sessionStorage.getItem("shelter_user") : null;
+    if (!raw) return "Staff";
+    const u = JSON.parse(raw) as { firstName?: string; first_name?: string; lastName?: string; last_name?: string; username?: string };
+    return `${u.firstName || u.first_name || ""} ${u.lastName || u.last_name || ""}`.trim() || u.username || "Staff";
+  } catch { return "Staff"; }
+}
+
 export async function addAnimalNote(animalId: string, text: string, type: string, popup = false): Promise<void> {
   const now = new Date();
   await supabase.from("animal_notes").insert({
@@ -637,6 +646,7 @@ export async function addAnimalNote(animalId: string, text: string, type: string
     text,
     type,
     popup,
+    created_by: getSessionUserName(),
     date: now.toISOString().split("T")[0],
     time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
   });
@@ -663,6 +673,7 @@ export async function addPersonNote(personId: string, text: string, type: string
     text,
     type,
     popup,
+    created_by: getSessionUserName(),
     date: now.toISOString().split("T")[0],
     time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
   });
@@ -1846,6 +1857,40 @@ export async function createDrugReconciliation(entry: Partial<DrugReconciliation
   const { data, error } = await supabase.from("drug_reconciliation").insert(entry).select().single();
   if (error) throw error;
   return data as DrugReconciliation;
+}
+
+// ── Kennel Move History ──────────────────────────────────────────────────────
+
+export interface KennelMove {
+  id: string;
+  animal_id: string;
+  animal_name?: string;
+  from_kennel?: string;
+  to_kennel?: string;
+  moved_by: string;
+  moved_by_id?: string;
+  reason?: string;
+  moved_at?: string;
+}
+
+export async function logKennelMove(move: Omit<KennelMove, "id" | "moved_at">): Promise<void> {
+  try {
+    await supabase.from("kennel_move_history").insert(move);
+  } catch { }
+}
+
+export async function fetchKennelMoves(animalId: string): Promise<KennelMove[]> {
+  try {
+    const { data } = await supabase.from("kennel_move_history").select("*").eq("animal_id", animalId).order("moved_at", { ascending: false });
+    return (data || []) as KennelMove[];
+  } catch { return []; }
+}
+
+export async function fetchAllKennelMoves(limit = 100): Promise<KennelMove[]> {
+  try {
+    const { data } = await supabase.from("kennel_move_history").select("*").order("moved_at", { ascending: false }).limit(limit);
+    return (data || []) as KennelMove[];
+  } catch { return []; }
 }
 
 // ── IDEXX VetConnect PLUS Config (stored in shelter_config id=6) ──────────────
