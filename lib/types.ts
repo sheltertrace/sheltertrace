@@ -168,6 +168,7 @@ export interface MedicalRecord {
   updated_at?: string;
   updated_by?: string;
   created_by?: string;
+  source?: string;
   created_at?: string;
   // IDEXX VetConnect PLUS fields
   idexx_order_id?:         string;

@@ -723,6 +723,9 @@ export default function AdminPage() {
             )}
 
             <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <a href="/admin/idexx-import" className="btn btn-primary" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                📥 Import CSV Results
+              </a>
               <button className="btn btn-secondary" onClick={handleTestIdexx} disabled={idexxTesting}>
                 {idexxTesting ? "Testing…" : "🔌 Test Connection"}
               </button>
