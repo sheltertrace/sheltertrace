@@ -318,10 +318,23 @@ function CallDetailPageInner() {
   };
 
   // ── Add narrative entry ───────────────────────────────────────────────────
+  const getNarrativeAuthor = (): string => {
+    if (!user) return "Staff";
+    const first = user.firstName || user.first_name || "";
+    const last = user.lastName || user.last_name || "";
+    const full = `${first} ${last}`.trim() || user.username;
+    const role = (user.role || "").toLowerCase();
+    if (role.includes("officer") || role === "aco" || role === "field officer") return `Officer ${last || full}`;
+    if (role.includes("admin")) return `Admin ${last || full}`;
+    return full;
+  };
+
   const handleAddNarrative = async () => {
     const text = newNarrText.trim();
     if (!text || !call) return;
-    const entry: NarrativeEntry = { id: genId(), time: nowTime(), officer: "Officer", text };
+    const now = new Date();
+    const timestamp = `${(now.getMonth()+1).toString().padStart(2,"0")}/${now.getDate().toString().padStart(2,"0")}/${now.getFullYear()} ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+    const entry: NarrativeEntry = { id: genId(), time: timestamp, officer: getNarrativeAuthor(), text };
     const updated = [...liveNarrative, entry];
     setLiveNarrative(updated);  // Optimistic — shows immediately
     setNewNarrText("");
@@ -683,6 +696,16 @@ function CallDetailPageInner() {
         <div>
           <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: "14px 16px", marginBottom: 20 }}>
             <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", color: "#0369a1", marginBottom: 8 }}>Add Narrative Entry</div>
+            <div style={{ display: "flex", gap: 12, marginBottom: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ fontSize: 12 }}>
+                <span style={{ color: "var(--text-muted)" }}>Author: </span>
+                <span style={{ fontWeight: 700, color: "#0f2942" }}>{getNarrativeAuthor()}</span>
+              </div>
+              <div style={{ fontSize: 12 }}>
+                <span style={{ color: "var(--text-muted)" }}>Time: </span>
+                <span style={{ fontWeight: 600, color: "#475569" }}>{new Date().toLocaleString("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+              </div>
+            </div>
             <div className="dispatch-narrative-input" style={{ display: "flex", gap: 8 }}>
               <textarea className="form-textarea" rows={3} style={{ flex: 1 }} value={newNarrText} onChange={(e) => setNewNarrText(e.target.value)} placeholder="Officer observations, actions taken, details gathered on scene…" />
               <button className="btn btn-primary" style={{ alignSelf: "flex-end", whiteSpace: "nowrap" }} onClick={handleAddNarrative} disabled={!newNarrText.trim()}>+ Add Entry</button>
