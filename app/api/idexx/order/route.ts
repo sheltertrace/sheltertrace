@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
     .from("shelter_config")
     .select("config_data")
     .eq("id", 6)
-    .single();
+    .maybeSingle();
 
   if (!configRow?.config_data) {
     return NextResponse.json({ error: "IDEXX not configured" }, { status: 400 });
@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
 
   const config = configRow.config_data as IdexxConfig;
 
-  if (!config.practice_id || !config.api_key) {
-    return NextResponse.json({ error: "IDEXX credentials incomplete" }, { status: 400 });
+  if (!config.vetconnect_username || !config.vetconnect_password) {
+    return NextResponse.json({ error: "VetConnect Agent credentials not configured" }, { status: 400 });
   }
 
   const payload: IdexxOrderPayload = {

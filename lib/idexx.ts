@@ -34,12 +34,11 @@ export function idexxBaseUrl(config: Pick<IdexxConfig, "use_sandbox">): string {
 }
 
 function idexxHeaders(config: IdexxConfig): Record<string, string> {
-  const creds = btoa(`${config.api_key}:${config.api_secret}`);
+  const creds = btoa(`${config.vetconnect_username}:${config.vetconnect_password}`);
   return {
     Authorization:         `Basic ${creds}`,
     "Content-Type":        "application/json",
-    "X-IDEXX-Practice-ID": config.practice_id,
-    "X-IDEXX-Account":     config.account_number,
+    "X-IDEXX-Account":     config.account_number || "",
   };
 }
 

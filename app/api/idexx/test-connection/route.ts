@@ -11,7 +11,6 @@ function adminClient() {
 }
 
 export async function POST(req: NextRequest) {
-  // Allow passing config directly from the admin form (unsaved credentials test)
   const body = await req.json() as { config?: IdexxConfig };
 
   let config: IdexxConfig | null = body.config ?? null;
@@ -22,12 +21,12 @@ export async function POST(req: NextRequest) {
       .from("shelter_config")
       .select("config_data")
       .eq("id", 6)
-      .single();
+      .maybeSingle();
     config = (configRow?.config_data as IdexxConfig) ?? null;
   }
 
-  if (!config?.practice_id || !config?.api_key) {
-    return NextResponse.json({ ok: false, message: "IDEXX credentials not configured" });
+  if (!config?.vetconnect_username || !config?.vetconnect_password) {
+    return NextResponse.json({ ok: false, message: "VetConnect Agent credentials not configured — enter username and password above" });
   }
 
   const result = await idexxTestConnection(config);
