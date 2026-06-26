@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/lib/supabase";
 import { fetchAnimals, createMedical } from "@/lib/data";
@@ -7,23 +7,19 @@ import type { Animal, MedicalRecord } from "@/lib/types";
 import { getCurrentUserName, getCurrentUserId } from "@/lib/auth";
 import DragDropUpload from "@/components/ui/DragDropUpload";
 
-// ── IDEXX test name mapping ──────────────────────────────────────────────────
+// ── CSV test name mapping (kept for CSV fallback) ────────────────────────────
 
-const TEST_MAP: Record<string, string> = {
-  "hw antigen":    "Heartworm Test", "heartworm ag":    "Heartworm Test", "heartworm antigen": "Heartworm Test",
-  "4dx":           "Heartworm Test", "snap 4dx":        "Heartworm Test", "snap 4dx plus":     "Heartworm Test",
-  "fiv ab":        "FIV Test",       "fiv antibody":    "FIV Test",
-  "felv ag":       "FeLV Test",      "felv antigen":    "FeLV Test",
-  "fiv ab/felv ag":"FIV/FeLV Combo Test", "fiv/felv": "FIV/FeLV Combo Test", "snap fiv/felv": "FIV/FeLV Combo Test",
-  "cpv ag":        "Parvo Test",     "parvo ag":        "Parvo Test",     "parvovirus":        "Parvo Test",
+const CSV_TEST_MAP: Record<string, string> = {
+  "hw antigen": "Heartworm Test", "heartworm ag": "Heartworm Test", "heartworm antigen": "Heartworm Test",
+  "4dx": "Heartworm Test", "snap 4dx": "Heartworm Test", "snap 4dx plus": "Heartworm Test",
+  "fiv ab": "FIV Test", "fiv antibody": "FIV Test",
+  "felv ag": "FeLV Test", "felv antigen": "FeLV Test",
+  "fiv ab/felv ag": "FIV/FeLV Combo Test", "fiv/felv": "FIV/FeLV Combo Test",
+  "cpv ag": "Parvo Test", "parvo ag": "Parvo Test", "parvovirus": "Parvo Test",
 };
 
-function mapTestName(raw: string): string {
-  const key = raw.trim().toLowerCase();
-  return TEST_MAP[key] || raw.trim();
-}
-
-function mapResult(raw: string): "Positive" | "Negative" | "Inconclusive" | "Pending" {
+function csvMapTest(raw: string): string { return CSV_TEST_MAP[raw.trim().toLowerCase()] || raw.trim(); }
+function csvMapResult(raw: string): "Positive" | "Negative" | "Inconclusive" | "Pending" {
   const v = raw.trim().toLowerCase();
   if (v === "positive" || v === "pos" || v === "+") return "Positive";
   if (v === "negative" || v === "neg" || v === "-") return "Negative";
@@ -31,71 +27,17 @@ function mapResult(raw: string): "Positive" | "Negative" | "Inconclusive" | "Pen
   return "Pending";
 }
 
-// ── CSV parsing ──────────────────────────────────────────────────────────────
+// ── Import row ───────────────────────────────────────────────────────────────
 
-interface CsvRow {
-  patientName: string;
-  patientId: string;
+interface ImportRow {
+  animalName: string;
   testName: string;
-  result: string;
-  resultDate: string;
-  accessionNumber: string;
-  analyzerId: string;
-  operator: string;
-  raw: Record<string, string>;
-}
-
-function parseCsv(text: string): CsvRow[] {
-  const lines = text.split(/\r?\n/).filter((l) => l.trim());
-  if (lines.length < 2) return [];
-  const headerLine = lines[0];
-  const headers = headerLine.split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
-
-  const col = (name: string): number => {
-    const variants: Record<string, string[]> = {
-      patientName: ["patient name", "animal name", "name", "patient"],
-      patientId:   ["patient id", "animal id", "id"],
-      testName:    ["test name", "test type", "test", "analyte"],
-      result:      ["result", "result value", "interpretation"],
-      resultDate:  ["result date", "date", "run date", "collection date"],
-      accession:   ["accession number", "accession", "order id", "req id"],
-      analyzer:    ["analyzer id", "analyzer", "instrument"],
-      operator:    ["operator", "technician", "run by", "performed by"],
-    };
-    for (const v of variants[name] || [name]) {
-      const i = headers.indexOf(v);
-      if (i >= 0) return i;
-    }
-    return -1;
-  };
-
-  const iName = col("patientName"), iId = col("patientId"), iTest = col("testName");
-  const iResult = col("result"), iDate = col("resultDate"), iAcc = col("accession");
-  const iAna = col("analyzer"), iOp = col("operator");
-
-  return lines.slice(1).map((line) => {
-    const vals = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
-    const rawObj: Record<string, string> = {};
-    headers.forEach((h, i) => { rawObj[h] = vals[i] || ""; });
-    return {
-      patientName:     iName >= 0 ? vals[iName] || "" : "",
-      patientId:       iId >= 0 ? vals[iId] || "" : "",
-      testName:        iTest >= 0 ? vals[iTest] || "" : "",
-      result:          iResult >= 0 ? vals[iResult] || "" : "",
-      resultDate:      iDate >= 0 ? vals[iDate] || "" : "",
-      accessionNumber: iAcc >= 0 ? vals[iAcc] || "" : "",
-      analyzerId:      iAna >= 0 ? vals[iAna] || "" : "",
-      operator:        iOp >= 0 ? vals[iOp] || "" : "",
-      raw: rawObj,
-    };
-  }).filter((r) => r.testName || r.result);
-}
-
-// ── Import row state ─────────────────────────────────────────────────────────
-
-interface ImportRow extends CsvRow {
   mappedType: string;
+  rawResult: string;
   mappedResult: "Positive" | "Negative" | "Inconclusive" | "Pending";
+  resultDate: string;
+  source: string;
+  species?: string;
   matchedAnimal: Animal | null;
   matchScore: "exact" | "partial" | "none";
   manualAnimalId: string;
@@ -104,18 +46,46 @@ interface ImportRow extends CsvRow {
   error?: string;
 }
 
-const SAMPLE_CSV = `Patient Name,Patient ID,Test Name,Result,Result Date,Accession Number,Analyzer ID,Operator
-Buddy,26-04-001,HW Antigen,Negative,06/24/2026,ACC-001,SNAP Pro,Tech Casey
-Luna,26-04-003,FIV Ab/FeLV Ag,Negative,06/24/2026,ACC-002,SNAP Pro,Tech Casey
-Max,,Parvo Ag,Positive,06/24/2026,ACC-003,SNAP Pro,Tech Morgan`;
+// ── CSV parsing ──────────────────────────────────────────────────────────────
+
+function parseCsv(text: string): ImportRow[] {
+  const lines = text.split(/\r?\n/).filter((l) => l.trim());
+  if (lines.length < 2) return [];
+  const headers = lines[0].split(",").map((h) => h.trim().replace(/^"|"$/g, "").toLowerCase());
+  const col = (names: string[]): number => { for (const n of names) { const i = headers.indexOf(n); if (i >= 0) return i; } return -1; };
+  const iName = col(["patient name", "animal name", "name"]);
+  const iTest = col(["test name", "test type", "test", "analyte"]);
+  const iResult = col(["result", "result value", "interpretation"]);
+  const iDate = col(["result date", "date", "run date"]);
+
+  return lines.slice(1).map((line) => {
+    const vals = line.split(",").map((v) => v.trim().replace(/^"|"$/g, ""));
+    const testRaw = iTest >= 0 ? vals[iTest] || "" : "";
+    const resultRaw = iResult >= 0 ? vals[iResult] || "" : "";
+    return {
+      animalName: iName >= 0 ? vals[iName] || "" : "",
+      testName: testRaw,
+      mappedType: csvMapTest(testRaw),
+      rawResult: resultRaw,
+      mappedResult: csvMapResult(resultRaw),
+      resultDate: iDate >= 0 ? vals[iDate] || "" : "",
+      source: "IDEXX CSV Import",
+      matchedAnimal: null, matchScore: "none" as const, manualAnimalId: "", skip: false, imported: false,
+    };
+  }).filter((r) => r.testName || r.rawResult);
+}
+
+// ── Main page ────────────────────────────────────────────────────────────────
 
 export default function IdexxImportPage() {
   const [step, setStep] = useState<"upload" | "preview" | "done">("upload");
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [loading, setLoading] = useState(true);
+  const [parsing, setParsing] = useState(false);
   const [importing, setImporting] = useState(false);
   const [fileName, setFileName] = useState("");
+  const [parseError, setParseError] = useState("");
   const [importLog, setImportLog] = useState<Array<{ id: string; imported_by: string; imported_at: string; file_name: string; imported_rows: number; skipped_rows: number; error_rows: number }>>([]);
   const [positiveAlerts, setPositiveAlerts] = useState<ImportRow[]>([]);
 
@@ -123,18 +93,11 @@ export default function IdexxImportPage() {
     Promise.all([
       fetchAnimals(),
       supabase.from("idexx_import_log").select("*").order("imported_at", { ascending: false }).limit(20),
-    ]).then(([a, log]) => {
-      setAnimals(a);
-      setImportLog((log.data || []) as typeof importLog);
-    }).finally(() => setLoading(false));
+    ]).then(([a, log]) => { setAnimals(a); setImportLog((log.data || []) as typeof importLog); }).finally(() => setLoading(false));
   }, []);
 
-  const matchAnimal = useCallback((name: string, id: string): { animal: Animal | null; score: "exact" | "partial" | "none" } => {
-    if (!name && !id) return { animal: null, score: "none" };
-    if (id) {
-      const byId = animals.find((a) => a.id === id);
-      if (byId) return { animal: byId, score: "exact" };
-    }
+  const matchAnimal = useCallback((name: string): { animal: Animal | null; score: "exact" | "partial" | "none" } => {
+    if (!name) return { animal: null, score: "none" };
     const lower = name.toLowerCase().trim();
     const exact = animals.find((a) => a.name.toLowerCase() === lower);
     if (exact) return { animal: exact, score: "exact" };
@@ -143,40 +106,62 @@ export default function IdexxImportPage() {
     return { animal: null, score: "none" };
   }, [animals]);
 
-  const handleFile = (files: File[]) => {
+  const applyMatching = useCallback((parsed: ImportRow[]): ImportRow[] => {
+    return parsed.map((r) => {
+      const { animal, score } = matchAnimal(r.animalName);
+      return { ...r, matchedAnimal: animal, matchScore: score };
+    });
+  }, [matchAnimal]);
+
+  const handleFile = async (files: File[]) => {
     const file = files[0];
     if (!file) return;
     setFileName(file.name);
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const parsed = parseCsv(text);
-      const mapped: ImportRow[] = parsed.map((r) => {
-        const { animal, score } = matchAnimal(r.patientName, r.patientId);
-        return {
-          ...r,
-          mappedType: mapTestName(r.testName),
-          mappedResult: mapResult(r.result),
-          matchedAnimal: animal,
-          matchScore: score,
-          manualAnimalId: "",
-          skip: false,
-          imported: false,
-        };
-      });
-      setRows(mapped);
-      setStep("preview");
-    };
-    reader.readAsText(file);
+    setParseError("");
+    const isPdf = file.name.toLowerCase().endsWith(".pdf");
+
+    if (isPdf) {
+      setParsing(true);
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/idexx/parse-pdf", { method: "POST", body: form });
+        const data = await res.json() as { results?: Array<{ animal_name: string; test_name: string; mapped_type: string; raw_result: string; mapped_result: string; result_date: string; source: string; species?: string }>; error?: string };
+        if (!res.ok || data.error) throw new Error(data.error || "Parse failed");
+        if (!data.results?.length) throw new Error("No test results found in this PDF. Make sure it is an IDEXX VetConnect PLUS results report.");
+        const mapped: ImportRow[] = data.results.map((r) => ({
+          animalName: r.animal_name,
+          testName: r.test_name,
+          mappedType: r.mapped_type,
+          rawResult: r.raw_result,
+          mappedResult: r.mapped_result as ImportRow["mappedResult"],
+          resultDate: r.result_date,
+          source: "IDEXX PDF Import",
+          species: r.species,
+          matchedAnimal: null, matchScore: "none" as const, manualAnimalId: "", skip: false, imported: false,
+        }));
+        setRows(applyMatching(mapped));
+        setStep("preview");
+      } catch (err: unknown) {
+        setParseError((err as Error).message || "Failed to parse PDF");
+      } finally { setParsing(false); }
+    } else {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const parsed = parseCsv(e.target?.result as string);
+        if (parsed.length === 0) { setParseError("No results found in CSV."); return; }
+        setRows(applyMatching(parsed));
+        setStep("preview");
+      };
+      reader.readAsText(file);
+    }
   };
 
   const matchedCount = rows.filter((r) => !r.skip && (r.matchedAnimal || r.manualAnimalId)).length;
-  const unmatchedCount = rows.filter((r) => !r.skip && !r.matchedAnimal && !r.manualAnimalId).length;
   const skippedCount = rows.filter((r) => r.skip).length;
 
   const handleImport = async () => {
     setImporting(true);
-    const userName = getCurrentUserName();
     const userId = getCurrentUserId();
     let imported = 0, skipped = 0, errors = 0;
     const positives: ImportRow[] = [];
@@ -189,21 +174,25 @@ export default function IdexxImportPage() {
 
       try {
         let dateStr = row.resultDate;
-        if (dateStr.includes("/")) {
+        if (dateStr.includes("/") && !dateStr.startsWith("20")) {
           const [m, d, y] = dateStr.split("/");
-          dateStr = `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+          const yr = y.length === 2 ? `20${y}` : y;
+          dateStr = `${yr}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
         }
+
+        const desc = row.rawResult && row.rawResult !== row.mappedResult
+          ? `${row.testName} (IDEXX result: ${row.rawResult})`
+          : row.testName;
 
         await createMedical({
           animal_id: animalId,
-          animal_name: animalName || row.patientName,
+          animal_name: animalName || row.animalName,
           type: row.mappedType,
-          description: row.testName,
+          description: desc,
           test_result: row.mappedResult,
           date: dateStr || new Date().toISOString().split("T")[0],
-          vet: row.operator || "IDEXX Analyzer",
+          vet: row.source.includes("SNAP") ? "IDEXX SNAP Pro" : "IDEXX Analyzer",
           status: "Administered",
-          idexx_accession_number: row.accessionNumber || undefined,
           idexx_status: "Resulted",
           idexx_resulted_at: new Date().toISOString(),
         } as Partial<MedicalRecord>);
@@ -217,7 +206,7 @@ export default function IdexxImportPage() {
     }
 
     await supabase.from("idexx_import_log").insert({
-      imported_by: userId || userName,
+      imported_by: userId || getCurrentUserName(),
       file_name: fileName,
       total_rows: rows.length,
       matched_rows: matchedCount,
@@ -231,26 +220,17 @@ export default function IdexxImportPage() {
     setStep("done");
   };
 
-  const downloadSample = () => {
-    const blob = new Blob([SAMPLE_CSV], { type: "text/csv" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = "idexx-sample-template.csv";
-    a.click();
-  };
-
   return (
-    <AppShell title="IDEXX CSV Import">
+    <AppShell title="IDEXX Import">
       <div style={{ maxWidth: 960, margin: "0 auto" }}>
 
-        {/* Positive alerts */}
         {positiveAlerts.length > 0 && (
           <div style={{ background: "#fee2e2", border: "2px solid #dc2626", borderRadius: 8, padding: "12px 16px", marginBottom: 20 }}>
             <div style={{ fontWeight: 800, fontSize: 14, color: "#dc2626", marginBottom: 8 }}>⚠️ POSITIVE RESULTS DETECTED — {positiveAlerts.length} animal{positiveAlerts.length > 1 ? "s" : ""}</div>
             {positiveAlerts.map((r, i) => (
               <div key={i} style={{ fontSize: 13, marginBottom: 4 }}>
-                <a href={`/animals/${r.matchedAnimal?.id || r.manualAnimalId}`} style={{ fontWeight: 700, color: "#dc2626" }}>{r.matchedAnimal?.name || r.patientName}</a>
-                {" — "}{r.mappedType}: <strong>POSITIVE</strong>
+                <a href={`/animals/${r.matchedAnimal?.id || r.manualAnimalId}`} style={{ fontWeight: 700, color: "#dc2626" }}>{r.matchedAnimal?.name || r.animalName}</a>
+                {" — "}{r.mappedType}: <strong>POSITIVE{r.rawResult && r.rawResult !== "Positive" ? ` (${r.rawResult})` : ""}</strong>
               </div>
             ))}
           </div>
@@ -259,29 +239,26 @@ export default function IdexxImportPage() {
         {step === "upload" && (
           <div>
             <div className="card" style={{ padding: 24, marginBottom: 20 }}>
-              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>📥 Import IDEXX VetConnect PLUS Results</div>
+              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>📥 Import IDEXX Results</div>
               <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 16, lineHeight: 1.6 }}>
-                Upload a CSV file exported from IDEXX VetConnect PLUS. Results will be automatically matched to animals in ShelterTrace and added to their medical records.
+                Upload an IDEXX VetConnect PLUS results PDF or CSV export. Results will be automatically matched to animals and added to their medical records.
               </div>
               <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: 14, marginBottom: 16, fontSize: 12, lineHeight: 1.8 }}>
-                <strong>How to export from VetConnect PLUS:</strong><br />
-                1. Log into vetconnect.idexx.com<br />
-                2. Go to Results → Export<br />
-                3. Select your date range<br />
-                4. Click Export as CSV<br />
-                5. Upload the downloaded file here
+                <strong>PDF Import (recommended):</strong> Print or save results from VetConnect PLUS as PDF, then upload here. Each page = one animal.<br />
+                <strong>CSV Import:</strong> Export from VetConnect PLUS → Results → Export as CSV.
               </div>
+              {parseError && (
+                <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 8, padding: "10px 14px", marginBottom: 12, fontSize: 13, color: "#dc2626" }}>⚠️ {parseError}</div>
+              )}
               <DragDropUpload
                 onFiles={handleFile}
-                accept=".csv,text/csv"
-                label="Drop IDEXX CSV file here or click to browse"
+                accept=".pdf,.csv,application/pdf,text/csv"
+                label={parsing ? "Parsing PDF…" : "Drop IDEXX PDF or CSV file here"}
+                disabled={parsing}
               />
-              <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
-                <button className="btn btn-secondary btn-sm" onClick={downloadSample}>📄 Download Sample Template</button>
-              </div>
+              {parsing && <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: 12, fontSize: 13 }}>Extracting results from PDF…</div>}
             </div>
 
-            {/* Import history */}
             <div className="card" style={{ padding: 0, overflow: "hidden" }}>
               <div style={{ padding: "10px 16px", background: "#f8fafc", borderBottom: "1px solid var(--border)", fontWeight: 700, fontSize: 13 }}>📋 Import History</div>
               {importLog.length === 0 ? (
@@ -312,7 +289,7 @@ export default function IdexxImportPage() {
               <div>
                 <div style={{ fontWeight: 700, fontSize: 16 }}>Preview — {fileName}</div>
                 <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                  {matchedCount} matched · {unmatchedCount} unmatched · {skippedCount} skipped · {rows.length} total
+                  {matchedCount} matched · {rows.filter((r) => !r.skip && !r.matchedAnimal && !r.manualAnimalId).length} unmatched · {skippedCount} skipped · {rows.length} total
                 </div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
@@ -325,35 +302,30 @@ export default function IdexxImportPage() {
 
             <div className="card" style={{ padding: 0, overflow: "auto" }}>
               <table className="data-table">
-                <thead>
-                  <tr>
-                    <th style={{ width: 30 }}></th>
-                    <th>Animal</th>
-                    <th>Test</th>
-                    <th>Result</th>
-                    <th>Date</th>
-                    <th>Match</th>
-                    <th>Assign To</th>
-                  </tr>
-                </thead>
+                <thead><tr><th style={{ width: 30 }}></th><th>Animal</th><th>Test</th><th>Result</th><th>Date</th><th>Match</th><th>Assign To</th></tr></thead>
                 <tbody>
                   {rows.map((r, i) => {
-                    const resultColor = r.mappedResult === "Positive" ? "#dc2626" : r.mappedResult === "Negative" ? "#15803d" : r.mappedResult === "Inconclusive" ? "#b45309" : "#64748b";
+                    const rColor = r.mappedResult === "Positive" ? "#dc2626" : r.mappedResult === "Negative" ? "#15803d" : r.mappedResult === "Inconclusive" ? "#b45309" : "#64748b";
                     return (
-                      <tr key={i} style={{ opacity: r.skip ? 0.4 : 1 }}>
+                      <tr key={i} style={{ opacity: r.skip ? 0.4 : 1, background: r.mappedResult === "Positive" ? "#fef2f2" : undefined }}>
                         <td><input type="checkbox" checked={!r.skip} onChange={() => setRows((prev) => prev.map((x, j) => j === i ? { ...x, skip: !x.skip } : x))} /></td>
-                        <td style={{ fontWeight: 600 }}>{r.patientName || "—"}{r.patientId ? ` (${r.patientId})` : ""}</td>
+                        <td style={{ fontWeight: 600 }}>{r.animalName || "—"}{r.species ? ` (${r.species})` : ""}</td>
                         <td style={{ fontSize: 12 }}>
                           <div>{r.mappedType}</div>
-                          {r.mappedType !== r.testName && <div style={{ fontSize: 10, color: "var(--text-muted)" }}>CSV: {r.testName}</div>}
+                          {r.mappedType !== r.testName && <div style={{ fontSize: 10, color: "var(--text-muted)" }}>PDF: {r.testName}</div>}
                         </td>
-                        <td style={{ fontWeight: 800, color: resultColor }}>{r.mappedResult}</td>
+                        <td>
+                          <span style={{ fontWeight: 800, color: rColor }}>{r.mappedResult}</span>
+                          {r.rawResult && r.rawResult !== r.mappedResult && r.rawResult !== "Positive" && r.rawResult !== "Negative" && (
+                            <span style={{ fontSize: 10, color: "var(--text-muted)", marginLeft: 4 }}>({r.rawResult})</span>
+                          )}
+                        </td>
                         <td style={{ fontSize: 12 }}>{r.resultDate || "—"}</td>
                         <td>
                           {r.matchScore === "exact" && <span className="badge" style={{ background: "#dcfce7", color: "#15803d", fontSize: 10 }}>✓ Matched</span>}
                           {r.matchScore === "partial" && <span className="badge" style={{ background: "#fef3c7", color: "#b45309", fontSize: 10 }}>~ Partial</span>}
                           {r.matchScore === "none" && !r.manualAnimalId && <span className="badge" style={{ background: "#fee2e2", color: "#dc2626", fontSize: 10 }}>✗ No Match</span>}
-                          {r.matchedAnimal && <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>{r.matchedAnimal.name} ({r.matchedAnimal.id})</div>}
+                          {r.matchedAnimal && <div style={{ fontSize: 11 }}>{r.matchedAnimal.name} ({r.matchedAnimal.id})</div>}
                         </td>
                         <td>
                           {!r.matchedAnimal && (
@@ -377,13 +349,12 @@ export default function IdexxImportPage() {
             <div style={{ fontSize: 48, marginBottom: 12 }}>✅</div>
             <div style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>Import Complete</div>
             <div style={{ fontSize: 14, color: "var(--text-secondary)", marginBottom: 20 }}>
-              {rows.filter((r) => r.imported).length} results imported · {rows.filter((r) => r.skip || (!r.matchedAnimal && !r.manualAnimalId)).length} skipped · {rows.filter((r) => r.error).length} errors
+              {rows.filter((r) => r.imported).length} imported · {rows.filter((r) => r.skip || (!r.matchedAnimal && !r.manualAnimalId)).length} skipped · {rows.filter((r) => r.error).length} errors
             </div>
             {rows.filter((r) => r.error).length > 0 && (
               <div style={{ textAlign: "left", marginBottom: 16 }}>
-                <div style={{ fontWeight: 700, color: "#dc2626", marginBottom: 6 }}>Errors:</div>
                 {rows.filter((r) => r.error).map((r, i) => (
-                  <div key={i} style={{ fontSize: 12, color: "#dc2626", marginBottom: 2 }}>• {r.patientName} — {r.mappedType}: {r.error}</div>
+                  <div key={i} style={{ fontSize: 12, color: "#dc2626", marginBottom: 2 }}>• {r.animalName} — {r.mappedType}: {r.error}</div>
                 ))}
               </div>
             )}
