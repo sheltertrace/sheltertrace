@@ -9,16 +9,18 @@ import {
   uploadPersonPhotoId, uploadPersonPhotoIdBack, uploadPersonPhotoIdFromBlob, deletePersonPhotoId, fetchFormsByLinked,
   fetchAdoptionsByPerson, fetchReceiptsByPerson,
   fetchCallsByPerson, fetchCitationsByPerson, fetchLicensesByPerson,
+  fetchAnimalsForPerson, unlinkAnimalFromPerson,
 } from "@/lib/data";
 import dynamic from "next/dynamic";
 const CropIdPhotoModal = dynamic(() => import("@/components/ui/CropIdPhotoModal"), { ssr: false });
-import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation, PetLicense } from "@/lib/types";
+import LinkAnimalModal from "@/components/people/LinkAnimalModal";
+import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation, PetLicense, AnimalPerson } from "@/lib/types";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
 import { PERSON_ROLES } from "@/lib/constants";
-import { formatDate, today, nowTime, genId } from "@/lib/utils";
+import { formatDate, today, nowTime, genId, displayAge } from "@/lib/utils";
 import DateInput from "@/components/ui/DateInput";
 
 const HAIR_COLORS = ["", "Black", "Brown", "Dark Brown", "Light Brown", "Blonde", "Red", "Auburn", "Gray", "White", "Salt & Pepper", "Bald", "Other"];
@@ -62,6 +64,8 @@ export default function PersonDetailPage() {
   const [citations, setCitations] = useState<Citation[]>([]);
   const [personLicenses, setPersonLicenses] = useState<PetLicense[]>([]);
   const [personForms, setPersonForms] = useState<ShelterForm[]>([]);
+  const [linkedAnimals, setLinkedAnimals] = useState<AnimalPerson[]>([]);
+  const [showLinkAnimal, setShowLinkAnimal] = useState(false);
 
   const [newNote, setNewNote] = useState("");
   const [noteType, setNoteType] = useState("General");
@@ -82,7 +86,7 @@ export default function PersonDetailPage() {
       if (!p) { router.replace("/people"); return; }
       setPerson(p);
       const fullName = `${p.first_name} ${p.last_name}`;
-      const [n, forms, ads, recs, cls, cits, lics] = await Promise.all([
+      const [n, forms, ads, recs, cls, cits, lics, anims] = await Promise.all([
         fetchPersonNotes(id),
         fetchFormsByLinked({ personId: id }),
         fetchAdoptionsByPerson(id),
@@ -90,6 +94,7 @@ export default function PersonDetailPage() {
         fetchCallsByPerson(id, fullName),
         fetchCitationsByPerson(p.first_name, p.last_name),
         fetchLicensesByPerson(id),
+        fetchAnimalsForPerson(id),
       ]);
       setNotes(n as typeof notes);
       setPersonForms(forms);
@@ -98,6 +103,7 @@ export default function PersonDetailPage() {
       setCalls(cls);
       setCitations(cits);
       setPersonLicenses(lics);
+      setLinkedAnimals(anims);
     } catch { router.replace("/people"); } finally { setLoading(false); }
   }, [id, router]);
 
@@ -687,6 +693,46 @@ export default function PersonDetailPage() {
               )}
             </CollapsibleSection>
 
+            {/* ── Animals ──────────────────────────────────────────────── */}
+            <CollapsibleSection title={`Animals (${linkedAnimals.length})`} color="#1a8a8a" defaultOpen={linkedAnimals.length > 0}>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+                <button className="btn btn-primary btn-sm" onClick={() => setShowLinkAnimal(true)}>+ Link Animal</button>
+              </div>
+              {linkedAnimals.length === 0 ? (
+                <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>No animals linked to this person yet.</div>
+              ) : (
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
+                  {linkedAnimals.map((la) => (
+                    <div key={la.animal_id} className="card" style={{ padding: 12 }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                        {la.animal?.photo_url ? (
+                          <img src={la.animal.photo_url} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover" }} />
+                        ) : (
+                          <div style={{ width: 44, height: 44, borderRadius: 8, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 }}>
+                            {la.animal?.species === "Dog" ? "🐕" : la.animal?.species === "Cat" ? "🐈" : "🐾"}
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <a href={`/animals/${la.animal_id}`} style={{ fontWeight: 700, fontSize: 13, color: "var(--teal)", textDecoration: "none" }}>{la.animal?.name || "—"}</a>
+                          <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{la.animal?.species} · {la.animal?.breed || "—"} · {displayAge(la.animal?.age)}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
+                        <span className="badge" style={{ background: "#f0fdfa", color: "var(--teal)", fontSize: 10 }}>{la.role}</span>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 10, color: "#dc2626" }}
+                          onClick={async () => { await unlinkAnimalFromPerson(la.animal_id, id); setLinkedAnimals((prev) => prev.filter((x) => x.animal_id !== la.animal_id)); }}
+                        >
+                          Unlink
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CollapsibleSection>
+
             {/* ── Adoptions ────────────────────────────────────────────── */}
             <CollapsibleSection title={`Adoptions (${adoptions.length})`} color="#0d9488" defaultOpen={adoptions.length > 0}>
               {adoptions.length === 0 ? (
@@ -856,6 +902,19 @@ export default function PersonDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Link Animal Modal */}
+      {showLinkAnimal && person && (
+        <LinkAnimalModal
+          personId={person.id}
+          personName={`${person.first_name} ${person.last_name}`}
+          onLinked={({ animal, role }) => {
+            setLinkedAnimals((prev) => [...prev, { animal_id: animal.id, person_id: person.id, role, animal }]);
+            setShowLinkAnimal(false);
+          }}
+          onClose={() => setShowLinkAnimal(false)}
+        />
+      )}
     </AppShell>
   );
 }

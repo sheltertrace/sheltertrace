@@ -1229,8 +1229,63 @@ export async function fetchRedemptions(animalId?: string): Promise<import("./typ
   return (data as import("./types").Redemption[]) || [];
 }
 
-export async function linkAnimalToPerson(animalId: string, personId: string): Promise<void> {
-  await supabase.from("animal_people").upsert({ animal_id: animalId, person_id: personId });
+export async function linkAnimalToPerson(animalId: string, personId: string, role = "Owner"): Promise<void> {
+  await supabase.from("animal_people").upsert({ animal_id: animalId, person_id: personId, role });
+}
+
+export async function unlinkAnimalFromPerson(animalId: string, personId: string): Promise<void> {
+  await supabase.from("animal_people").delete().eq("animal_id", animalId).eq("person_id", personId);
+}
+
+export async function fetchPeopleForAnimal(animalId: string): Promise<import("./types").AnimalPerson[]> {
+  const { data: links } = await supabase.from("animal_people").select("*").eq("animal_id", animalId);
+  if (!links?.length) return [];
+  const personIds = links.map((l: Record<string, unknown>) => l.person_id as string);
+  const { data: peopleRows } = await supabase.from("people").select("*").in("id", personIds);
+  const peopleMap = new Map((peopleRows || []).map((p: Record<string, unknown>) => [p.id as string, p as unknown as Person]));
+  return links.map((l: Record<string, unknown>) => ({
+    animal_id: l.animal_id as string,
+    person_id: l.person_id as string,
+    role: (l.role as string) || "Owner",
+    person: peopleMap.get(l.person_id as string),
+  }));
+}
+
+export async function fetchAnimalsForPerson(personId: string): Promise<import("./types").AnimalPerson[]> {
+  const { data: links } = await supabase.from("animal_people").select("*").eq("person_id", personId);
+  if (!links?.length) return [];
+  const animalIds = links.map((l: Record<string, unknown>) => l.animal_id as string);
+  const { data: animalRows } = await supabase.from("animals").select("*").in("id", animalIds);
+  const animalMap = new Map((animalRows || []).map((a: Record<string, unknown>) => [a.id as string, a as unknown as Animal]));
+  return links.map((l: Record<string, unknown>) => ({
+    animal_id: l.animal_id as string,
+    person_id: l.person_id as string,
+    role: (l.role as string) || "Owner",
+    animal: animalMap.get(l.animal_id as string),
+  }));
+}
+
+// ── Duplicate detection ──────────────────────────────────────────────────────
+
+export async function findDuplicatePerson(phone?: string, email?: string): Promise<Person | null> {
+  const cleanPhone = (phone || "").replace(/\D/g, "");
+  const cleanEmail = (email || "").trim().toLowerCase();
+  if (!cleanPhone && !cleanEmail) return null;
+  const { data } = await supabase.from("people").select("*").limit(500);
+  const rows = (data as Person[]) || [];
+  const match = rows.find((p) => {
+    const pPhone = (p.phone || "").replace(/\D/g, "");
+    const pEmail = (p.email || "").trim().toLowerCase();
+    return (cleanPhone && pPhone && pPhone === cleanPhone) || (cleanEmail && pEmail && pEmail === cleanEmail);
+  });
+  return match || null;
+}
+
+export async function findDuplicateAnimalByMicrochip(microchip: string): Promise<Animal | null> {
+  const chip = microchip.trim();
+  if (!chip) return null;
+  const { data } = await supabase.from("animals").select("*").eq("microchip", chip).limit(1);
+  return (data?.[0] as Animal) || null;
 }
 
 // ── Volunteer helpers ─────────────────────────────────────────────────────────

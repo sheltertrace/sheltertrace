@@ -22,7 +22,10 @@ import {
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
   lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled, toggleAnimalNotePopup,
   logKennelMove, fetchKennelMoves, type KennelMove, type AnimalDocument,
+  fetchPeopleForAnimal, unlinkAnimalFromPerson,
 } from "@/lib/data";
+import type { AnimalPerson } from "@/lib/types";
+import LinkPersonModal from "./LinkPersonModal";
 import { IS_DEMO } from "@/lib/demo";
 import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult } from "@/lib/idexx";
 import { buildTestResultsSectionHTML, hasPositiveTest } from "@/lib/testResultsPrint";
@@ -124,6 +127,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [idexxOrderErr, setIdexxOrderErr] = useState("");
   const [expandedIdexx, setExpandedIdexx] = useState<string | null>(null);
   const [kennelMoves, setKennelMoves] = useState<KennelMove[]>([]);
+  const [linkedPeople, setLinkedPeople] = useState<AnimalPerson[]>([]);
+  const [showLinkPerson, setShowLinkPerson] = useState(false);
 
   // Vaccine confirmation
   const [confirmVaccine, setConfirmVaccine] = useState<{ record: MedicalRecord; action: "administered" | "declined" | "skipped" } | null>(null);
@@ -190,6 +195,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchLicensesByAnimal(animal.id).then(setAnimalLicenses);
     fetchIdexxEnabled().then(setIdexxEnabled).catch(() => {});
     fetchKennelMoves(animal.id).then(setKennelMoves).catch(() => {});
+    fetchPeopleForAnimal(animal.id).then(setLinkedPeople).catch(() => {});
   }, [animal.id]);
 
   // Realtime subscription — auto-refresh medical records when IDEXX updates them
@@ -643,7 +649,6 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
 
   const daysInCare = Math.round(Math.abs(Date.now() - new Date(animal.intake_date).getTime()) / 86400000);
   const animalMed = medRecords.filter((m) => m.animal_id === animal.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const attachedPeople = people.filter((p) => false); // Will be loaded via junction table in production
   const flags = animal.behavior_flags || {};
 
   const printKennelCard = () => {
@@ -1632,6 +1637,37 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             </CollapsibleSection>
           )}
 
+          {/* People */}
+          <CollapsibleSection title={`People (${linkedPeople.length})`} color="#0369a1">
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+              <button className="btn btn-primary btn-sm" onClick={() => setShowLinkPerson(true)}>+ Link Person</button>
+            </div>
+            {linkedPeople.length === 0 ? (
+              <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "12px 0", fontSize: 13 }}>No people linked to this animal yet.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {linkedPeople.map((lp) => (
+                  <div key={lp.person_id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "var(--bg-alt)", borderRadius: 8 }}>
+                    <div style={{ flex: 1 }}>
+                      <a href={`/people/${lp.person_id}`} style={{ fontWeight: 700, fontSize: 13, color: "var(--teal)", textDecoration: "none" }}>
+                        {lp.person?.first_name} {lp.person?.last_name}
+                      </a>
+                      <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{lp.person?.phone || "—"}{lp.person?.email ? ` · ${lp.person.email}` : ""}</div>
+                    </div>
+                    <span className="badge" style={{ background: "#e0f2fe", color: "#0369a1", fontSize: 11 }}>{lp.role}</span>
+                    <button
+                      className="btn btn-ghost btn-sm"
+                      style={{ fontSize: 11, color: "#dc2626" }}
+                      onClick={async () => { await unlinkAnimalFromPerson(animal.id, lp.person_id); setLinkedPeople((prev) => prev.filter((x) => x.person_id !== lp.person_id)); }}
+                    >
+                      Unlink
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CollapsibleSection>
+
           {/* Documents */}
           <CollapsibleSection title={`Documents (${docs.length})`} color="#7c3aed">
             <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
@@ -2230,6 +2266,21 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             </div>
           </div>
         </div>
+      )}
+
+      {/* Link Person Modal */}
+      {showLinkPerson && (
+        <LinkPersonModal
+          animalId={animal.id}
+          animalName={animal.name}
+          people={people}
+          existingPersonIds={linkedPeople.map((lp) => lp.person_id)}
+          onLinked={({ person, role }) => {
+            setLinkedPeople((prev) => [...prev, { animal_id: animal.id, person_id: person.id, role, person }]);
+            setShowLinkPerson(false);
+          }}
+          onClose={() => setShowLinkPerson(false)}
+        />
       )}
 
       {/* Died in Care Modal */}

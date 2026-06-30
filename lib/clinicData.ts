@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import type {
   ClinicClient, ClinicAnimal, ClinicAppointment,
   ClinicInvoice, ClinicMedicalRecord, ClinicProcedure, ClinicEmail,
-  ClinicRabiesCertificate, ClinicSettings,
+  ClinicRabiesCertificate, ClinicSettings, ClinicPerson, ClinicAnimalPerson,
 } from "./clinicTypes";
 import type { StaffAccount } from "./types";
 
@@ -293,4 +293,77 @@ export async function updateClinicEmployee(id: string, updates: Record<string, u
 export async function updateMyProfile(userId: string, updates: { first_name?: string; last_name?: string; email?: string; phone?: string }): Promise<void> {
   const { error } = await supabase.from("staff_accounts").update(updates).eq("id", userId);
   if (error) throw error;
+}
+
+// ── Clinic Customers (people) ────────────────────────────────────────────────
+
+export async function fetchClinicPeople(accountId: string, clientId?: string): Promise<ClinicPerson[]> {
+  let q = supabase.from("clinic_people").select("*").eq("clinic_account_id", accountId);
+  if (clientId) q = q.eq("client_id", clientId);
+  const { data } = await q.order("last_name");
+  return (data || []) as ClinicPerson[];
+}
+
+export async function createClinicPerson(person: Omit<ClinicPerson, "id" | "created_at">): Promise<ClinicPerson> {
+  const { data, error } = await supabase.from("clinic_people").insert(person).select().single();
+  if (error) throw error;
+  return data as ClinicPerson;
+}
+
+export async function updateClinicPerson(id: string, updates: Partial<ClinicPerson>): Promise<void> {
+  await supabase.from("clinic_people").update(updates).eq("id", id);
+}
+
+export async function findDuplicateClinicPerson(accountId: string, phone?: string, email?: string): Promise<ClinicPerson | null> {
+  const cleanPhone = (phone || "").replace(/\D/g, "");
+  const cleanEmail = (email || "").trim().toLowerCase();
+  if (!cleanPhone && !cleanEmail) return null;
+  const { data } = await supabase.from("clinic_people").select("*").eq("clinic_account_id", accountId).limit(500);
+  const rows = (data || []) as ClinicPerson[];
+  const match = rows.find((p) => {
+    const pPhone = (p.phone || "").replace(/\D/g, "");
+    const pEmail = (p.email || "").trim().toLowerCase();
+    return (cleanPhone && pPhone && pPhone === cleanPhone) || (cleanEmail && pEmail && pEmail === cleanEmail);
+  });
+  return match || null;
+}
+
+// ── Clinic Animal-Person Links ───────────────────────────────────────────────
+
+export async function linkClinicAnimalToPerson(animalId: string, personId: string, role = "Owner"): Promise<void> {
+  await supabase.from("clinic_animal_people").upsert({ animal_id: animalId, person_id: personId, role });
+}
+
+export async function unlinkClinicAnimalFromPerson(animalId: string, personId: string): Promise<void> {
+  await supabase.from("clinic_animal_people").delete().eq("animal_id", animalId).eq("person_id", personId);
+}
+
+export async function fetchPeopleForClinicAnimal(animalId: string): Promise<ClinicAnimalPerson[]> {
+  const { data: links } = await supabase.from("clinic_animal_people").select("*").eq("animal_id", animalId);
+  if (!links?.length) return [];
+  const personIds = links.map((l: Record<string, unknown>) => l.person_id as string);
+  const { data: peopleRows } = await supabase.from("clinic_people").select("*").in("id", personIds);
+  const peopleMap = new Map<string, ClinicPerson>((peopleRows || []).map((p: Record<string, unknown>) => [p.id as string, p as unknown as ClinicPerson]));
+  return (links as Record<string, unknown>[]).map((l): ClinicAnimalPerson => ({
+    id: l.id as string,
+    animal_id: l.animal_id as string,
+    person_id: l.person_id as string,
+    role: (l.role as string) || "Owner",
+    person: peopleMap.get(l.person_id as string),
+  }));
+}
+
+export async function fetchAnimalsForClinicPerson(personId: string): Promise<ClinicAnimalPerson[]> {
+  const { data: links } = await supabase.from("clinic_animal_people").select("*").eq("person_id", personId);
+  if (!links?.length) return [];
+  const animalIds = links.map((l: Record<string, unknown>) => l.animal_id as string);
+  const { data: animalRows } = await supabase.from("clinic_animals").select("*").in("id", animalIds);
+  const animalMap = new Map<string, ClinicAnimal>((animalRows || []).map((a: Record<string, unknown>) => [a.id as string, a as unknown as ClinicAnimal]));
+  return (links as Record<string, unknown>[]).map((l): ClinicAnimalPerson => ({
+    id: l.id as string,
+    animal_id: l.animal_id as string,
+    person_id: l.person_id as string,
+    role: (l.role as string) || "Owner",
+    animal: animalMap.get(l.animal_id as string),
+  }));
 }

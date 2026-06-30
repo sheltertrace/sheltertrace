@@ -207,3 +207,31 @@ export const INVOICE_STATUSES = [
 export const BILLING_TYPES = [
   "per_visit", "monthly", "annual",
 ] as const;
+
+export interface ClinicPerson {
+  id: string;
+  clinic_account_id: string;
+  client_id?: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  notes?: string;
+  created_at?: string;
+}
+
+export interface ClinicAnimalPerson {
+  id: string;
+  animal_id: string;
+  person_id: string;
+  role: string;
+  person?: ClinicPerson;
+  animal?: ClinicAnimal;
+  created_at?: string;
+}
+
+export const CLINIC_PERSON_ROLES = ["Owner", "Adopter", "Foster Parent", "Emergency Contact", "Authorized Pickup"] as const;

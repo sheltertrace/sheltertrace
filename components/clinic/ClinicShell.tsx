@@ -31,6 +31,7 @@ const NAV_ITEMS = [
   { href: "/clinic-portal",              label: "Dashboard",           icon: "🏠" },
   { href: "/clinic-portal/clients",      label: "County Clients",      icon: "🏛️" },
   { href: "/clinic-portal/animals",      label: "Animals",             icon: "🐾" },
+  { href: "/clinic-portal/customers",    label: "Customers",           icon: "👤" },
   { href: "/clinic-portal/appointments", label: "Appointments",        icon: "📅" },
   { href: "/clinic-portal/past-visits",  label: "Past Visits",         icon: "🗂️" },
   { href: "/clinic-portal/medical",      label: "Medical Records",     icon: "💊" },

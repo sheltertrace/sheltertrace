@@ -90,6 +90,16 @@ export interface EuthanasiaRecord {
   notes: string;
 }
 
+export const ANIMAL_PERSON_ROLES = ["Owner", "Adopter", "Foster Parent", "Emergency Contact", "Authorized Pickup"] as const;
+
+export interface AnimalPerson {
+  animal_id: string;
+  person_id: string;
+  role: string;
+  person?: Person;
+  animal?: Animal;
+}
+
 export interface Person {
   id: string;
   pid: string;
