@@ -212,6 +212,7 @@ export interface DispatchCall {
   date_reported?: string;
   time_reported?: string;
   response_notes?: string;
+  created_by?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -525,6 +526,7 @@ export interface Receipt {
   person_name?: string;
   animal_id?: string;
   notes?: string;
+  created_by?: string;
   created_at?: string;
 }
 
@@ -826,6 +828,7 @@ export interface FosterPlacement {
   condition_at_return?: string;
   return_notes?: string;
   status?: string; // Active | Returned | Extended | Transferred
+  created_by?: string;
   created_at?: string;
   updated_at?: string;
 }

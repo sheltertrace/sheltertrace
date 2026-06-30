@@ -6,6 +6,7 @@ import { fetchPeople, fetchOfficers, createCall, createPerson, addPersonNote } f
 import type { Person, Officer } from "@/lib/types";
 import { CALL_TYPES, CALL_PRIORITIES, PRIORITY_COLORS, MORGAN_COUNTY_JURISDICTIONS } from "@/lib/constants";
 import { today, nowTime } from "@/lib/utils";
+import { getCurrentUserName } from "@/lib/auth";
 import DateInput from "@/components/ui/DateInput";
 
 // ── Module-level components (prevents focus loss) ──────────────────────────────
@@ -109,6 +110,7 @@ export default function NewCallPage() {
 
   const handleDispatch = async () => {
     setSaving(true);
+    console.log("[dispatch new] current user:", getCurrentUserName(), "| form data:", data);
     try {
       const involved = [];
       const callerFullName = [data.caller_first, data.caller_middle, data.caller_last].filter(Boolean).join(" ") || data.caller;

@@ -4,6 +4,7 @@ import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, Ad
 import type { IdexxConfig } from "./idexx";
 import { genId, genReceiptId, today } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
+import { CURRENT_USER_KEY } from "./auth";
 
 // Helper: in demo mode, return { demo_session_id } so that newly-created
 // records are tagged with the current session and can be cleaned up on reset.
@@ -431,7 +432,7 @@ async function genCallId(): Promise<string> {
 
 export async function createCall(call: Partial<DispatchCall>): Promise<DispatchCall> {
   const id = await genCallId();
-  const insertData = { ...call, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...demoTag() };
+  const insertData = { ...call, id, created_by: getSessionUserName(), created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...demoTag() };
   console.log("[dispatch save data]", JSON.stringify(insertData, null, 2));
   const { data, error } = await supabase
     .from("dispatch_calls")
@@ -551,7 +552,7 @@ export async function fetchReceipts(): Promise<Receipt[]> {
 
 export async function createReceipt(receipt: Partial<Receipt>): Promise<Receipt> {
   const id = genReceiptId();
-  const { data, error } = await supabase.from("receipts").insert({ ...receipt, id }).select().single();
+  const { data, error } = await supabase.from("receipts").insert({ ...receipt, id, created_by: getSessionUserName() }).select().single();
   if (error) throw error;
   return data as Receipt;
 }
@@ -632,7 +633,7 @@ export async function fetchOfficers(): Promise<Officer[]> {
 // ── Animal Notes ──────────────────────────────────────────────────────────────
 function getSessionUserName(): string {
   try {
-    const raw = typeof window !== "undefined" ? sessionStorage.getItem("shelter_user") : null;
+    const raw = typeof window !== "undefined" ? sessionStorage.getItem(CURRENT_USER_KEY) : null;
     if (!raw) return "Staff";
     const u = JSON.parse(raw) as { firstName?: string; first_name?: string; lastName?: string; last_name?: string; username?: string };
     return `${u.firstName || u.first_name || ""} ${u.lastName || u.last_name || ""}`.trim() || u.username || "Staff";
@@ -1480,7 +1481,7 @@ export async function createFosterPlacement(
 ): Promise<FosterPlacement> {
   const { data, error } = await supabase
     .from("foster_placements")
-    .insert(p)
+    .insert({ ...p, created_by: getSessionUserName() })
     .select()
     .single();
   if (error) throw error;

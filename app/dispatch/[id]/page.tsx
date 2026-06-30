@@ -508,6 +508,7 @@ function CallDetailPageInner() {
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 900, fontSize: 18 }}>{call.type}</div>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>{call.date_reported} at {call.time_reported}</div>
+                <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Created by: {call.created_by || "Unknown"}</div>
               </div>
               <div>
                 <label className="form-label" style={{ fontSize: 11, marginBottom: 3 }}>Status</label>

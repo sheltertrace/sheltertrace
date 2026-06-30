@@ -3,7 +3,7 @@ import { supabase } from "./supabase";
 import { STAFF_ACCOUNTS } from "./constants";
 import type { StaffAccount } from "./types";
 
-const CURRENT_USER_KEY = "sheltertrace_current_user";
+export const CURRENT_USER_KEY = "sheltertrace_current_user";
 
 // Normalize a DB row (snake_case) to the StaffAccount shape the app uses
 function normalizeAccount(row: Record<string, unknown>): StaffAccount {
