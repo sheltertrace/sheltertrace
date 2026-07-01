@@ -23,6 +23,7 @@ function F({ label, children, span }: { label: string; children: React.ReactNode
 
 const SHELTER_ROLES = ["Administrator", "Shelter Manager", "Officer", "Dispatcher", "Vet Tech", "Front Desk", "Court Clerk", "Volunteer"];
 const CLINIC_ROLES = ["Veterinarian", "Clinic Staff", "Clinic Admin"];
+const CITY_ROLES = ["City Clerk", "Animal Control Liaison", "City Administrator"];
 
 interface UserForm {
   first_name: string;
@@ -168,7 +169,7 @@ export default function SuperAdminUsersPage() {
     if (me?.id) await logAuditAction(me.id, newActive ? "Activated User" : "Deactivated User", "user", u.id);
   };
 
-  const roleOptions = form.account_type === "clinic" ? CLINIC_ROLES : SHELTER_ROLES;
+  const roleOptions = form.account_type === "clinic" ? CLINIC_ROLES : form.account_type === "city" ? CITY_ROLES : SHELTER_ROLES;
 
   const copyPw = (pw: string) => {
     navigator.clipboard.writeText(pw).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); });
@@ -188,6 +189,7 @@ export default function SuperAdminUsersPage() {
           <option value="all">All Types</option>
           <option value="shelter">Shelter</option>
           <option value="clinic">Clinic</option>
+          <option value="city">City</option>
         </select>
         <select className="form-select" value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)} style={{ maxWidth: 130 }}>
           <option value="all">All Status</option>
@@ -294,9 +296,10 @@ export default function SuperAdminUsersPage() {
                     <F label="Email"><input className="form-input" type="email" value={form.email} onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} /></F>
                     <F label="Phone"><input className="form-input" type="tel" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} /></F>
                     <F label="Account Type">
-                      <select className="form-select" value={form.account_type} onChange={(e) => setForm((f) => ({ ...f, account_type: e.target.value, role: e.target.value === "clinic" ? "Veterinarian" : "Officer" }))}>
+                      <select className="form-select" value={form.account_type} onChange={(e) => setForm((f) => ({ ...f, account_type: e.target.value, role: e.target.value === "clinic" ? "Veterinarian" : e.target.value === "city" ? "City Clerk" : "Officer" }))}>
                         <option value="shelter">Shelter Staff</option>
                         <option value="clinic">Clinic / Veterinarian</option>
+                        <option value="city">City of Madison Staff</option>
                       </select>
                     </F>
                     <F label="Role">

@@ -894,9 +894,13 @@ export default function AdminPage() {
                 <select className="form-select" value={(editData as Record<string, unknown>).account_type as string || "shelter"} onChange={(e) => setEditData((d) => ({ ...d, account_type: e.target.value }))}>
                   <option value="shelter">Shelter Staff</option>
                   <option value="clinic">Veterinarian / Clinic</option>
+                  <option value="city">City of Madison Staff</option>
                 </select>
                 {(editData as Record<string, unknown>).account_type === "clinic" && (
                   <div style={{ fontSize: 11, color: "#0369a1", marginTop: 4 }}>This account will see the Clinic Portal instead of the shelter dashboard.</div>
+                )}
+                {(editData as Record<string, unknown>).account_type === "city" && (
+                  <div style={{ fontSize: 11, color: "#1B3A5C", marginTop: 4 }}>This account will see the City of Madison Pet Licensing Portal.</div>
                 )}
               </div>
               <div className="form-group" style={{ marginTop: 8 }}>

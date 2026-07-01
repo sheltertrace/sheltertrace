@@ -13,7 +13,7 @@ export default function LoginPage() {
   // If already logged in, go to appropriate portal
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace(user.account_type === "clinic" ? "/clinic-portal" : "/dashboard");
+      router.replace(user.account_type === "clinic" ? "/clinic-portal" : user.account_type === "city" ? "/city-portal" : "/dashboard");
     }
   }, [user, authLoading, router]);
 
@@ -52,7 +52,7 @@ export default function LoginPage() {
     setLoading(true);
     const account = await login(username.trim(), password);
     if (account) {
-      router.replace(account.account_type === "clinic" ? "/clinic-portal" : "/dashboard");
+      router.replace(account.account_type === "clinic" ? "/clinic-portal" : account.account_type === "city" ? "/city-portal" : "/dashboard");
     } else {
       setError("Invalid username or password. Please try again.");
       setShake(true);
