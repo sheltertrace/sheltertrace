@@ -4,7 +4,7 @@ import { useAuth } from "@/app/providers";
 import { fetchCustomers, logAuditAction } from "@/lib/superAdminData";
 import { fetchPayments, createPayment, type PlatformPayment } from "@/lib/superAdminData";
 import type { PlatformCustomer } from "@/lib/superAdminTypes";
-import { STATUS_COLORS } from "@/lib/superAdminTypes";
+import { STATUS_COLORS, CUSTOMER_TYPE_LABELS, CUSTOMER_TYPE_COLORS } from "@/lib/superAdminTypes";
 import DateInput from "@/components/ui/DateInput";
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
@@ -104,7 +104,7 @@ export default function BillingPage() {
               return (
                 <tr key={c.id}>
                   <td style={{ fontWeight: 600 }}>{c.account_name}</td>
-                  <td style={{ fontSize: 12, textTransform: "capitalize" }}>{c.account_type?.replace("_", " ")}</td>
+                  <td>{(() => { const tc = CUSTOMER_TYPE_COLORS[c.account_type || ""] || { bg: "#f1f5f9", color: "#64748b" }; return <span className="badge" style={{ background: tc.bg, color: tc.color, fontSize: 10 }}>{CUSTOMER_TYPE_LABELS[c.account_type || ""] || c.account_type}</span>; })()}</td>
                   <td style={{ fontSize: 12, textTransform: "capitalize" }}>{c.billing_plan || "—"}</td>
                   <td style={{ fontSize: 12 }}>{c.billing_amount ? `$${c.billing_amount}` : "—"}</td>
                   <td style={{ fontSize: 12, textTransform: "capitalize" }}>{c.billing_cycle || "—"}</td>

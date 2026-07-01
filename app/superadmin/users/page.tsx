@@ -4,6 +4,7 @@ import { useAuth } from "@/app/providers";
 import { fetchAllUsers, createUser, updateUser, fetchCustomers, logAuditAction } from "@/lib/superAdminData";
 import type { StaffAccount } from "@/lib/types";
 import type { PlatformCustomer } from "@/lib/superAdminTypes";
+import { CUSTOMER_TYPE_COLORS } from "@/lib/superAdminTypes";
 import { genId } from "@/lib/utils";
 
 function genPassword(): string {
@@ -231,7 +232,7 @@ export default function SuperAdminUsersPage() {
                     <td style={{ fontFamily: "monospace", fontSize: 12 }}>@{u.username}</td>
                     <td style={{ fontSize: 12 }}>{u.email || "—"}</td>
                     <td style={{ fontSize: 12 }}>{u.role}</td>
-                    <td><span className="badge" style={{ background: (u.account_type || "shelter") === "clinic" ? "#ede9fe" : "#e0f2fe", color: (u.account_type || "shelter") === "clinic" ? "#6d28d9" : "#0369a1", textTransform: "capitalize", fontSize: 10 }}>{u.account_type || "shelter"}</span></td>
+                    <td>{(() => { const t = u.account_type || "shelter"; const tc = CUSTOMER_TYPE_COLORS[t] || { bg: "#e0f2fe", color: "#0369a1" }; return <span className="badge" style={{ background: tc.bg, color: tc.color, textTransform: "capitalize", fontSize: 10 }}>{t}</span>; })()}</td>
                     <td style={{ fontSize: 12 }}>{custName}</td>
                     <td><span className="badge" style={{ background: isActive ? "#dcfce7" : "#fee2e2", color: isActive ? "#15803d" : "#dc2626", fontSize: 10 }}>{isActive ? "Active" : "Inactive"}</span></td>
                     <td>

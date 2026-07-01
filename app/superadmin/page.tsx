@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useAuth } from "@/app/providers";
 import { fetchPlatformStats, fetchAuditLog } from "@/lib/superAdminData";
 import type { AuditLogEntry } from "@/lib/superAdminTypes";
+import { CUSTOMER_TYPE_LABELS, CUSTOMER_TYPE_COLORS } from "@/lib/superAdminTypes";
 
 export default function SuperAdminDashboard() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({ totalCustomers: 0, active: 0, trial: 0, suspended: 0, totalUsers: 0, totalAnimals: 0, mrr: 0, trialsExpiring: 0 });
+  const [stats, setStats] = useState({ totalCustomers: 0, active: 0, trial: 0, suspended: 0, totalUsers: 0, totalAnimals: 0, mrr: 0, trialsExpiring: 0, typeBreakdown: {} as Record<string, number> });
   const [recentActions, setRecentActions] = useState<AuditLogEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -48,6 +49,24 @@ export default function SuperAdminDashboard() {
           </div>
         ))}
       </div>
+
+      {/* Customer type breakdown */}
+      {!loading && Object.keys(stats.typeBreakdown).length > 0 && (
+        <div className="card" style={{ padding: 14, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 8 }}>Customers by Type</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {Object.entries(stats.typeBreakdown).sort((a, b) => b[1] - a[1]).map(([type, count]) => {
+              const tc = CUSTOMER_TYPE_COLORS[type] || { bg: "#f1f5f9", color: "#64748b" };
+              return (
+                <div key={type} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", borderRadius: 20, background: tc.bg }}>
+                  <span style={{ fontSize: 18, fontWeight: 800, color: tc.color }}>{count}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: tc.color }}>{CUSTOMER_TYPE_LABELS[type] || type}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       <div style={{ display: "flex", gap: 10, marginBottom: 24, flexWrap: "wrap" }}>
         <Link href="/superadmin/customers?add=1" className="btn btn-primary" style={{ textDecoration: "none" }}>+ Add Customer</Link>

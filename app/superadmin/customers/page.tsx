@@ -4,7 +4,7 @@ import { useAuth } from "@/app/providers";
 import { fetchCustomers, createCustomer, updateCustomer, logAuditAction } from "@/lib/superAdminData";
 import { fetchLinksForClinic, createShelterLink, removeShelterLink, type ClinicShelterLink } from "@/lib/clinicShelterLink";
 import type { PlatformCustomer } from "@/lib/superAdminTypes";
-import { CUSTOMER_STATUSES, CUSTOMER_TYPES, BILLING_PLANS, BILLING_CYCLES, FEATURE_FLAGS, STATUS_COLORS } from "@/lib/superAdminTypes";
+import { CUSTOMER_STATUSES, CUSTOMER_TYPES, CUSTOMER_TYPE_LABELS, CUSTOMER_TYPE_COLORS, BILLING_PLANS, BILLING_CYCLES, FEATURE_FLAGS, STATUS_COLORS } from "@/lib/superAdminTypes";
 import DateInput from "@/components/ui/DateInput";
 
 function F({ label, children, span }: { label: string; children: React.ReactNode; span?: boolean }) {
@@ -140,7 +140,7 @@ export default function CustomersPage() {
                       <div style={{ fontWeight: 700 }}>{c.account_name}</div>
                       {c.county && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{c.county} County</div>}
                     </td>
-                    <td style={{ textTransform: "capitalize", fontSize: 12 }}>{c.account_type?.replace("_", " ")}</td>
+                    <td>{(() => { const tc = CUSTOMER_TYPE_COLORS[c.account_type || "shelter"] || { bg: "#f1f5f9", color: "#64748b" }; return <span className="badge" style={{ background: tc.bg, color: tc.color, fontSize: 10 }}>{CUSTOMER_TYPE_LABELS[c.account_type || ""] || c.account_type}</span>; })()}</td>
                     <td>
                       <div style={{ fontSize: 12 }}>{c.contact_name || "—"}</div>
                       {c.contact_email && <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{c.contact_email}</div>}
@@ -179,7 +179,7 @@ export default function CustomersPage() {
                 <F label="Account Name *" span><input className="form-input" value={form.account_name || ""} onChange={(e) => setForm((f) => ({ ...f, account_name: e.target.value }))} /></F>
                 <F label="Account Type">
                   <select className="form-select" value={form.account_type || "shelter"} onChange={(e) => setForm((f) => ({ ...f, account_type: e.target.value }))}>
-                    {CUSTOMER_TYPES.map((t) => <option key={t} value={t} style={{ textTransform: "capitalize" }}>{t.replace("_", " ")}</option>)}
+                    {CUSTOMER_TYPES.map((t) => <option key={t} value={t}>{CUSTOMER_TYPE_LABELS[t]}</option>)}
                   </select>
                 </F>
                 <F label="Status">
@@ -237,7 +237,7 @@ export default function CustomersPage() {
               </div>
 
               {/* Linked Shelters — only for clinic accounts being edited */}
-              {editing && (form.account_type === "clinic" || form.account_type === "humane_society") && (
+              {editing && (form.account_type === "clinic" || form.account_type === "humane_society" || form.account_type === "government" || form.account_type === "county") && (
                 <div style={{ marginTop: 16 }}>
                   <div style={{ fontWeight: 700, fontSize: 13, color: "#15803d", marginBottom: 8 }}>🏠 Linked Shelters</div>
                   {shelterLinks.length > 0 ? (

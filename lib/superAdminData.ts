@@ -117,6 +117,12 @@ export async function fetchPlatformStats() {
     return false; // can't compute without created_at in select — handled via count below
   });
 
+  const typeBreakdown: Record<string, number> = {};
+  custs.forEach((c) => {
+    const t = (c.account_type as string) || "shelter";
+    typeBreakdown[t] = (typeBreakdown[t] || 0) + 1;
+  });
+
   return {
     totalCustomers,
     active,
@@ -126,6 +132,7 @@ export async function fetchPlatformStats() {
     totalAnimals: animals.count || 0,
     mrr: Math.round(mrr * 100) / 100,
     trialsExpiring: trialsExpiring.length,
+    typeBreakdown,
   };
 }
 

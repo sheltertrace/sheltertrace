@@ -50,7 +50,25 @@ export interface PlatformAnnouncement {
 }
 
 export const CUSTOMER_STATUSES = ["trial", "active", "suspended", "cancelled"] as const;
-export const CUSTOMER_TYPES = ["shelter", "clinic", "humane_society", "enterprise"] as const;
+export const CUSTOMER_TYPES = ["shelter", "clinic", "humane_society", "enterprise", "government", "county"] as const;
+
+export const CUSTOMER_TYPE_LABELS: Record<string, string> = {
+  shelter:        "Shelter",
+  clinic:         "Clinic",
+  humane_society: "Humane Society",
+  enterprise:     "Enterprise",
+  government:     "Government / Municipality",
+  county:         "County Agency",
+};
+
+export const CUSTOMER_TYPE_COLORS: Record<string, { bg: string; color: string }> = {
+  shelter:        { bg: "#dbeafe", color: "#1d4ed8" },
+  clinic:         { bg: "#d1fae5", color: "#065f46" },
+  humane_society: { bg: "#ede9fe", color: "#6d28d9" },
+  enterprise:     { bg: "#fef3c7", color: "#b45309" },
+  government:     { bg: "#dbeafe", color: "#1B3A5C" },
+  county:         { bg: "#dcfce7", color: "#14532d" },
+};
 export const BILLING_PLANS = ["starter", "professional", "enterprise"] as const;
 export const BILLING_CYCLES = ["monthly", "annual"] as const;
 export const ANNOUNCEMENT_TYPES = ["info", "warning", "maintenance", "feature"] as const;
