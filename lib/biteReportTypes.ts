@@ -1,0 +1,225 @@
+export interface BiteAnimalData {
+  linked_animal_id?: string;
+  name: string;
+  species: string;
+  breed: string;
+  color: string;
+  sex: string;
+  age: string;
+  size: string;
+  microchip: string;
+  rabies_status: string;
+  rabies_tag: string;
+  rabies_expiration: string;
+  veterinarian: string;
+  vet_phone: string;
+  disposition_at_time: string;
+  was_provoked: string;
+  current_status: string;
+}
+
+export interface BiteOwnerData {
+  known: boolean;
+  linked_person_id?: string;
+  first_name: string;
+  last_name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  phone2: string;
+  email: string;
+  dl_number: string;
+  dl_state: string;
+  was_cited: boolean;
+  citation_number: string;
+}
+
+export interface BiteVictimHumanData {
+  first_name: string;
+  last_name: string;
+  dob: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  email: string;
+  sex: string;
+  relationship: string;
+  on_owner_property: string;
+}
+
+export interface BiteVictimAnimalData {
+  linked_animal_id?: string;
+  name: string;
+  species: string;
+  breed: string;
+  color: string;
+  sex: string;
+  age: string;
+  microchip: string;
+  rabies_status: string;
+  rabies_tag: string;
+  veterinarian: string;
+  vet_phone: string;
+  owner_first_name: string;
+  owner_last_name: string;
+  owner_address: string;
+  owner_city: string;
+  owner_state: string;
+  owner_zip: string;
+  owner_phone: string;
+  owner_email: string;
+}
+
+export interface BiteInjuryData {
+  body_parts: string[];
+  severity: string;
+  sought_medical: boolean;
+  medical_facility: string;
+  pep_recommended: string;
+  treating_physician: string;
+  // Animal-animal specific
+  vet_treated: boolean;
+  vet_clinic: string;
+  estimated_bill: string;
+  seeking_restitution: boolean;
+}
+
+export interface BiteQuarantineData {
+  ordered: boolean;
+  type: string;
+  start_date: string;
+  end_date: string;
+  location: string;
+  contact_name: string;
+  contact_phone: string;
+  check_dates: string[];
+}
+
+export interface BiteReport {
+  id?: string;
+  report_number?: string;
+  report_type: "animal_human" | "animal_animal";
+  status: string;
+  incident_date: string;
+  incident_time: string;
+  incident_address: string;
+  incident_city: string;
+  incident_location_type: string;
+  incident_location_other?: string;
+  law_enforcement_notified: boolean;
+  law_enforcement_report: string;
+  biting_animal_id?: string;
+  biting_animal_data: BiteAnimalData;
+  victim_type: string;
+  victim_data: BiteVictimHumanData | BiteVictimAnimalData;
+  owner_data: BiteOwnerData;
+  injury_data: BiteInjuryData;
+  quarantine_ordered: boolean;
+  quarantine_data: BiteQuarantineData;
+  quarantine_released: boolean;
+  quarantine_release_date: string;
+  disposition: string;
+  follow_up_required: boolean;
+  follow_up_date: string;
+  investigating_officer: string;
+  investigating_officer_id: string;
+  narrative: string;
+  photos: string[];
+  dispatch_call_id?: string;
+  citation_id?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export const LOCATION_TYPES = [
+  "Private Residence", "Public Property", "Business", "School/Daycare",
+  "Park/Recreation Area", "Road/Highway", "Other",
+] as const;
+
+export const BODY_PARTS = [
+  "Head/Face", "Neck", "Shoulder", "Upper arm", "Forearm", "Hand/Fingers",
+  "Chest/Torso", "Back", "Hip/Buttocks", "Upper leg/Thigh", "Lower leg", "Foot/Toes", "Other",
+] as const;
+
+export const INJURY_SEVERITIES_HUMAN = [
+  "Minor (skin not broken)", "Moderate (skin broken, no sutures)", "Serious (sutures required)",
+  "Severe (hospitalization required)", "Life threatening", "Fatal",
+] as const;
+
+export const INJURY_SEVERITIES_ANIMAL = [
+  "Minor (superficial wounds)", "Moderate (lacerations, punctures)",
+  "Serious (deep wounds, surgery needed)", "Severe (life threatening)", "Fatal",
+] as const;
+
+export const DISPOSITIONS = [
+  "Open — under investigation",
+  "Closed — no action taken",
+  "Closed — citation issued",
+  "Closed — animal euthanized",
+  "Closed — animal quarantine completed",
+  "Referred to law enforcement",
+  "Other",
+] as const;
+
+export const RABIES_STATUSES = ["Current", "Unknown", "Overdue", "Never vaccinated"] as const;
+
+export const VICTIM_RELATIONSHIPS = [
+  "Stranger", "Neighbor", "Family member", "Friend/acquaintance",
+  "Mail carrier/delivery", "Veterinary staff", "Animal control staff", "Other",
+] as const;
+
+export const ANIMAL_DISPOSITIONS_AT_TIME = [
+  "Contained — owner present", "Contained — owner not present",
+  "Stray/At large", "Escaped enclosure", "Other",
+] as const;
+
+export const ANIMAL_CURRENT_STATUSES = [
+  "At owner's residence — quarantine ordered", "Impounded at MCAS",
+  "At veterinary clinic", "Escaped/at large", "Euthanized", "Other",
+] as const;
+
+export const QUARANTINE_TYPES = [
+  "Home quarantine", "MCAS impound quarantine", "Veterinary clinic quarantine",
+] as const;
+
+function blankAnimal(): BiteAnimalData {
+  return { name: "", species: "", breed: "", color: "", sex: "", age: "", size: "", microchip: "", rabies_status: "Unknown", rabies_tag: "", rabies_expiration: "", veterinarian: "", vet_phone: "", disposition_at_time: "", was_provoked: "Unknown", current_status: "" };
+}
+
+function blankOwner(): BiteOwnerData {
+  return { known: false, first_name: "", last_name: "", address: "", city: "", state: "GA", zip: "", phone: "", phone2: "", email: "", dl_number: "", dl_state: "", was_cited: false, citation_number: "" };
+}
+
+function blankHumanVictim(): BiteVictimHumanData {
+  return { first_name: "", last_name: "", dob: "", address: "", city: "", state: "GA", zip: "", phone: "", email: "", sex: "", relationship: "", on_owner_property: "" };
+}
+
+function blankAnimalVictim(): BiteVictimAnimalData {
+  return { name: "", species: "", breed: "", color: "", sex: "", age: "", microchip: "", rabies_status: "Unknown", rabies_tag: "", veterinarian: "", vet_phone: "", owner_first_name: "", owner_last_name: "", owner_address: "", owner_city: "", owner_state: "GA", owner_zip: "", owner_phone: "", owner_email: "" };
+}
+
+function blankInjury(): BiteInjuryData {
+  return { body_parts: [], severity: "", sought_medical: false, medical_facility: "", pep_recommended: "Unknown", treating_physician: "", vet_treated: false, vet_clinic: "", estimated_bill: "", seeking_restitution: false };
+}
+
+function blankQuarantine(): BiteQuarantineData {
+  return { ordered: false, type: "Home quarantine", start_date: "", end_date: "", location: "", contact_name: "", contact_phone: "", check_dates: [] };
+}
+
+export function blankBiteReport(type: "animal_human" | "animal_animal"): BiteReport {
+  const today = new Date().toISOString().split("T")[0];
+  return {
+    report_type: type, status: "Open", incident_date: today, incident_time: "", incident_address: "",
+    incident_city: "Madison", incident_location_type: "", law_enforcement_notified: false, law_enforcement_report: "",
+    biting_animal_data: blankAnimal(), victim_type: type === "animal_human" ? "human" : "animal",
+    victim_data: type === "animal_human" ? blankHumanVictim() : blankAnimalVictim(),
+    owner_data: blankOwner(), injury_data: blankInjury(), quarantine_ordered: false,
+    quarantine_data: blankQuarantine(), quarantine_released: false, quarantine_release_date: "",
+    disposition: "Open — under investigation", follow_up_required: false, follow_up_date: "",
+    investigating_officer: "", investigating_officer_id: "", narrative: "", photos: [],
+  };
+}

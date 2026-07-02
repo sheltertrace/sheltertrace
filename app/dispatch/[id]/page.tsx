@@ -858,7 +858,7 @@ function CallDetailPageInner() {
       // ── 8: Citations ─────────────────────────────────────────────────────
       case 8: return (
         <div>
-          <div style={{ marginBottom: 20 }}>
+          <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 8 }}>
             <button
               className="btn btn-primary"
               style={{ width: "100%", justifyContent: "center", fontSize: 15, padding: "14px 20px", fontWeight: 800, letterSpacing: 0.3 }}
@@ -866,8 +866,15 @@ function CallDetailPageInner() {
             >
               📋 Issue Citation for This Call
             </button>
-            <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center", marginTop: 6 }}>
-              Opens the citation form pre-filled with suspect, location, and officer info from this call. Progress is saved first.
+            <a
+              href={`/bite-reports/new?type=animal_human&address=${encodeURIComponent(call?.address || "")}&city=${encodeURIComponent(call?.city || "")}&date=${encodeURIComponent(call?.date_reported || "")}&officer=${encodeURIComponent(user ? `${user.firstName} ${user.lastName}`.trim() : "")}&callId=${call?.id || ""}`}
+              className="btn btn-secondary"
+              style={{ textDecoration: "none", textAlign: "center", padding: "10px 20px", fontWeight: 700 }}
+            >
+              🦷 File Bite Report for This Call
+            </a>
+            <div style={{ fontSize: 12, color: "var(--text-muted)", textAlign: "center" }}>
+              Opens the citation form or bite report pre-filled with location and officer info from this call.
             </div>
           </div>
 

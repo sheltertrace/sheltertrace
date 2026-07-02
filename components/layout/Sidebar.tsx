@@ -40,6 +40,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/citizen-reports", label: "Citizen Reports",  perm: "dispatch", icon: "🌐" },
       { href: "/field-ops",       label: "Field Ops",        perm: "dispatch", icon: "🚓" },
       { href: "/citations",       label: "Citations",        perm: "dispatch", icon: "📋" },
+      { href: "/bite-reports",    label: "Bite Reports",     perm: "dispatch", icon: "🦷" },
       { href: "/court",           label: "Court Portal",     perm: "court",    icon: "⚖️" },
       { href: "/ordinances",      label: "Ordinances",       perm: "dispatch", icon: "📖" },
     ],

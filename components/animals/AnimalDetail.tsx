@@ -822,6 +822,12 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={printKennelCard}>🖨 Kennel Card</button>
+          <a
+            href={`/bite-reports/new?type=animal_human&animalId=${animal.id}&animalName=${encodeURIComponent(animal.name)}&species=${encodeURIComponent(animal.species || "")}&breed=${encodeURIComponent(animal.breed || "")}&color=${encodeURIComponent(animal.color || "")}&microchip=${encodeURIComponent(animal.microchip || "")}`}
+            className="btn btn-ghost btn-sm"
+            style={{ textDecoration: "none" }}
+            title="File an animal bite report involving this animal"
+          >🦷 Bite Report</a>
           {saving && <span style={{ color: "var(--teal)", fontSize: 12, alignSelf: "center" }}>Saving…</span>}
         </div>
       </div>
