@@ -215,7 +215,7 @@ export default function PastVisitsPage() {
               ) : paged.map((a) => (
                 <tr key={a.id}>
                   <td style={{ fontSize: 12, whiteSpace: "nowrap" }}>{fmtDate(a.appointment_date)}{a.appointment_time ? ` ${a.appointment_time}` : ""}</td>
-                  <td style={{ fontWeight: 600 }}>{a.animal_name || "—"}</td>
+                  <td style={{ fontWeight: 600 }}><a href={a.animal_id ? `/clinic-portal/animals/${a.animal_id}` : `/clinic-portal/animals`} style={{ color: "var(--teal)", textDecoration: "none" }}>{a.animal_name || "—"}</a></td>
                   <td style={{ fontSize: 12 }}>{clientMap.get(a.client_id || "") || "—"}</td>
                   <td><span className="badge" style={{ background: "#ede9fe", color: "#6d28d9", fontSize: 10 }}>{a.appointment_type || "—"}</span></td>
                   <td style={{ fontSize: 12, color: "var(--text-secondary)", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{getVisitServices(a)}</td>

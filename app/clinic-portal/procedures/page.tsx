@@ -89,7 +89,7 @@ function ProcPageContent() {
                 filtered.map((p) => (
                   <tr key={p.id}>
                     <td style={{ fontSize: 12 }}>{p.procedure_date}</td>
-                    <td style={{ fontWeight: 600 }}>{p.animal_name || "—"}</td>
+                    <td style={{ fontWeight: 600 }}><a href={p.animal_id ? `/clinic-portal/animals/${p.animal_id}` : `/clinic-portal/animals?q=${encodeURIComponent(p.animal_name || "")}`} style={{ color: "var(--teal)", textDecoration: "none" }}>{p.animal_name || "—"}</a></td>
                     <td style={{ fontSize: 12 }}>{clientName(p.client_id)}</td>
                     <td style={{ fontSize: 12 }}>{p.procedure_type}</td>
                     <td style={{ fontSize: 12 }}>{p.outcome || "—"}</td>

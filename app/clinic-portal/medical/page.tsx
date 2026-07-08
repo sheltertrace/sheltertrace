@@ -104,7 +104,7 @@ function MedPageContent() {
                   return (
                     <tr key={r.id}>
                       <td style={{ fontSize: 12 }}>{r.date}</td>
-                      <td style={{ fontWeight: 600 }}>{r.animal_name || "—"}</td>
+                      <td style={{ fontWeight: 600 }}><a href={r.animal_id ? `/clinic-portal/animals/${r.animal_id}` : `/clinic-portal/animals?q=${encodeURIComponent(r.animal_name || "")}`} style={{ color: "var(--teal)", textDecoration: "none" }}>{r.animal_name || "—"}</a></td>
                       <td style={{ fontSize: 12 }}>{clientName(r.client_id)}</td>
                       <td><span className="badge" style={{ background: isT2 ? "#f3e8ff" : "#e0f2fe", color: isT2 ? "#7c3aed" : "#0369a1", fontSize: 10 }}>{r.type}</span></td>
                       <td style={{ fontSize: 12 }}>{r.description || "—"}</td>

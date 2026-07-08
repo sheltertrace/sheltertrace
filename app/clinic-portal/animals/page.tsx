@@ -74,28 +74,35 @@ export default function ClinicAnimalsPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr><td colSpan={isShelterMode ? 9 : 8} style={{ textAlign: "center", padding: 20, color: "var(--text-muted)" }}>No animals found</td></tr>
-              ) : filtered.map((a) => (
-                <tr key={a.id}>
-                  <td style={{ width: 36 }}>
-                    {a.photo_url ? (
-                      <img src={a.photo_url} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
-                    ) : (
-                      <span style={{ fontSize: 20 }}>{a.species === "Dog" ? "🐕" : a.species === "Cat" ? "🐈" : "🐾"}</span>
-                    )}
-                  </td>
-                  <td style={{ fontWeight: 700 }}>
-                    {a.name || "—"}
-                    {a._source === "shelter" && <span style={{ marginLeft: 6, fontSize: 9, background: "#dcfce7", color: "#15803d", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>SHELTER</span>}
-                  </td>
-                  <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a.id}</td>
-                  <td style={{ fontSize: 12 }}>{a.species || "—"}</td>
-                  <td style={{ fontSize: 12 }}>{a.breed || "—"}</td>
-                  <td style={{ fontSize: 12 }}>{a.sex || "—"}</td>
-                  <td style={{ fontSize: 12 }}>{displayAge(a.age) || "—"}</td>
-                  <td><span className="badge">{a.status || "—"}</span></td>
-                  {isShelterMode && <td style={{ fontSize: 12 }}>{(a as Animal).kennel || "—"}</td>}
-                </tr>
-              ))}
+              ) : filtered.map((a) => {
+                const href = a._source === "shelter"
+                  ? `/clinic-portal/animals/shelter_${a.id}`
+                  : `/clinic-portal/animals/${a.id}`;
+                return (
+                  <tr key={a.id} style={{ cursor: "pointer" }} onClick={() => window.location.href = href}>
+                    <td style={{ width: 36 }}>
+                      {a.photo_url ? (
+                        <img src={a.photo_url} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
+                      ) : (
+                        <span style={{ fontSize: 20 }}>{a.species === "Dog" ? "🐕" : a.species === "Cat" ? "🐈" : "🐾"}</span>
+                      )}
+                    </td>
+                    <td style={{ fontWeight: 700 }}>
+                      <a href={href} style={{ color: "var(--teal)", textDecoration: "none" }} onClick={(e) => e.stopPropagation()}>
+                        {a.name || "—"}
+                      </a>
+                      {a._source === "shelter" && <span style={{ marginLeft: 6, fontSize: 9, background: "#dcfce7", color: "#15803d", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>SHELTER</span>}
+                    </td>
+                    <td style={{ fontFamily: "monospace", fontSize: 11 }}>{a.id}</td>
+                    <td style={{ fontSize: 12 }}>{a.species || "—"}</td>
+                    <td style={{ fontSize: 12 }}>{a.breed || "—"}</td>
+                    <td style={{ fontSize: 12 }}>{a.sex || "—"}</td>
+                    <td style={{ fontSize: 12 }}>{displayAge(a.age) || "—"}</td>
+                    <td><span className="badge">{a.status || "—"}</span></td>
+                    {isShelterMode && <td style={{ fontSize: 12 }}>{(a as Animal).kennel || "—"}</td>}
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

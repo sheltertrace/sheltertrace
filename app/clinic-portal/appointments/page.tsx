@@ -97,7 +97,7 @@ export default function AppointmentsPage() {
       <tr>
         <td style={{ fontSize: 12, fontWeight: 600 }}>{a.appointment_date}</td>
         <td style={{ fontSize: 12 }}>{a.appointment_time || "—"}</td>
-        <td style={{ fontWeight: 600 }}>{a.animal_name || "—"}</td>
+        <td style={{ fontWeight: 600 }}><a href={`/clinic-portal/animals/${a.animal_id || "search"}`} style={{ color: "var(--teal)", textDecoration: "none" }}>{a.animal_name || "—"}</a></td>
         <td style={{ fontSize: 12 }}>{clientName(a.client_id)}</td>
         <td style={{ fontSize: 12 }}>{a.appointment_type}</td>
         <td><span className="badge" style={{ background: sc.bg, color: sc.color, fontSize: 10 }}>{a.status}</span></td>
