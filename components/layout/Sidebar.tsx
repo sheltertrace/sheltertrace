@@ -65,7 +65,8 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/forms",      label: "Forms",      perm: "dispatch",   icon: "📝" },
       { href: "/volunteers", label: "Volunteers", perm: "volunteers", icon: "🙋" },
       { href: "/reports",    label: "Reports",    perm: "reports",    icon: "📊" },
-      { href: "/admin",      label: "Admin",      perm: "admin",      icon: "⚙️" },
+      { href: "/admin",           label: "Admin",              perm: "admin",      icon: "⚙️" },
+      { href: "/admin/medications", label: "Medication Library",  perm: "medical",    icon: "💊" },
     ],
   },
 ];

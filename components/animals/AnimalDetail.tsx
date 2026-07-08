@@ -29,6 +29,7 @@ import LinkPersonModal from "./LinkPersonModal";
 import { IS_DEMO } from "@/lib/demo";
 import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult } from "@/lib/idexx";
 import { buildTestResultsSectionHTML, hasPositiveTest } from "@/lib/testResultsPrint";
+import MedicationSearch from "@/components/ui/MedicationSearch";
 import DragDropUpload from "@/components/ui/DragDropUpload";
 import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
 import MicrochipBadge from "@/components/ui/MicrochipBadge";
@@ -1179,19 +1180,21 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                       {(MEDICAL_DESC_MAP[medType] || []).map((d) => <option key={d}>{d}</option>)}
                     </select>
                   </div>
-                  {/* Medication/drug name free-text — shown for Treatment type */}
+                  {/* Medication search — shown for Treatment; also available for other types */}
                   {medType === "Treatment" && (
                     <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                      <label className="form-label">Medication Name <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>(specific drug — e.g. Amoxicillin 250mg)</span></label>
-                      <input
-                        className="form-input"
+                      <label className="form-label">Medication Name <span style={{ fontSize: 11, color: "var(--text-muted)", fontWeight: 400 }}>(search library or type custom)</span></label>
+                      <MedicationSearch
                         value={medMedName}
-                        onChange={(e) => setMedMedName(e.target.value)}
-                        placeholder="e.g. Amoxicillin, Doxycycline, Metronidazole…"
+                        species={animal.species}
+                        onChange={(name) => {
+                          setMedMedName(name);
+                        }}
+                        placeholder="Search medication library…"
                       />
                       {medMedName.trim() && (
                         <div style={{ fontSize: 11, color: "#0369a1", marginTop: 3 }}>
-                          This will be saved as the record name (overrides category selection above)
+                          Saves as record name (overrides category above)
                         </div>
                       )}
                     </div>

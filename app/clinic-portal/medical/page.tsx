@@ -7,6 +7,7 @@ import { useClinic } from "@/components/clinic/ClinicShell";
 import { fetchClinicMedical, createClinicMedical, fetchClinicAnimals } from "@/lib/clinicData";
 import type { ClinicMedicalRecord, ClinicAnimal } from "@/lib/clinicTypes";
 import DateInput from "@/components/ui/DateInput";
+import MedicationSearch from "@/components/ui/MedicationSearch";
 import { getCurrentUserName } from "@/lib/auth";
 import { today } from "@/lib/utils";
 
@@ -139,7 +140,13 @@ function MedPageContent() {
                   </select>
                 </F>
                 <F label="Date *"><DateInput className="form-input" value={form.date || today()} onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))} /></F>
-                <F label="Description / Med Name"><input className="form-input" value={form.description || ""} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} /></F>
+                <F label="Medication / Description">
+                  <MedicationSearch
+                    value={form.description || ""}
+                    onChange={(name, med) => setForm((f) => ({ ...f, description: name, dosage: med?.unit ? `${f.dosage || ""} ${med.unit}`.trim() : f.dosage }))}
+                    placeholder="Search medication library…"
+                  />
+                </F>
                 {isTest && (
                   <F label="Result">
                     <select className="form-select" value={form.test_result || "Pending"} onChange={(e) => setForm((f) => ({ ...f, test_result: e.target.value }))}>
