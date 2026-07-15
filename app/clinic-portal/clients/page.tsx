@@ -1,5 +1,6 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { useAuth } from "@/app/providers";
 import { useClinic } from "@/components/clinic/ClinicShell";
 import { createClinicClient, updateClinicClient } from "@/lib/clinicData";
@@ -87,7 +88,8 @@ export default function ClinicClientsPage() {
               {c.contact_email && <div style={{ fontSize: 12, marginBottom: 2 }}>📧 {c.contact_email}</div>}
               {c.contact_phone && <div style={{ fontSize: 12, marginBottom: 2 }}>📞 {c.contact_phone}</div>}
               {c.contract_end && <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>Contract ends: {c.contract_end}</div>}
-              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+              <div style={{ display: "flex", gap: 6, marginTop: 10, flexWrap: "wrap" }}>
+                <Link href={`/clinic-portal/clients/${c.id}`} className="btn btn-primary btn-sm">View →</Link>
                 <button className="btn btn-secondary btn-sm" onClick={() => openEdit(c)}>Edit</button>
                 <button className="btn btn-secondary btn-sm" onClick={() => { setSelectedClientId(c.id); }}>Select</button>
                 <button className="btn btn-ghost btn-sm" style={{ color: c.active ? "#dc2626" : "#15803d" }} onClick={() => handleToggle(c)}>

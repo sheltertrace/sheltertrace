@@ -7,15 +7,17 @@ import { fetchShelterAnimals } from "@/lib/clinicShelterLink";
 import type { ClinicAnimal } from "@/lib/clinicTypes";
 import type { Animal } from "@/lib/types";
 import { displayAge } from "@/lib/utils";
+import AddAnimalModal from "@/components/clinic/AddAnimalModal";
 
 type AnyAnimal = (ClinicAnimal | Animal) & { _source?: "clinic" | "shelter" };
 
 export default function ClinicAnimalsPage() {
   const { user } = useAuth();
-  const { selectedClientId, isShelterMode } = useClinic();
+  const { selectedClientId, isShelterMode, clients, shelterLinks } = useClinic();
   const [animals, setAnimals] = useState<AnyAnimal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -48,6 +50,9 @@ export default function ClinicAnimalsPage() {
           </h1>
           {isShelterMode && <div style={{ fontSize: 12, color: "#15803d", fontWeight: 600 }}>Viewing linked shelter animals — medical access</div>}
         </div>
+        {!isShelterMode && (
+          <button className="btn btn-primary btn-sm" onClick={() => setShowAdd(true)}>+ Add Animal</button>
+        )}
       </div>
 
       <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
@@ -106,6 +111,18 @@ export default function ClinicAnimalsPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {user && (
+        <AddAnimalModal
+          isOpen={showAdd}
+          onClose={() => setShowAdd(false)}
+          onSaved={(animal) => setAnimals((prev) => [{ ...animal, _source: "clinic" as const }, ...prev])}
+          clinicAccountId={user.id}
+          clients={clients}
+          shelterLinks={shelterLinks}
+          prefillClientId={selectedClientId || undefined}
+        />
       )}
     </div>
   );
