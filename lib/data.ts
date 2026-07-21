@@ -5,6 +5,18 @@ import type { IdexxConfig } from "./idexx";
 import { genId, genReceiptId, today } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
 import { CURRENT_USER_KEY } from "./auth";
+import { nullifyEmptyDates } from "./sanitize";
+
+// Optional DATE columns per table — empty strings must become null for Postgres.
+const ANIMAL_DATE_FIELDS = [
+  "dob", "microchip_date", "rabies_expiry", "available_date",
+  "transfer_due", "spay_neuter_due", "transfer_date",
+  "hold_start_date", "hold_end_date", "death_date",
+] as const;
+const PERSON_DATE_FIELDS = ["dob"] as const;
+const CITATION_DATE_FIELDS = ["date", "court_date", "due_date", "violator_dob"] as const;
+const FOSTER_DATE_FIELDS = ["start_date", "expected_return_date", "actual_return_date"] as const;
+const LICENSE_DATE_FIELDS = ["issue_date", "expiration_date", "rabies_expiration_date"] as const;
 
 // Helper: in demo mode, return { demo_session_id } so that newly-created
 // records are tagged with the current session and can be cleaned up on reset.
@@ -171,7 +183,7 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
   const id = await genAnimalId();
   const { data, error } = await supabase
     .from("animals")
-    .insert({ ...animal, id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...demoTag() })
+    .insert({ ...nullifyEmptyDates(animal, ANIMAL_DATE_FIELDS), id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...demoTag() })
     .select()
     .single();
   if (error) throw error;
@@ -252,10 +264,11 @@ export async function updateAnimal(id: string, updates: Partial<Animal>): Promis
   // Strip fields that are not real DB columns (joined/virtual fields)
   const { notes: _notes, ...dbUpdates } = updates as Partial<Animal> & { notes?: unknown };
   void _notes;
-  console.log("[updateAnimal] payload:", JSON.stringify(dbUpdates));
+  const cleanUpdates = nullifyEmptyDates(dbUpdates, ANIMAL_DATE_FIELDS);
+  console.log("[updateAnimal] payload:", JSON.stringify(cleanUpdates));
   const { data, error } = await supabase
     .from("animals")
-    .update({ ...dbUpdates, updated_at: new Date().toISOString() })
+    .update({ ...cleanUpdates, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()
     .single();
@@ -281,7 +294,7 @@ export async function createPerson(person: Partial<Person>): Promise<Person> {
   const id = `P-${genId()}`;
   const { data, error } = await supabase
     .from("people")
-    .insert({ ...person, id, date_added: today() })
+    .insert({ ...nullifyEmptyDates(person, PERSON_DATE_FIELDS), id, date_added: today() })
     .select()
     .single();
   if (error) throw error;
@@ -291,7 +304,7 @@ export async function createPerson(person: Partial<Person>): Promise<Person> {
 export async function updatePerson(id: string, updates: Partial<Person>): Promise<Person> {
   const { data, error } = await supabase
     .from("people")
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update({ ...nullifyEmptyDates(updates, PERSON_DATE_FIELDS), updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()
     .single();
@@ -474,7 +487,7 @@ export async function fetchCitations(): Promise<Citation[]> {
 }
 
 export async function createCitation(cit: Partial<Citation>): Promise<Citation> {
-  const { data, error } = await supabase.from("citations").insert({ ...cit, ...demoTag() }).select().single();
+  const { data, error } = await supabase.from("citations").insert({ ...nullifyEmptyDates(cit, CITATION_DATE_FIELDS), ...demoTag() }).select().single();
   if (error) throw error;
   return data as Citation;
 }
@@ -536,7 +549,7 @@ export async function updateCitationDisposition(
 }
 
 export async function updateCitation(id: string, updates: Partial<Citation>): Promise<Citation> {
-  const { data, error } = await supabase.from("citations").update(updates).eq("id", id).select().single();
+  const { data, error } = await supabase.from("citations").update(nullifyEmptyDates(updates, CITATION_DATE_FIELDS)).eq("id", id).select().single();
   if (error) throw error;
   return data as Citation;
 }
@@ -1536,7 +1549,7 @@ export async function createFosterPlacement(
 ): Promise<FosterPlacement> {
   const { data, error } = await supabase
     .from("foster_placements")
-    .insert({ ...p, created_by: getSessionUserName() })
+    .insert({ ...nullifyEmptyDates(p, FOSTER_DATE_FIELDS), created_by: getSessionUserName() })
     .select()
     .single();
   if (error) throw error;
@@ -1549,7 +1562,7 @@ export async function updateFosterPlacement(
 ): Promise<FosterPlacement> {
   const { data, error } = await supabase
     .from("foster_placements")
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update({ ...nullifyEmptyDates(updates, FOSTER_DATE_FIELDS), updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()
     .single();
@@ -1790,7 +1803,7 @@ export async function fetchLicensesByPerson(personId: string): Promise<PetLicens
 export async function createPetLicense(
   license: Omit<PetLicense, "id" | "created_at" | "updated_at">
 ): Promise<PetLicense> {
-  const { data, error } = await supabase.from("pet_licenses").insert(license).select().single();
+  const { data, error } = await supabase.from("pet_licenses").insert(nullifyEmptyDates(license, LICENSE_DATE_FIELDS)).select().single();
   if (error) throw error;
   return data as PetLicense;
 }
@@ -1801,7 +1814,7 @@ export async function updatePetLicense(
 ): Promise<PetLicense> {
   const { data, error } = await supabase
     .from("pet_licenses")
-    .update({ ...updates, updated_at: new Date().toISOString() })
+    .update({ ...nullifyEmptyDates(updates, LICENSE_DATE_FIELDS), updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()
     .single();

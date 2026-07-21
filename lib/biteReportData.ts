@@ -1,6 +1,12 @@
 "use client";
 import { supabase } from "./supabase";
 import type { BiteReport } from "./biteReportTypes";
+import { nullifyEmptyDates } from "./sanitize";
+
+// Top-level DATE/TIME columns in bite_reports that must never receive "".
+const BITE_DATE_FIELDS = [
+  "incident_date", "incident_time", "follow_up_date", "quarantine_release_date",
+] as const;
 
 async function genReportNumber(type: string): Promise<string> {
   const year = new Date().getFullYear();
@@ -11,13 +17,21 @@ async function genReportNumber(type: string): Promise<string> {
 
 export async function createBiteReport(report: BiteReport): Promise<BiteReport> {
   const report_number = await genReportNumber(report.report_type);
-  const { data, error } = await supabase.from("bite_reports").insert({ ...report, report_number, updated_at: new Date().toISOString() }).select().single();
+  const payload = nullifyEmptyDates(
+    { ...report, report_number, updated_at: new Date().toISOString() },
+    BITE_DATE_FIELDS
+  );
+  const { data, error } = await supabase.from("bite_reports").insert(payload).select().single();
   if (error) throw error;
   return data as BiteReport;
 }
 
 export async function updateBiteReport(id: string, updates: Partial<BiteReport>): Promise<BiteReport> {
-  const { data, error } = await supabase.from("bite_reports").update({ ...updates, updated_at: new Date().toISOString() }).eq("id", id).select().single();
+  const payload = nullifyEmptyDates(
+    { ...updates, updated_at: new Date().toISOString() },
+    BITE_DATE_FIELDS
+  );
+  const { data, error } = await supabase.from("bite_reports").update(payload).eq("id", id).select().single();
   if (error) throw error;
   return data as BiteReport;
 }
