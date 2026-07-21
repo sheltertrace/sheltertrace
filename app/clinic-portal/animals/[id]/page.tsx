@@ -43,6 +43,7 @@ export default function ClinicAnimalDetailPage() {
   const [appointments, setAppointments] = useState<ClinicAppointment[]>([]);
   const [settings, setSettings] = useState<ClinicSettings | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [tab, setTab] = useState<"overview"|"medical"|"procedures"|"appointments">("overview");
   const [showPrint, setShowPrint] = useState(false);
   const [showMedForm, setShowMedForm] = useState(false);
@@ -56,6 +57,7 @@ export default function ClinicAnimalDetailPage() {
   const load = useCallback(async () => {
     if (!user?.id) return;
     setLoading(true);
+    setLoadError("");
     try {
       if (isShelterAnimal) {
         const [a, med, s] = await Promise.all([
@@ -83,6 +85,8 @@ export default function ClinicAnimalDetailPage() {
         setAppointments(appts.filter((a) => a.animal_name === found.name));
         setSettings(s);
       }
+    } catch (e: unknown) {
+      setLoadError((e as { message?: string }).message || "Could not load this animal's record. Please try again.");
     } finally { setLoading(false); }
   }, [user?.id, realId, isShelterAnimal, router]);
 
@@ -119,6 +123,12 @@ export default function ClinicAnimalDetailPage() {
   };
 
   if (loading) return <div style={{ padding: 40, color: "var(--text-muted)" }}>Loading…</div>;
+  if (loadError) return (
+    <div style={{ padding: 40, textAlign: "center" }}>
+      <div style={{ fontSize: 16, color: "#dc2626", marginBottom: 12 }}>⚠️ {loadError}</div>
+      <button className="btn btn-secondary" onClick={() => router.back()}>← Go Back</button>
+    </div>
+  );
   if (!animal) return null;
 
   const speciesIcon = animal.species === "Dog" ? "🐕" : animal.species === "Cat" ? "🐈" : "🐾";

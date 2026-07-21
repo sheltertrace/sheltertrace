@@ -48,7 +48,7 @@ const NAV_ITEMS = [
 export default function ClinicShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, loading } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const [clients, setClients] = useState<ClinicClient[]>([]);
   const [shelterLinks, setShelterLinks] = useState<ClinicShelterLink[]>([]);
@@ -71,6 +71,7 @@ export default function ClinicShell({ children }: { children: React.ReactNode })
   const activeShelterLink = selectedClientId ? shelterLinks.find((l) => l.id === selectedClientId) || null : null;
   const isShelterMode = !!activeShelterLink;
 
+  if (loading) return null;
   if (!user) {
     router.replace("/login");
     return null;

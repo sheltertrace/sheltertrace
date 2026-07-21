@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/providers";
 import { useClinic } from "@/components/clinic/ClinicShell";
 import { fetchClinicAnimals } from "@/lib/clinicData";
@@ -14,6 +15,7 @@ type AnyAnimal = (ClinicAnimal | Animal) & { _source?: "clinic" | "shelter" };
 export default function ClinicAnimalsPage() {
   const { user } = useAuth();
   const { selectedClientId, isShelterMode, clients, shelterLinks } = useClinic();
+  const router = useRouter();
   const [animals, setAnimals] = useState<AnyAnimal[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -84,7 +86,7 @@ export default function ClinicAnimalsPage() {
                   ? `/clinic-portal/animals/shelter_${a.id}`
                   : `/clinic-portal/animals/${a.id}`;
                 return (
-                  <tr key={a.id} style={{ cursor: "pointer" }} onClick={() => window.location.href = href}>
+                  <tr key={a.id} style={{ cursor: "pointer" }} onClick={() => router.push(href)}>
                     <td style={{ width: 36 }}>
                       {a.photo_url ? (
                         <img src={a.photo_url} alt="" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "cover" }} />
@@ -93,7 +95,7 @@ export default function ClinicAnimalsPage() {
                       )}
                     </td>
                     <td style={{ fontWeight: 700 }}>
-                      <a href={href} style={{ color: "var(--teal)", textDecoration: "none" }} onClick={(e) => e.stopPropagation()}>
+                      <a href={href} style={{ color: "var(--teal)", textDecoration: "none" }} onClick={(e) => { e.preventDefault(); e.stopPropagation(); router.push(href); }}>
                         {a.name || "—"}
                       </a>
                       {a._source === "shelter" && <span style={{ marginLeft: 6, fontSize: 9, background: "#dcfce7", color: "#15803d", padding: "1px 5px", borderRadius: 4, fontWeight: 700 }}>SHELTER</span>}
