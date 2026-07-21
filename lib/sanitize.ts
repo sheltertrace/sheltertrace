@@ -3,7 +3,7 @@
  * before sending to Postgres. DATE and TIME columns reject empty strings.
  * NULL is always the correct representation of "not provided."
  */
-export function nullifyEmptyDates<T extends object>(
+export function nullifyEmptyDates<T extends Record<string, unknown>>(
   obj: T,
   dateFields: ReadonlyArray<string>
 ): T {
