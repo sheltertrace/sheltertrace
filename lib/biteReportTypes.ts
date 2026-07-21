@@ -19,7 +19,7 @@ export interface BiteAnimalData {
 }
 
 export interface BiteOwnerData {
-  known: boolean;
+  known: string;
   linked_person_id?: string;
   first_name: string;
   last_name: string;
@@ -32,7 +32,7 @@ export interface BiteOwnerData {
   email: string;
   dl_number: string;
   dl_state: string;
-  was_cited: boolean;
+  was_cited: string;
   citation_number: string;
 }
 
@@ -77,7 +77,7 @@ export interface BiteVictimAnimalData {
 
 // Full owner section for victim animals in animal_animal reports
 export interface VictimAnimalOwner {
-  known: boolean;
+  known: string;
   linked_person_id?: string;
   first_name: string;
   last_name: string;
@@ -88,8 +88,8 @@ export interface VictimAnimalOwner {
   phone: string;
   phone2: string;
   email: string;
-  was_present: boolean;
-  seeking_restitution: boolean;
+  was_present: string;
+  seeking_restitution: string;
   estimated_vet_costs: string;
 }
 
@@ -97,7 +97,7 @@ export interface VictimAnimalOwner {
 export interface VictimAnimalInjury {
   body_parts: string[];
   severity: string;
-  vet_treated: boolean;
+  vet_treated: string;
   vet_clinic: string;
   estimated_bill: string;
 }
@@ -113,21 +113,21 @@ export interface VictimAnimalEntry {
 export interface AttackingAnimalEntry {
   animal: BiteAnimalData;
   owner: BiteOwnerData;
-  was_owner_present: boolean;
+  was_owner_present: string;
 }
 
 export interface BiteInjuryData {
   body_parts: string[];
   severity: string;
-  sought_medical: boolean;
+  sought_medical: string;
   medical_facility: string;
   pep_recommended: string;
   treating_physician: string;
   // Animal-animal legacy fields (for animal_human forms)
-  vet_treated: boolean;
+  vet_treated: string;
   vet_clinic: string;
   estimated_bill: string;
-  seeking_restitution: boolean;
+  seeking_restitution: string;
 }
 
 export interface BiteQuarantineData {
@@ -152,7 +152,7 @@ export interface BiteReport {
   incident_city: string;
   incident_location_type: string;
   incident_location_other?: string;
-  law_enforcement_notified: boolean;
+  law_enforcement_notified: string;
   law_enforcement_report: string;
   biting_animal_id?: string;
   // For animal_human: single BiteAnimalData. For animal_animal: AttackingAnimalEntry[] stored as JSONB.
@@ -162,12 +162,12 @@ export interface BiteReport {
   victim_data: BiteVictimHumanData | BiteVictimAnimalData | VictimAnimalEntry[];
   owner_data: BiteOwnerData;
   injury_data: BiteInjuryData;
-  quarantine_ordered: boolean;
+  quarantine_ordered: string;
   quarantine_data: BiteQuarantineData;
-  quarantine_released: boolean;
+  quarantine_released: string;
   quarantine_release_date: string;
   disposition: string;
-  follow_up_required: boolean;
+  follow_up_required: string;
   follow_up_date: string;
   investigating_officer: string;
   investigating_officer_id: string;
@@ -237,7 +237,7 @@ export function blankAnimal(): BiteAnimalData {
 }
 
 export function blankOwner(): BiteOwnerData {
-  return { known: false, first_name: "", last_name: "", address: "", city: "", state: "GA", zip: "", phone: "", phone2: "", email: "", dl_number: "", dl_state: "", was_cited: false, citation_number: "" };
+  return { known: "", first_name: "", last_name: "", address: "", city: "", state: "GA", zip: "", phone: "", phone2: "", email: "", dl_number: "", dl_state: "", was_cited: "", citation_number: "" };
 }
 
 export function blankHumanVictim(): BiteVictimHumanData {
@@ -249,11 +249,11 @@ export function blankAnimalVictim(): BiteVictimAnimalData {
 }
 
 export function blankVictimAnimalOwner(): VictimAnimalOwner {
-  return { known: false, first_name: "", last_name: "", address: "", city: "", state: "GA", zip: "", phone: "", phone2: "", email: "", was_present: false, seeking_restitution: false, estimated_vet_costs: "" };
+  return { known: "", first_name: "", last_name: "", address: "", city: "", state: "GA", zip: "", phone: "", phone2: "", email: "", was_present: "", seeking_restitution: "", estimated_vet_costs: "" };
 }
 
 export function blankVictimAnimalInjury(): VictimAnimalInjury {
-  return { body_parts: [], severity: "", vet_treated: false, vet_clinic: "", estimated_bill: "" };
+  return { body_parts: [], severity: "", vet_treated: "", vet_clinic: "", estimated_bill: "" };
 }
 
 export function blankVictimAnimalEntry(): VictimAnimalEntry {
@@ -261,11 +261,11 @@ export function blankVictimAnimalEntry(): VictimAnimalEntry {
 }
 
 export function blankAttackingAnimalEntry(): AttackingAnimalEntry {
-  return { animal: blankAnimal(), owner: blankOwner(), was_owner_present: false };
+  return { animal: blankAnimal(), owner: blankOwner(), was_owner_present: "" };
 }
 
 function blankInjury(): BiteInjuryData {
-  return { body_parts: [], severity: "", sought_medical: false, medical_facility: "", pep_recommended: "Unknown", treating_physician: "", vet_treated: false, vet_clinic: "", estimated_bill: "", seeking_restitution: false };
+  return { body_parts: [], severity: "", sought_medical: "", medical_facility: "", pep_recommended: "Unknown", treating_physician: "", vet_treated: "", vet_clinic: "", estimated_bill: "", seeking_restitution: "" };
 }
 
 function blankQuarantine(): BiteQuarantineData {
@@ -276,13 +276,13 @@ export function blankBiteReport(type: "animal_human" | "animal_animal"): BiteRep
   const today = new Date().toISOString().split("T")[0];
   return {
     report_type: type, status: "Open", incident_date: today, incident_time: "", incident_address: "",
-    incident_city: "Madison", incident_location_type: "", law_enforcement_notified: false, law_enforcement_report: "",
+    incident_city: "Madison", incident_location_type: "", law_enforcement_notified: "", law_enforcement_report: "",
     biting_animal_data: type === "animal_animal" ? [blankAttackingAnimalEntry()] : blankAnimal(),
     victim_type: type === "animal_human" ? "human" : "animal",
     victim_data: type === "animal_human" ? blankHumanVictim() : [blankVictimAnimalEntry()],
-    owner_data: blankOwner(), injury_data: blankInjury(), quarantine_ordered: false,
-    quarantine_data: blankQuarantine(), quarantine_released: false, quarantine_release_date: "",
-    disposition: "Open — under investigation", follow_up_required: false, follow_up_date: "",
+    owner_data: blankOwner(), injury_data: blankInjury(), quarantine_ordered: "",
+    quarantine_data: blankQuarantine(), quarantine_released: "", quarantine_release_date: "",
+    disposition: "Open — under investigation", follow_up_required: "", follow_up_date: "",
     investigating_officer: "", investigating_officer_id: "", narrative: "", photos: [],
   };
 }

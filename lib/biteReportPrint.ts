@@ -6,7 +6,12 @@ function fmtDate(d?: string): string {
   const [y, m, day] = d.split("-");
   return m && day ? `${m}/${day}/${y}` : d;
 }
-function yn(v?: boolean | null): string { return v === true ? "Yes" : v === false ? "No" : "—"; }
+function yn(v?: string | boolean | null): string {
+  if (v === true || v === "yes") return "Yes";
+  if (v === false || v === "no") return "No";
+  if (v === "unknown") return "Unknown";
+  return "Not Recorded";
+}
 function fld(label: string, value?: string | null): string {
   return `<div style="display:grid;grid-template-columns:150px 1fr;margin-bottom:4px;font-size:11px;"><span style="font-weight:700;color:#374151;">${label}:</span><span>${value || "—"}</span></div>`;
 }

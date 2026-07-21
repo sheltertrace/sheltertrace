@@ -25,7 +25,15 @@ interface Props {
   onCancel?: () => void;
 }
 
-// ── Module-level helpers (never defined inside component body) ────────────────
+// ── Module-level helpers ──────────────────────────────────────────────────────
+
+// Coerce legacy boolean DB values to the new string format.
+function b2s(v: unknown): string {
+  if (v === true) return "yes";
+  if (v === false) return "no";
+  if (typeof v === "string" && v !== "") return v;
+  return "";
+}
 
 function F({ label, children, required }: { label: string; children: React.ReactNode; required?: boolean }) {
   return (
@@ -52,7 +60,31 @@ function SubHead({ title }: { title: string }) {
   );
 }
 
-// ── Attacking Animal Block (module-level, safe for inputs) ───────────────────
+// Yes / No / Unknown radio group. Neither option pre-selected when value is "".
+function YNRadio({
+  value, onChange, groupName, includeUnknown = true,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  groupName: string;
+  includeUnknown?: boolean;
+}) {
+  const opts = includeUnknown
+    ? [["yes", "Yes"], ["no", "No"], ["unknown", "Unknown"]]
+    : [["yes", "Yes"], ["no", "No"]];
+  return (
+    <div style={{ display: "flex", gap: 20, alignItems: "center", paddingTop: 5 }}>
+      {opts.map(([v, lbl]) => (
+        <label key={v} style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", fontSize: 13, fontWeight: 400 }}>
+          <input type="radio" name={groupName} value={v} checked={value === v} onChange={() => onChange(v)} />
+          {lbl}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// ── Attacking Animal Block ────────────────────────────────────────────────────
 
 interface AttackingBlockProps {
   idx: number;
@@ -60,7 +92,7 @@ interface AttackingBlockProps {
   entry: AttackingAnimalEntry;
   updateAnimal: (k: keyof BiteAnimalData, v: BiteAnimalData[keyof BiteAnimalData]) => void;
   updateOwner: (k: keyof BiteOwnerData, v: BiteOwnerData[keyof BiteOwnerData]) => void;
-  updatePresent: (v: boolean) => void;
+  updatePresent: (v: string) => void;
   onRemove?: () => void;
 }
 
@@ -73,11 +105,7 @@ function AttackingAnimalBlock({ idx, total, entry, updateAnimal, updateOwner, up
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div style={{ fontWeight: 800, fontSize: 14, color: "#1B3A5C" }}>🐕 {label}</div>
         {onRemove && (
-          <button
-            className="btn btn-ghost btn-sm"
-            onClick={onRemove}
-            style={{ color: "#dc2626", fontSize: 12 }}
-          >
+          <button className="btn btn-ghost btn-sm" onClick={onRemove} style={{ color: "#dc2626", fontSize: 12 }}>
             ✕ Remove
           </button>
         )}
@@ -113,7 +141,8 @@ function AttackingAnimalBlock({ idx, total, entry, updateAnimal, updateOwner, up
         </F>
         <F label="Was Animal Provoked?">
           <select className="form-select" value={a.was_provoked} onChange={e => updateAnimal("was_provoked", e.target.value)}>
-            <option>Unknown</option><option>Yes</option><option>No</option>
+            <option value="">— Select —</option>
+            <option>Yes</option><option>No</option><option>Unknown</option>
           </select>
         </F>
         <F label="Animal Current Status">
@@ -125,39 +154,39 @@ function AttackingAnimalBlock({ idx, total, entry, updateAnimal, updateOwner, up
       </div>
 
       <SubHead title="Owner Information" />
-      <div style={{ marginBottom: 10, display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={o.known} onChange={e => updateOwner("known", e.target.checked)} /> Owner is known
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={entry.was_owner_present} onChange={e => updatePresent(e.target.checked)} /> Was owner present at time of attack?
-        </label>
+      <div className="grid-2">
+        <F label="Owner Known?">
+          <YNRadio value={o.known} onChange={v => updateOwner("known", v)} groupName={`atk_owner_known_${idx}`} />
+        </F>
+        <F label="Was Owner Present at Time of Attack?">
+          <YNRadio value={entry.was_owner_present} onChange={updatePresent} groupName={`atk_owner_present_${idx}`} />
+        </F>
       </div>
       <div className="grid-2">
-        <F label="First Name"><input className="form-input" value={o.first_name} onChange={e => updateOwner("first_name", e.target.value)} disabled={!o.known} /></F>
-        <F label="Last Name"><input className="form-input" value={o.last_name} onChange={e => updateOwner("last_name", e.target.value)} disabled={!o.known} /></F>
-        <F label="Address"><input className="form-input" value={o.address} onChange={e => updateOwner("address", e.target.value)} disabled={!o.known} /></F>
-        <F label="City"><input className="form-input" value={o.city} onChange={e => updateOwner("city", e.target.value)} disabled={!o.known} /></F>
-        <F label="State"><input className="form-input" value={o.state} onChange={e => updateOwner("state", e.target.value)} disabled={!o.known} style={{ maxWidth: 80 }} /></F>
-        <F label="Zip"><input className="form-input" value={o.zip} onChange={e => updateOwner("zip", e.target.value)} disabled={!o.known} /></F>
-        <F label="Primary Phone"><input className="form-input" type="tel" value={o.phone} onChange={e => updateOwner("phone", e.target.value)} disabled={!o.known} /></F>
-        <F label="Email"><input className="form-input" type="email" value={o.email} onChange={e => updateOwner("email", e.target.value)} disabled={!o.known} /></F>
-        <F label="Driver's License #"><input className="form-input" value={o.dl_number} onChange={e => updateOwner("dl_number", e.target.value)} disabled={!o.known} /></F>
-        <F label="DL State"><input className="form-input" value={o.dl_state} onChange={e => updateOwner("dl_state", e.target.value)} disabled={!o.known} style={{ maxWidth: 80 }} /></F>
-      </div>
-      <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={o.was_cited} onChange={e => updateOwner("was_cited", e.target.checked)} /> Owner cited
-        </label>
-        {o.was_cited && (
-          <input className="form-input" style={{ maxWidth: 200 }} placeholder="Citation number" value={o.citation_number} onChange={e => updateOwner("citation_number", e.target.value)} />
+        <F label="First Name"><input className="form-input" value={o.first_name} onChange={e => updateOwner("first_name", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Last Name"><input className="form-input" value={o.last_name} onChange={e => updateOwner("last_name", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Address"><input className="form-input" value={o.address} onChange={e => updateOwner("address", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="City"><input className="form-input" value={o.city} onChange={e => updateOwner("city", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="State"><input className="form-input" value={o.state} onChange={e => updateOwner("state", e.target.value)} disabled={o.known !== "yes"} style={{ maxWidth: 80 }} /></F>
+        <F label="Zip"><input className="form-input" value={o.zip} onChange={e => updateOwner("zip", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Primary Phone"><input className="form-input" type="tel" value={o.phone} onChange={e => updateOwner("phone", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Email"><input className="form-input" type="email" value={o.email} onChange={e => updateOwner("email", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Driver's License #"><input className="form-input" value={o.dl_number} onChange={e => updateOwner("dl_number", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="DL State"><input className="form-input" value={o.dl_state} onChange={e => updateOwner("dl_state", e.target.value)} disabled={o.known !== "yes"} style={{ maxWidth: 80 }} /></F>
+        <F label="Owner Cited?">
+          <YNRadio value={o.was_cited} onChange={v => updateOwner("was_cited", v)} groupName={`atk_owner_cited_${idx}`} includeUnknown={false} />
+        </F>
+        {o.was_cited === "yes" && (
+          <F label="Citation Number">
+            <input className="form-input" value={o.citation_number} onChange={e => updateOwner("citation_number", e.target.value)} />
+          </F>
         )}
       </div>
     </div>
   );
 }
 
-// ── Victim Animal Block (module-level) ───────────────────────────────────────
+// ── Victim Animal Block ───────────────────────────────────────────────────────
 
 interface VictimBlockProps {
   idx: number;
@@ -216,29 +245,27 @@ function VictimAnimalBlock({ idx, total, entry, updateAnimal, updateOwner, updat
       </div>
 
       <SubHead title="Victim Animal Owner Information" />
-      <div style={{ marginBottom: 10, display: "flex", gap: 16, flexWrap: "wrap" }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={o.known} onChange={e => updateOwner("known", e.target.checked)} /> Owner is known
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={o.was_present} onChange={e => updateOwner("was_present", e.target.checked)} /> Was owner present during incident?
-        </label>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={o.seeking_restitution} onChange={e => updateOwner("seeking_restitution", e.target.checked)} /> Is owner seeking restitution?
-        </label>
-      </div>
       <div className="grid-2">
-        <F label="First Name"><input className="form-input" value={o.first_name} onChange={e => updateOwner("first_name", e.target.value)} disabled={!o.known} /></F>
-        <F label="Last Name"><input className="form-input" value={o.last_name} onChange={e => updateOwner("last_name", e.target.value)} disabled={!o.known} /></F>
-        <F label="Address"><input className="form-input" value={o.address} onChange={e => updateOwner("address", e.target.value)} disabled={!o.known} /></F>
-        <F label="City"><input className="form-input" value={o.city} onChange={e => updateOwner("city", e.target.value)} disabled={!o.known} /></F>
-        <F label="State"><input className="form-input" value={o.state} onChange={e => updateOwner("state", e.target.value)} disabled={!o.known} style={{ maxWidth: 80 }} /></F>
-        <F label="Zip"><input className="form-input" value={o.zip} onChange={e => updateOwner("zip", e.target.value)} disabled={!o.known} /></F>
-        <F label="Primary Phone"><input className="form-input" type="tel" value={o.phone} onChange={e => updateOwner("phone", e.target.value)} disabled={!o.known} /></F>
-        <F label="Secondary Phone"><input className="form-input" type="tel" value={o.phone2} onChange={e => updateOwner("phone2", e.target.value)} disabled={!o.known} /></F>
-        <F label="Email"><input className="form-input" type="email" value={o.email} onChange={e => updateOwner("email", e.target.value)} disabled={!o.known} /></F>
+        <F label="Owner Known?">
+          <YNRadio value={o.known} onChange={v => updateOwner("known", v)} groupName={`vic_owner_known_${idx}`} />
+        </F>
+        <F label="Was Owner Present During Incident?">
+          <YNRadio value={o.was_present} onChange={v => updateOwner("was_present", v)} groupName={`vic_owner_present_${idx}`} />
+        </F>
+        <F label="First Name"><input className="form-input" value={o.first_name} onChange={e => updateOwner("first_name", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Last Name"><input className="form-input" value={o.last_name} onChange={e => updateOwner("last_name", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Address"><input className="form-input" value={o.address} onChange={e => updateOwner("address", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="City"><input className="form-input" value={o.city} onChange={e => updateOwner("city", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="State"><input className="form-input" value={o.state} onChange={e => updateOwner("state", e.target.value)} disabled={o.known !== "yes"} style={{ maxWidth: 80 }} /></F>
+        <F label="Zip"><input className="form-input" value={o.zip} onChange={e => updateOwner("zip", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Primary Phone"><input className="form-input" type="tel" value={o.phone} onChange={e => updateOwner("phone", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Secondary Phone"><input className="form-input" type="tel" value={o.phone2} onChange={e => updateOwner("phone2", e.target.value)} disabled={o.known !== "yes"} /></F>
+        <F label="Email"><input className="form-input" type="email" value={o.email} onChange={e => updateOwner("email", e.target.value)} disabled={o.known !== "yes"} /></F>
         <F label="Estimated Vet Costs">
           <input className="form-input" value={o.estimated_vet_costs} onChange={e => updateOwner("estimated_vet_costs", e.target.value)} placeholder="$" />
+        </F>
+        <F label="Is Owner Seeking Restitution?">
+          <YNRadio value={o.seeking_restitution} onChange={v => updateOwner("seeking_restitution", v)} groupName={`vic_seeking_restit_${idx}`} />
         </F>
       </div>
 
@@ -261,11 +288,9 @@ function VictimAnimalBlock({ idx, total, entry, updateAnimal, updateOwner, updat
           </select>
         </F>
         <F label="Received Veterinary Treatment?">
-          <select className="form-select" value={String(inj.vet_treated)} onChange={e => updateInjury("vet_treated", e.target.value === "true")}>
-            <option value="false">No</option><option value="true">Yes</option>
-          </select>
+          <YNRadio value={inj.vet_treated} onChange={v => updateInjury("vet_treated", v)} groupName={`vic_vet_treated_${idx}`} />
         </F>
-        {inj.vet_treated && (
+        {inj.vet_treated === "yes" && (
           <F label="Veterinary Clinic"><input className="form-input" value={inj.vet_clinic} onChange={e => updateInjury("vet_clinic", e.target.value)} /></F>
         )}
         <F label="Estimated Vet Bill"><input className="form-input" value={inj.estimated_bill} onChange={e => updateInjury("estimated_bill", e.target.value)} placeholder="$" /></F>
@@ -288,15 +313,49 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
       investigating_officer: initialData?.investigating_officer || getCurrentUserName(),
       investigating_officer_id: initialData?.investigating_officer_id || getCurrentUserId() || "",
     };
-    // Ensure animal_animal reports have array structure
+
+    // Migrate legacy boolean values from DB to new string format.
+    base.law_enforcement_notified = b2s(base.law_enforcement_notified);
+    base.quarantine_ordered = b2s(base.quarantine_ordered);
+    base.quarantine_released = b2s(base.quarantine_released);
+    base.follow_up_required = b2s(base.follow_up_required);
+    base.owner_data = {
+      ...base.owner_data,
+      known: b2s(base.owner_data?.known),
+      was_cited: b2s(base.owner_data?.was_cited),
+    };
+    base.injury_data = {
+      ...base.injury_data,
+      sought_medical: b2s(base.injury_data?.sought_medical),
+      vet_treated: b2s(base.injury_data?.vet_treated),
+      seeking_restitution: b2s(base.injury_data?.seeking_restitution),
+    };
+
+    // Ensure animal_animal reports have array structure + migrate nested booleans.
     if (!isHuman) {
       if (!Array.isArray(base.biting_animal_data)) {
-        // Migrate old single-animal format or initialize fresh
         const oldAnimal = base.biting_animal_data as BiteAnimalData;
-        base.biting_animal_data = [{ animal: oldAnimal || blankAttackingAnimalEntry().animal, owner: base.owner_data || blankAttackingAnimalEntry().owner, was_owner_present: false }] as AttackingAnimalEntry[];
+        base.biting_animal_data = [{ animal: oldAnimal || blankAttackingAnimalEntry().animal, owner: base.owner_data || blankAttackingAnimalEntry().owner, was_owner_present: "" }] as AttackingAnimalEntry[];
+      } else {
+        base.biting_animal_data = (base.biting_animal_data as AttackingAnimalEntry[]).map(e => ({
+          ...e,
+          was_owner_present: b2s(e.was_owner_present),
+          owner: { ...e.owner, known: b2s(e.owner?.known), was_cited: b2s(e.owner?.was_cited) },
+        }));
       }
       if (!Array.isArray(base.victim_data)) {
         base.victim_data = [blankVictimAnimalEntry()] as VictimAnimalEntry[];
+      } else {
+        base.victim_data = (base.victim_data as VictimAnimalEntry[]).map(e => ({
+          ...e,
+          owner: {
+            ...e.owner,
+            known: b2s(e.owner?.known),
+            was_present: b2s(e.owner?.was_present),
+            seeking_restitution: b2s(e.owner?.seeking_restitution),
+          },
+          injury: { ...e.injury, vet_treated: b2s(e.injury?.vet_treated) },
+        }));
       }
     }
     return base;
@@ -342,7 +401,7 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
       return { ...r, biting_animal_data: arr };
     }), []);
 
-  const updateAttackingPresent = useCallback((idx: number, val: boolean) =>
+  const updateAttackingPresent = useCallback((idx: number, val: string) =>
     setReport(r => {
       const arr = [...(r.biting_animal_data as AttackingAnimalEntry[])];
       arr[idx] = { ...arr[idx], was_owner_present: val };
@@ -392,7 +451,7 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
 
   // Auto-calculate quarantine end date (+10 days from incident)
   useEffect(() => {
-    if (report.quarantine_ordered && report.incident_date && !report.quarantine_data.end_date) {
+    if (report.quarantine_ordered === "yes" && report.incident_date && !report.quarantine_data.end_date) {
       const end = new Date(report.incident_date + "T12:00:00");
       end.setDate(end.getDate() + 10);
       setQuar("end_date", end.toISOString().split("T")[0]);
@@ -464,14 +523,13 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
           </select>
         </F>
         <F label="Investigating Officer"><input className="form-input" value={report.investigating_officer} onChange={e => set("investigating_officer", e.target.value)} /></F>
-      </div>
-      <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={report.law_enforcement_notified} onChange={e => set("law_enforcement_notified", e.target.checked)} />
-          Law enforcement notified
-        </label>
-        {report.law_enforcement_notified && (
-          <input className="form-input" style={{ maxWidth: 240 }} placeholder="LE agency / report number" value={report.law_enforcement_report} onChange={e => set("law_enforcement_report", e.target.value)} />
+        <F label="Law Enforcement Notified?">
+          <YNRadio value={report.law_enforcement_notified} onChange={v => set("law_enforcement_notified", v)} groupName="le_notified" includeUnknown={false} />
+        </F>
+        {report.law_enforcement_notified === "yes" && (
+          <F label="LE Agency / Report Number">
+            <input className="form-input" value={report.law_enforcement_report} onChange={e => set("law_enforcement_report", e.target.value)} />
+          </F>
         )}
       </div>
 
@@ -516,7 +574,8 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
             </F>
             <F label="Was Animal Provoked?">
               <select className="form-select" value={(report.biting_animal_data as BiteAnimalData).was_provoked} onChange={e => setAnimal("was_provoked", e.target.value)}>
-                <option>Unknown</option><option>Yes</option><option>No</option>
+                <option value="">— Select —</option>
+                <option>Yes</option><option>No</option><option>Unknown</option>
               </select>
             </F>
             <F label="Animal Current Status">
@@ -529,27 +588,26 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
 
           {/* Section 3 — Owner */}
           <SH n="3" title="Animal Owner Information" />
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-              <input type="checkbox" checked={report.owner_data.known} onChange={e => setOwner("known", e.target.checked)} /> Owner is known
-            </label>
-          </div>
           <div className="grid-2">
-            <F label="First Name"><input className="form-input" value={report.owner_data.first_name} onChange={e => setOwner("first_name", e.target.value)} disabled={!report.owner_data.known} /></F>
-            <F label="Last Name"><input className="form-input" value={report.owner_data.last_name} onChange={e => setOwner("last_name", e.target.value)} disabled={!report.owner_data.known} /></F>
-            <F label="Address"><input className="form-input" value={report.owner_data.address} onChange={e => setOwner("address", e.target.value)} disabled={!report.owner_data.known} /></F>
-            <F label="City"><input className="form-input" value={report.owner_data.city} onChange={e => setOwner("city", e.target.value)} disabled={!report.owner_data.known} /></F>
-            <F label="Phone"><input className="form-input" type="tel" value={report.owner_data.phone} onChange={e => setOwner("phone", e.target.value)} disabled={!report.owner_data.known} /></F>
-            <F label="Email"><input className="form-input" type="email" value={report.owner_data.email} onChange={e => setOwner("email", e.target.value)} disabled={!report.owner_data.known} /></F>
-            <F label="Driver's License #"><input className="form-input" value={report.owner_data.dl_number} onChange={e => setOwner("dl_number", e.target.value)} disabled={!report.owner_data.known} /></F>
-            <F label="DL State"><input className="form-input" value={report.owner_data.dl_state} onChange={e => setOwner("dl_state", e.target.value)} disabled={!report.owner_data.known} style={{ maxWidth: 80 }} /></F>
-          </div>
-          <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 12 }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-              <input type="checkbox" checked={report.owner_data.was_cited} onChange={e => setOwner("was_cited", e.target.checked)} /> Owner cited
-            </label>
-            {report.owner_data.was_cited && (
-              <input className="form-input" style={{ maxWidth: 200 }} placeholder="Citation number" value={report.owner_data.citation_number} onChange={e => setOwner("citation_number", e.target.value)} />
+            <F label="Owner Known?">
+              <YNRadio value={report.owner_data.known} onChange={v => setOwner("known", v)} groupName="h_owner_known" />
+            </F>
+            <div />
+            <F label="First Name"><input className="form-input" value={report.owner_data.first_name} onChange={e => setOwner("first_name", e.target.value)} disabled={report.owner_data.known !== "yes"} /></F>
+            <F label="Last Name"><input className="form-input" value={report.owner_data.last_name} onChange={e => setOwner("last_name", e.target.value)} disabled={report.owner_data.known !== "yes"} /></F>
+            <F label="Address"><input className="form-input" value={report.owner_data.address} onChange={e => setOwner("address", e.target.value)} disabled={report.owner_data.known !== "yes"} /></F>
+            <F label="City"><input className="form-input" value={report.owner_data.city} onChange={e => setOwner("city", e.target.value)} disabled={report.owner_data.known !== "yes"} /></F>
+            <F label="Phone"><input className="form-input" type="tel" value={report.owner_data.phone} onChange={e => setOwner("phone", e.target.value)} disabled={report.owner_data.known !== "yes"} /></F>
+            <F label="Email"><input className="form-input" type="email" value={report.owner_data.email} onChange={e => setOwner("email", e.target.value)} disabled={report.owner_data.known !== "yes"} /></F>
+            <F label="Driver's License #"><input className="form-input" value={report.owner_data.dl_number} onChange={e => setOwner("dl_number", e.target.value)} disabled={report.owner_data.known !== "yes"} /></F>
+            <F label="DL State"><input className="form-input" value={report.owner_data.dl_state} onChange={e => setOwner("dl_state", e.target.value)} disabled={report.owner_data.known !== "yes"} style={{ maxWidth: 80 }} /></F>
+            <F label="Owner Cited?">
+              <YNRadio value={report.owner_data.was_cited} onChange={v => setOwner("was_cited", v)} groupName="h_owner_cited" includeUnknown={false} />
+            </F>
+            {report.owner_data.was_cited === "yes" && (
+              <F label="Citation Number">
+                <input className="form-input" value={report.owner_data.citation_number} onChange={e => setOwner("citation_number", e.target.value)} />
+              </F>
             )}
           </div>
 
@@ -601,14 +659,15 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
               </select>
             </F>
             <F label="Sought Medical Attention?">
-              <select className="form-select" value={String(report.injury_data.sought_medical)} onChange={e => setInjury("sought_medical", e.target.value === "true")}>
-                <option value="false">No</option><option value="true">Yes</option>
-              </select>
+              <YNRadio value={report.injury_data.sought_medical} onChange={v => setInjury("sought_medical", v)} groupName="h_sought_medical" />
             </F>
-            {report.injury_data.sought_medical && <F label="Medical Facility"><input className="form-input" value={report.injury_data.medical_facility} onChange={e => setInjury("medical_facility", e.target.value)} /></F>}
+            {report.injury_data.sought_medical === "yes" && (
+              <F label="Medical Facility"><input className="form-input" value={report.injury_data.medical_facility} onChange={e => setInjury("medical_facility", e.target.value)} /></F>
+            )}
             <F label="PEP Recommended?">
               <select className="form-select" value={report.injury_data.pep_recommended} onChange={e => setInjury("pep_recommended", e.target.value)}>
-                <option>Unknown</option><option>Yes</option><option>No</option>
+                <option value="">— Select —</option>
+                <option>Yes</option><option>No</option><option>Unknown</option>
               </select>
             </F>
             <F label="Treating Physician"><input className="form-input" value={report.injury_data.treating_physician} onChange={e => setInjury("treating_physician", e.target.value)} /></F>
@@ -667,13 +726,13 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
 
       {/* ── Section Quarantine ────────────────────────────────────────────── */}
       <SH n={isHuman ? "6" : "4"} title="Quarantine Information" />
-      <div style={{ marginBottom: 10 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: report.quarantine_ordered ? 700 : 400 }}>
-          <input type="checkbox" checked={report.quarantine_ordered} onChange={e => set("quarantine_ordered", e.target.checked)} />
-          Quarantine ordered
-        </label>
+      <div className="grid-2" style={{ marginBottom: 10 }}>
+        <F label="Quarantine Ordered?">
+          <YNRadio value={report.quarantine_ordered} onChange={v => set("quarantine_ordered", v)} groupName="quar_ordered" includeUnknown={false} />
+        </F>
+        <div />
       </div>
-      {report.quarantine_ordered && (
+      {report.quarantine_ordered === "yes" && (
         <div className="grid-2">
           <F label="Quarantine Type">
             <select className="form-select" value={report.quarantine_data.type} onChange={e => setQuar("type", e.target.value)}>
@@ -701,16 +760,13 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
             {["Open", "Pending", "Closed"].map(s => <option key={s}>{s}</option>)}
           </select>
         </F>
-      </div>
-      <div style={{ display: "flex", gap: 16, alignItems: "center", marginBottom: 8 }}>
-        <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13 }}>
-          <input type="checkbox" checked={report.follow_up_required} onChange={e => set("follow_up_required", e.target.checked)} /> Follow-up required
-        </label>
-        {report.follow_up_required && (
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 13 }}>Date:</span>
-            <DateInput className="form-input" style={{ maxWidth: 160 }} value={report.follow_up_date} onChange={e => set("follow_up_date", e.target.value)} />
-          </div>
+        <F label="Follow-up Required?">
+          <YNRadio value={report.follow_up_required} onChange={v => set("follow_up_required", v)} groupName="followup_required" includeUnknown={false} />
+        </F>
+        {report.follow_up_required === "yes" && (
+          <F label="Follow-up Date">
+            <DateInput className="form-input" value={report.follow_up_date} onChange={e => set("follow_up_date", e.target.value)} />
+          </F>
         )}
       </div>
       <F label="Narrative">
