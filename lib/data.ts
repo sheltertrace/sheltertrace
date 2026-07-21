@@ -5,7 +5,7 @@ import type { IdexxConfig } from "./idexx";
 import { genId, genReceiptId, today } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
 import { CURRENT_USER_KEY } from "./auth";
-import { nullifyEmptyDates } from "./sanitize";
+import { nullifyEmptyDates, nullifyEmptyBooleans } from "./sanitize";
 
 // Optional DATE columns per table — empty strings must become null for Postgres.
 const ANIMAL_DATE_FIELDS = [
@@ -17,6 +17,8 @@ const PERSON_DATE_FIELDS = ["dob"] as const;
 const CITATION_DATE_FIELDS = ["date", "court_date", "due_date", "violator_dob"] as const;
 const FOSTER_DATE_FIELDS = ["start_date", "expected_return_date", "actual_return_date"] as const;
 const LICENSE_DATE_FIELDS = ["issue_date", "expiration_date", "rabies_expiration_date"] as const;
+const VOLUNTEER_APP_DATE_FIELDS = ["dob"] as const;
+const VOLUNTEER_APP_BOOL_FIELDS = ["has_animals", "agree_to_terms", "agree_to_conduct"] as const;
 
 // Helper: in demo mode, return { demo_session_id } so that newly-created
 // records are tagged with the current session and can be cleaned up on reset.
@@ -1349,10 +1351,14 @@ export async function fetchVolunteerApplications(): Promise<import("./types").Vo
 export async function createVolunteerApplication(
   app: Omit<import("./types").VolunteerApplication, "id" | "submitted_at">
 ): Promise<import("./types").VolunteerApplication> {
-  console.log("[volunteer-apply] insert data:", JSON.stringify(app, null, 2));
+  const payload = nullifyEmptyBooleans(
+    nullifyEmptyDates(app, VOLUNTEER_APP_DATE_FIELDS),
+    VOLUNTEER_APP_BOOL_FIELDS
+  );
+  console.log("[volunteer-apply] insert data:", JSON.stringify(payload, null, 2));
   const { data, error } = await supabase
     .from("volunteer_applications")
-    .insert(app)
+    .insert(payload)
     .select()
     .single();
   if (error) {
@@ -1366,9 +1372,13 @@ export async function updateVolunteerApplication(
   id: string,
   updates: Partial<import("./types").VolunteerApplication>
 ): Promise<import("./types").VolunteerApplication> {
+  const payload = nullifyEmptyBooleans(
+    nullifyEmptyDates(updates, VOLUNTEER_APP_DATE_FIELDS),
+    VOLUNTEER_APP_BOOL_FIELDS
+  );
   const { data, error } = await supabase
     .from("volunteer_applications")
-    .update(updates)
+    .update(payload)
     .eq("id", id)
     .select()
     .single();

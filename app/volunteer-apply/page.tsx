@@ -55,6 +55,43 @@ function SignaturePad({ label, onSign }: SigPadProps) {
     ctx.fillRect(0, 0, canvas.width, canvas.height);
   }, []);
 
+  // React attaches touch listeners as passive by default on some mobile
+  // browsers, which silently ignores e.preventDefault() and lets the page
+  // scroll out from under the user's finger mid-stroke. Registering the
+  // listeners natively with { passive: false } guarantees preventDefault
+  // actually blocks the scroll/zoom gesture.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const onTouchStart = (e: TouchEvent) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      const p = getPos(t.clientX, t.clientY);
+      beginStroke(p.x, p.y);
+    };
+    const onTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      const p = getPos(t.clientX, t.clientY);
+      continueStroke(p.x, p.y);
+    };
+    const onTouchEnd = () => endStroke();
+
+    canvas.addEventListener("touchstart", onTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", onTouchMove, { passive: false });
+    canvas.addEventListener("touchend", onTouchEnd, { passive: false });
+    canvas.addEventListener("touchcancel", onTouchEnd, { passive: false });
+
+    return () => {
+      canvas.removeEventListener("touchstart", onTouchStart);
+      canvas.removeEventListener("touchmove", onTouchMove);
+      canvas.removeEventListener("touchend", onTouchEnd);
+      canvas.removeEventListener("touchcancel", onTouchEnd);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function getPos(clientX: number, clientY: number): { x: number; y: number } {
     const canvas = canvasRef.current!;
     const rect   = canvas.getBoundingClientRect();
@@ -128,9 +165,6 @@ function SignaturePad({ label, onSign }: SigPadProps) {
         onMouseMove={(e) => { const p = getPos(e.clientX, e.clientY); continueStroke(p.x, p.y); }}
         onMouseUp={endStroke}
         onMouseLeave={endStroke}
-        onTouchStart={(e) => { e.preventDefault(); const t = e.touches[0]; const p = getPos(t.clientX, t.clientY); beginStroke(p.x, p.y); }}
-        onTouchMove={(e)  => { e.preventDefault(); const t = e.touches[0]; const p = getPos(t.clientX, t.clientY); continueStroke(p.x, p.y); }}
-        onTouchEnd={endStroke}
       />
       {isEmpty && (
         <div style={{ fontSize: 12, color: "#9ca3af", textAlign: "center", marginTop: 5, fontStyle: "italic" }}>
@@ -190,6 +224,15 @@ export default function VolunteerApplyPage() {
   const handleConfidSig = useCallback((d: string | null) => setConfidSig(d), []);
   const handleParentSig = useCallback((d: string | null) => setParentSig(d), []);
 
+  const firstNameRef    = useRef<HTMLInputElement>(null);
+  const agreementBoxRef = useRef<HTMLDivElement>(null);
+  const confidBoxRef    = useRef<HTMLDivElement>(null);
+  const parentBoxRef    = useRef<HTMLDivElement>(null);
+
+  function scrollToRef(ref: React.RefObject<HTMLElement | null>) {
+    ref.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
   function toggleInterest(item: string) {
     setInterests((prev) => prev.includes(item) ? prev.filter((x) => x !== item) : [...prev, item]);
   }
@@ -204,11 +247,25 @@ export default function VolunteerApplyPage() {
     e.preventDefault();
     setError("");
 
-    if (!firstName.trim() || !lastName.trim()) { setError("First and last name are required."); return; }
-    if (!agreeRelease || !agreeSig) { setError("Please sign the Volunteer Agreement & Release."); return; }
-    if (!agreeConf || !confidSig)   { setError("Please sign the Volunteer Confidentiality Agreement."); return; }
+    if (!firstName.trim() || !lastName.trim()) {
+      setError("First and last name are required.");
+      firstNameRef.current?.focus();
+      scrollToRef(firstNameRef);
+      return;
+    }
+    if (!agreeRelease || !agreeSig) {
+      setError("Please check the box and draw your signature on the Volunteer Agreement & Release above.");
+      scrollToRef(agreementBoxRef);
+      return;
+    }
+    if (!agreeConf || !confidSig) {
+      setError("Please check the box and draw your signature on the Volunteer Confidentiality Agreement above.");
+      scrollToRef(confidBoxRef);
+      return;
+    }
     if (isMinor && (!parentSig || !parentName.trim())) {
-      setError("Parent/guardian signature and name are required for applicants under 18.");
+      setError("Parent/guardian printed name and signature are required for applicants under 18.");
+      scrollToRef(parentBoxRef);
       return;
     }
 
@@ -244,8 +301,12 @@ export default function VolunteerApplyPage() {
       });
       setStep("submitted");
     } catch (err) {
-      setError("Failed to submit application. Please try again or contact us directly.");
-      console.error("[volunteer-apply]", err);
+      console.error("[volunteer-apply] submission failed:", err);
+      const message =
+        err instanceof Error ? err.message :
+        typeof err === "object" && err !== null && "message" in err ? String((err as { message: unknown }).message) :
+        String(err);
+      setError(`Submission failed: ${message}`);
     } finally {
       setSaving(false);
     }
@@ -302,7 +363,7 @@ export default function VolunteerApplyPage() {
           {/* ── Section 1: Personal Info ── */}
           <Section title="1. Personal Information">
             <div style={grid3}>
-              <Field label="First Name *"><input style={input} value={firstName} onChange={(e) => setFirstName(e.target.value)} required placeholder="First" /></Field>
+              <Field label="First Name *"><input ref={firstNameRef} style={input} value={firstName} onChange={(e) => setFirstName(e.target.value)} required placeholder="First" /></Field>
               <Field label="Middle Name"><input style={input} value={middleName} onChange={(e) => setMiddleName(e.target.value)} placeholder="Middle" /></Field>
               <Field label="Last Name *"><input style={input} value={lastName} onChange={(e) => setLastName(e.target.value)} required placeholder="Last" /></Field>
             </div>
@@ -385,7 +446,7 @@ export default function VolunteerApplyPage() {
           </Section>
 
           {/* ── Agreement 1: Volunteer Agreement & Release ── */}
-          <div style={{ background: "#fff", borderRadius: 12, padding: "22px 24px", marginBottom: 18, boxShadow: "0 1px 4px rgba(0,0,0,.07)", border: agreeRelease && agreeSig ? "2px solid #86efac" : "2px solid #e5e7eb" }}>
+          <div ref={agreementBoxRef} style={{ background: "#fff", borderRadius: 12, padding: "22px 24px", marginBottom: 18, boxShadow: "0 1px 4px rgba(0,0,0,.07)", border: agreeRelease && agreeSig ? "2px solid #86efac" : "2px solid #e5e7eb" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#0f2942", marginBottom: 6, paddingBottom: 10, borderBottom: "2px solid #e5e7eb" }}>
               5. Volunteer Agreement &amp; Release of All Claims
             </div>
@@ -467,7 +528,7 @@ export default function VolunteerApplyPage() {
 
             {/* Minor / Parent section */}
             {isMinor && dob && (
-              <div style={{ marginTop: 22, borderTop: "2px dashed #fcd34d", paddingTop: 18 }}>
+              <div ref={parentBoxRef} style={{ marginTop: 22, borderTop: "2px dashed #fcd34d", paddingTop: 18 }}>
                 <div style={{ fontWeight: 800, fontSize: 14, color: "#92400e", marginBottom: 10 }}>
                   ⚠ Parent / Legal Guardian Release
                 </div>
@@ -494,7 +555,7 @@ export default function VolunteerApplyPage() {
           </div>
 
           {/* ── Agreement 2: Confidentiality Agreement ── */}
-          <div style={{ background: "#fff", borderRadius: 12, padding: "22px 24px", marginBottom: 18, boxShadow: "0 1px 4px rgba(0,0,0,.07)", border: agreeConf && confidSig ? "2px solid #86efac" : "2px solid #e5e7eb" }}>
+          <div ref={confidBoxRef} style={{ background: "#fff", borderRadius: 12, padding: "22px 24px", marginBottom: 18, boxShadow: "0 1px 4px rgba(0,0,0,.07)", border: agreeConf && confidSig ? "2px solid #86efac" : "2px solid #e5e7eb" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: "#0f2942", marginBottom: 6, paddingBottom: 10, borderBottom: "2px solid #e5e7eb" }}>
               6. Volunteer Confidentiality Agreement
             </div>
@@ -586,7 +647,7 @@ export default function VolunteerApplyPage() {
           <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 40 }}>
             <button
               type="submit"
-              disabled={saving || !canSubmit}
+              disabled={saving}
               style={{
                 background: canSubmit ? "#1a8a8a" : "#9ca3af",
                 color: "#fff",
@@ -595,7 +656,7 @@ export default function VolunteerApplyPage() {
                 padding: "12px 36px",
                 fontSize: 16,
                 fontWeight: 800,
-                cursor: canSubmit ? "pointer" : "not-allowed",
+                cursor: saving ? "not-allowed" : "pointer",
                 letterSpacing: 0.3,
                 opacity: saving ? 0.8 : 1,
               }}
