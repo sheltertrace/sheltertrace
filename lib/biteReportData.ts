@@ -1,11 +1,17 @@
 "use client";
 import { supabase } from "./supabase";
 import type { BiteReport } from "./biteReportTypes";
-import { nullifyEmptyDates } from "./sanitize";
+import { nullifyEmptyDates, nullifyEmptyBooleans } from "./sanitize";
 
 // Top-level DATE/TIME columns in bite_reports that must never receive "".
 const BITE_DATE_FIELDS = [
   "incident_date", "incident_time", "follow_up_date", "quarantine_release_date",
+] as const;
+
+// Top-level BOOLEAN columns in bite_reports that must never receive "".
+const BITE_BOOL_FIELDS = [
+  "law_enforcement_notified", "quarantine_ordered",
+  "quarantine_released", "follow_up_required",
 ] as const;
 
 async function genReportNumber(type: string): Promise<string> {
@@ -17,9 +23,12 @@ async function genReportNumber(type: string): Promise<string> {
 
 export async function createBiteReport(report: BiteReport): Promise<BiteReport> {
   const report_number = await genReportNumber(report.report_type);
-  const payload = nullifyEmptyDates(
-    { ...report, report_number, updated_at: new Date().toISOString() },
-    BITE_DATE_FIELDS
+  const payload = nullifyEmptyBooleans(
+    nullifyEmptyDates(
+      { ...report, report_number, updated_at: new Date().toISOString() },
+      BITE_DATE_FIELDS
+    ),
+    BITE_BOOL_FIELDS
   );
   const { data, error } = await supabase.from("bite_reports").insert(payload).select().single();
   if (error) throw error;
@@ -27,9 +36,12 @@ export async function createBiteReport(report: BiteReport): Promise<BiteReport> 
 }
 
 export async function updateBiteReport(id: string, updates: Partial<BiteReport>): Promise<BiteReport> {
-  const payload = nullifyEmptyDates(
-    { ...updates, updated_at: new Date().toISOString() },
-    BITE_DATE_FIELDS
+  const payload = nullifyEmptyBooleans(
+    nullifyEmptyDates(
+      { ...updates, updated_at: new Date().toISOString() },
+      BITE_DATE_FIELDS
+    ),
+    BITE_BOOL_FIELDS
   );
   const { data, error } = await supabase.from("bite_reports").update(payload).eq("id", id).select().single();
   if (error) throw error;
