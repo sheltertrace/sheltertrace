@@ -64,6 +64,7 @@ export interface BiteVictimAnimalData {
   rabies_tag: string;
   veterinarian: string;
   vet_phone: string;
+  // Legacy flat owner fields (kept for old records)
   owner_first_name: string;
   owner_last_name: string;
   owner_address: string;
@@ -74,6 +75,47 @@ export interface BiteVictimAnimalData {
   owner_email: string;
 }
 
+// Full owner section for victim animals in animal_animal reports
+export interface VictimAnimalOwner {
+  known: boolean;
+  linked_person_id?: string;
+  first_name: string;
+  last_name: string;
+  address: string;
+  city: string;
+  state: string;
+  zip: string;
+  phone: string;
+  phone2: string;
+  email: string;
+  was_present: boolean;
+  seeking_restitution: boolean;
+  estimated_vet_costs: string;
+}
+
+// Per-animal injury for each victim in an animal_animal report
+export interface VictimAnimalInjury {
+  body_parts: string[];
+  severity: string;
+  vet_treated: boolean;
+  vet_clinic: string;
+  estimated_bill: string;
+}
+
+// One victim animal entry (animal + owner + injury) stored in victim_data array
+export interface VictimAnimalEntry {
+  animal: BiteVictimAnimalData;
+  owner: VictimAnimalOwner;
+  injury: VictimAnimalInjury;
+}
+
+// One attacking animal entry (animal + owner + was_present) stored in biting_animal_data array
+export interface AttackingAnimalEntry {
+  animal: BiteAnimalData;
+  owner: BiteOwnerData;
+  was_owner_present: boolean;
+}
+
 export interface BiteInjuryData {
   body_parts: string[];
   severity: string;
@@ -81,7 +123,7 @@ export interface BiteInjuryData {
   medical_facility: string;
   pep_recommended: string;
   treating_physician: string;
-  // Animal-animal specific
+  // Animal-animal legacy fields (for animal_human forms)
   vet_treated: boolean;
   vet_clinic: string;
   estimated_bill: string;
@@ -113,9 +155,11 @@ export interface BiteReport {
   law_enforcement_notified: boolean;
   law_enforcement_report: string;
   biting_animal_id?: string;
-  biting_animal_data: BiteAnimalData;
+  // For animal_human: single BiteAnimalData. For animal_animal: AttackingAnimalEntry[] stored as JSONB.
+  biting_animal_data: BiteAnimalData | AttackingAnimalEntry[];
   victim_type: string;
-  victim_data: BiteVictimHumanData | BiteVictimAnimalData;
+  // For animal_human: BiteVictimHumanData. For animal_animal: VictimAnimalEntry[] stored as JSONB.
+  victim_data: BiteVictimHumanData | BiteVictimAnimalData | VictimAnimalEntry[];
   owner_data: BiteOwnerData;
   injury_data: BiteInjuryData;
   quarantine_ordered: boolean;
@@ -186,20 +230,38 @@ export const QUARANTINE_TYPES = [
   "Home quarantine", "MCAS impound quarantine", "Veterinary clinic quarantine",
 ] as const;
 
-function blankAnimal(): BiteAnimalData {
+// ── Blank factory functions ──────────────────────────────────────────────────
+
+export function blankAnimal(): BiteAnimalData {
   return { name: "", species: "", breed: "", color: "", sex: "", age: "", size: "", microchip: "", rabies_status: "Unknown", rabies_tag: "", rabies_expiration: "", veterinarian: "", vet_phone: "", disposition_at_time: "", was_provoked: "Unknown", current_status: "" };
 }
 
-function blankOwner(): BiteOwnerData {
+export function blankOwner(): BiteOwnerData {
   return { known: false, first_name: "", last_name: "", address: "", city: "", state: "GA", zip: "", phone: "", phone2: "", email: "", dl_number: "", dl_state: "", was_cited: false, citation_number: "" };
 }
 
-function blankHumanVictim(): BiteVictimHumanData {
+export function blankHumanVictim(): BiteVictimHumanData {
   return { first_name: "", last_name: "", dob: "", address: "", city: "", state: "GA", zip: "", phone: "", email: "", sex: "", relationship: "", on_owner_property: "" };
 }
 
-function blankAnimalVictim(): BiteVictimAnimalData {
+export function blankAnimalVictim(): BiteVictimAnimalData {
   return { name: "", species: "", breed: "", color: "", sex: "", age: "", microchip: "", rabies_status: "Unknown", rabies_tag: "", veterinarian: "", vet_phone: "", owner_first_name: "", owner_last_name: "", owner_address: "", owner_city: "", owner_state: "GA", owner_zip: "", owner_phone: "", owner_email: "" };
+}
+
+export function blankVictimAnimalOwner(): VictimAnimalOwner {
+  return { known: false, first_name: "", last_name: "", address: "", city: "", state: "GA", zip: "", phone: "", phone2: "", email: "", was_present: false, seeking_restitution: false, estimated_vet_costs: "" };
+}
+
+export function blankVictimAnimalInjury(): VictimAnimalInjury {
+  return { body_parts: [], severity: "", vet_treated: false, vet_clinic: "", estimated_bill: "" };
+}
+
+export function blankVictimAnimalEntry(): VictimAnimalEntry {
+  return { animal: blankAnimalVictim(), owner: blankVictimAnimalOwner(), injury: blankVictimAnimalInjury() };
+}
+
+export function blankAttackingAnimalEntry(): AttackingAnimalEntry {
+  return { animal: blankAnimal(), owner: blankOwner(), was_owner_present: false };
 }
 
 function blankInjury(): BiteInjuryData {
@@ -215,8 +277,9 @@ export function blankBiteReport(type: "animal_human" | "animal_animal"): BiteRep
   return {
     report_type: type, status: "Open", incident_date: today, incident_time: "", incident_address: "",
     incident_city: "Madison", incident_location_type: "", law_enforcement_notified: false, law_enforcement_report: "",
-    biting_animal_data: blankAnimal(), victim_type: type === "animal_human" ? "human" : "animal",
-    victim_data: type === "animal_human" ? blankHumanVictim() : blankAnimalVictim(),
+    biting_animal_data: type === "animal_animal" ? [blankAttackingAnimalEntry()] : blankAnimal(),
+    victim_type: type === "animal_human" ? "human" : "animal",
+    victim_data: type === "animal_human" ? blankHumanVictim() : [blankVictimAnimalEntry()],
     owner_data: blankOwner(), injury_data: blankInjury(), quarantine_ordered: false,
     quarantine_data: blankQuarantine(), quarantine_released: false, quarantine_release_date: "",
     disposition: "Open — under investigation", follow_up_required: false, follow_up_date: "",
