@@ -225,6 +225,7 @@ export interface DispatchCall {
   created_by?: string;
   created_at?: string;
   updated_at?: string;
+  alert_acknowledgments?: AlertAcknowledgment[];
 }
 
 export interface AssignedOfficer {
@@ -263,6 +264,22 @@ export interface InvolvedParty {
   phone?: string;
   address?: string;
   statement?: string;
+  // Victim/Suspect (person) status — "entered" once info is saved, "skipped"
+  // when the officer explicitly declined to record one, undefined/absent
+  // means the step hasn't been addressed yet.
+  status?: "entered" | "skipped";
+  skipped_by?: string;
+  skipped_at?: string;
+  person_id?: string | null;
+  first?: string;
+  middle?: string;
+  last?: string;
+  dl?: string;
+  dob?: string;
+  hair?: string;
+  eyes?: string;
+  weight?: string;
+  height?: string;
   // Animal party fields
   species?: string;
   breed?: string;
@@ -275,6 +292,12 @@ export interface InvolvedParty {
   behavior?: string;
   dangerous?: boolean;
   [key: string]: unknown;
+}
+
+export interface AlertAcknowledgment {
+  by: string;
+  at: string;
+  summary: string;
 }
 
 export interface Citation {

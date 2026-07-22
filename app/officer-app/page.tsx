@@ -4,8 +4,64 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { login } from "@/lib/auth";
 // All Supabase writes use supabasePublic — consistent anon key, no fieldOps abstraction.
 import { supabasePublic } from "@/lib/supabase-public";
-import type { StaffAccount, FieldStatus, DispatchCall } from "@/lib/types";
+import type { StaffAccount, FieldStatus, DispatchCall, AlertAcknowledgment } from "@/lib/types";
 import { today } from "@/lib/utils";
+import DangerAlertModal, { type DangerAlertBlock } from "@/components/dispatch/DangerAlertModal";
+
+// ── Officer-safety danger check (address + already-recorded suspect/victim) ──
+// Mirrors lib/data.ts's checks but goes through supabasePublic, consistent
+// with the rest of this file's direct-Supabase pattern.
+async function checkCallDangerPublic(call: DispatchCall): Promise<DangerAlertBlock[]> {
+  const blocks: DangerAlertBlock[] = [];
+  type NoteRow = { person_id: string; text: string };
+
+  if (call.address?.trim()) {
+    const { data: peopleAtAddress } = await supabasePublic
+      .from("people")
+      .select("id, first_name, last_name, address")
+      .ilike("address", call.address.trim());
+    const matched = (peopleAtAddress as Array<{ id: string; first_name: string; last_name: string }> | null) ?? [];
+    if (matched.length > 0) {
+      const { data: notes } = await supabasePublic.from("people_notes").select("person_id, text").in("person_id", matched.map((p) => p.id)).eq("popup", true);
+      const noteList = (notes as NoteRow[] | null) ?? [];
+      const grouped = matched.map((p) => ({ person: p, notes: noteList.filter((n) => n.person_id === p.id) })).filter((g) => g.notes.length > 0);
+      if (grouped.length > 0) {
+        blocks.push({
+          id: `address-people-${call.id}`,
+          heading: "⚠️ ADDRESS ALERT — Known individual(s) at this location have caution flags:",
+          lines: grouped.flatMap((g) => [`${g.person.first_name} ${g.person.last_name}:`, ...g.notes.map((n) => `  • ${n.text}`)]),
+        });
+      }
+    }
+  }
+
+  const parties = (call.involved_parties ?? []) as Array<Record<string, unknown>>;
+  for (const role of ["Victim", "Suspect"]) {
+    const p = parties.find((pt) => pt.role === role);
+    if (!p || p.status === "skipped") continue;
+    let personId = p.person_id as string | undefined;
+    if (!personId && (p.first || p.last)) {
+      const { data: matches } = await supabasePublic
+        .from("people")
+        .select("id, phone, address")
+        .ilike("first_name", String(p.first || ""))
+        .ilike("last_name", String(p.last || ""));
+      const cand = (matches as Array<{ id: string; phone?: string; address?: string }> | null) ?? [];
+      personId = cand.find((c) => (p.phone && c.phone === p.phone) || (p.address && c.address === p.address))?.id;
+    }
+    if (!personId) continue;
+    const { data: notes } = await supabasePublic.from("people_notes").select("text").eq("person_id", personId).eq("popup", true);
+    const noteList = (notes as Array<{ text: string }> | null) ?? [];
+    if (noteList.length > 0) {
+      blocks.push({
+        id: `person-${personId}`,
+        heading: `⚠️ CAUTION — ${p.name || role} has alert notes on file`,
+        lines: noteList.map((n) => n.text),
+      });
+    }
+  }
+  return blocks;
+}
 
 // ── Direct Supabase helpers (bypass fieldOps / lib/supabase.ts) ───────────────
 
@@ -209,6 +265,8 @@ export default function OfficerAppPage() {
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [restoringStatus, setRestoringStatus] = useState(false);
+  const [dangerBlocks, setDangerBlocks] = useState<DangerAlertBlock[]>([]);
+  const [dangerCall, setDangerCall] = useState<DispatchCall | null>(null);
 
   const watchIdRef   = useRef<number | null>(null);
   const lastSavedRef = useRef<number>(0);
@@ -439,6 +497,29 @@ export default function OfficerAppPage() {
     await saveStatus(status);
   }
 
+  // ── Officer-safety danger check ───────────────────────────────────────────
+  async function handleOpenCall(call: DispatchCall) {
+    setAddNarrativeCall(call);
+    setNarrativeText("");
+    setDangerCall(call);
+    const blocks = await checkCallDangerPublic(call);
+    setDangerBlocks(blocks);
+  }
+
+  async function handleAcknowledgeAlerts() {
+    const call = dangerCall;
+    const blocks = dangerBlocks;
+    setDangerBlocks([]);
+    setDangerCall(null);
+    if (!call || blocks.length === 0) return;
+    const name = `${officer?.first_name ?? officer?.firstName ?? ""} ${officer?.last_name ?? officer?.lastName ?? ""}`.trim() || officer?.username || "Officer";
+    const ack: AlertAcknowledgment = { by: name, at: new Date().toISOString(), summary: blocks.map((b) => b.heading).join("; ") };
+    try {
+      const existing = (call.alert_acknowledgments ?? []) as AlertAcknowledgment[];
+      await supabasePublic.from("dispatch_calls").update({ alert_acknowledgments: [...existing, ack] }).eq("id", call.id);
+    } catch (e) { console.error("[danger-alert]", e); }
+  }
+
   // ── Narrative ─────────────────────────────────────────────────────────────
   async function handleSaveNarrative() {
     if (!addNarrativeCall || !narrativeText.trim() || !officer) return;
@@ -638,7 +719,7 @@ export default function OfficerAppPage() {
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#0f2942", color: "#38bdf8", fontSize: 13, fontWeight: 700, textDecoration: "none", textAlign: "center", border: "1px solid #1d4ed8" }}>
                     🗺 Navigate
                   </a>
-                  <button onClick={() => { setAddNarrativeCall(call); setNarrativeText(""); }}
+                  <button onClick={() => handleOpenCall(call)}
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#0f2942", color: "#94a3b8", fontSize: 13, fontWeight: 700, border: "1px solid #334155", cursor: "pointer" }}>
                     📝 Narrative
                   </button>
@@ -772,6 +853,8 @@ export default function OfficerAppPage() {
           </div>
         </div>
       )}
+
+      <DangerAlertModal blocks={dangerBlocks} onAcknowledge={handleAcknowledgeAlerts} />
     </div>
   );
 }

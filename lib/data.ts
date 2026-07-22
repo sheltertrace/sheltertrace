@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation, PersonNote } from "./types";
 import type { IdexxConfig } from "./idexx";
 import { genId, genReceiptId, today } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
@@ -706,6 +706,55 @@ export async function fetchPersonNotes(personId: string) {
 
 export async function togglePersonNotePopup(noteId: string, popup: boolean): Promise<void> {
   await supabase.from("people_notes").update({ popup }).eq("id", noteId);
+}
+
+// ── Dispatch Danger Alerts ────────────────────────────────────────────────────
+// Officer-safety check: surfaces popup-flagged people_notes for a linked/matched
+// person, plus other flagged people and prior citation/bite/cruelty history at
+// a given address. Reuses the existing popup-notes flagging system on people —
+// no separate danger flag exists.
+
+export function findPeopleAtAddress(people: Person[], address: string): Person[] {
+  const norm = address.trim().toLowerCase();
+  if (!norm) return [];
+  return people.filter((p) => (p.address || "").trim().toLowerCase() === norm);
+}
+
+export function findPersonMatch(people: Person[], opts: { personId?: string | null; first?: string; last?: string; phone?: string; address?: string }): Person | undefined {
+  if (opts.personId) return people.find((p) => p.id === opts.personId);
+  const name = [opts.first, opts.last].map((s) => (s || "").trim()).filter(Boolean).join(" ").toLowerCase();
+  if (!name) return undefined;
+  const normPhone = (opts.phone || "").replace(/\D/g, "");
+  const normAddress = (opts.address || "").trim().toLowerCase();
+  return people.find((p) => {
+    const pName = `${p.first_name} ${p.last_name}`.trim().toLowerCase();
+    if (pName !== name) return false;
+    if (normPhone && (p.phone || "").replace(/\D/g, "") === normPhone) return true;
+    if (normAddress && (p.address || "").trim().toLowerCase() === normAddress) return true;
+    return false;
+  });
+}
+
+export async function fetchPopupNotesForPeople(personIds: string[]): Promise<PersonNote[]> {
+  const ids = [...new Set(personIds)].filter(Boolean);
+  if (ids.length === 0) return [];
+  const { data } = await supabase.from("people_notes").select("*").in("person_id", ids).eq("popup", true);
+  return (data as PersonNote[]) || [];
+}
+
+// Prior dispatch calls at the same address that involved a citation, or whose
+// call type indicates a bite or cruelty incident.
+export async function fetchAddressIncidentCount(address: string, excludeCallId?: string): Promise<number> {
+  const norm = address.trim().toLowerCase();
+  if (!norm) return 0;
+  const { data } = await supabase.from("dispatch_calls").select("id, address, type");
+  const calls = ((data as Array<{ id: string; address?: string; type?: string }>) || [])
+    .filter((c) => c.id !== excludeCallId && (c.address || "").trim().toLowerCase() === norm);
+  if (calls.length === 0) return 0;
+  const ids = calls.map((c) => c.id);
+  const { data: cits } = await supabase.from("citations").select("call_id").in("call_id", ids);
+  const citedCallIds = new Set(((cits as Array<{ call_id?: string }>) || []).map((c) => c.call_id).filter(Boolean));
+  return calls.filter((c) => citedCallIds.has(c.id) || /bite|cruelt/i.test(c.type || "")).length;
 }
 
 // ── Animal Documents ──────────────────────────────────────────────────────────

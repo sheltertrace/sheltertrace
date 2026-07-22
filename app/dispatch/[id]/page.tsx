@@ -2,12 +2,13 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
-import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked, fetchAnimals } from "@/lib/data";
+import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked, fetchAnimals, findPeopleAtAddress, findPersonMatch, fetchPopupNotesForPeople, fetchAddressIncidentCount } from "@/lib/data";
 import { fetchOfficerFieldStatuses } from "@/lib/fieldOps";
-import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType, OfficerFieldProfile, FieldStatus } from "@/lib/types";
+import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType, OfficerFieldProfile, FieldStatus, AlertAcknowledgment } from "@/lib/types";
 import dynamic from "next/dynamic";
 const QuickIntakeModal = dynamic(() => import("@/components/dispatch/QuickIntakeModal"), { ssr: false });
 const MiniDispatchMap  = dynamic(() => import("@/components/map/MiniDispatchMap"),       { ssr: false });
+import DangerAlertModal, { type DangerAlertBlock } from "@/components/dispatch/DangerAlertModal";
 import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS } from "@/lib/constants";
 import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -16,7 +17,7 @@ import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import DragDropUpload from "@/components/ui/DragDropUpload";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
-import { formatDate } from "@/lib/utils";
+import { formatDate, formatDateTime } from "@/lib/utils";
 import DateInput from "@/components/ui/DateInput";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -97,13 +98,15 @@ interface ReportData {
   arrival_time: string;
   departure_time: string;
   disposition_notes: string;
-  victim_skip: boolean; victim_person_id: string; victim_name: string; victim_first: string; victim_middle: string; victim_last: string; victim_phone: string;
+  victim_status: "undecided" | "entered" | "skipped"; victim_skipped_by: string; victim_skipped_at: string;
+  victim_person_id: string; victim_name: string; victim_first: string; victim_middle: string; victim_last: string; victim_phone: string;
   victim_address: string; victim_dl: string; victim_dob: string; victim_sex: string;
   victim_injuries: string; victim_save: boolean;
   victim_animal_skip: boolean; victim_animal_species: string; victim_animal_breed: string;
   victim_animal_color: string; victim_animal_sex: string; victim_animal_size: string;
   victim_animal_desc: string; victim_animal_condition: string; victim_animal_injuries: string;
-  suspect_skip: boolean; suspect_person_id: string; suspect_name: string; suspect_first: string; suspect_middle: string; suspect_last: string; suspect_phone: string;
+  suspect_status: "undecided" | "entered" | "skipped"; suspect_skipped_by: string; suspect_skipped_at: string;
+  suspect_person_id: string; suspect_name: string; suspect_first: string; suspect_middle: string; suspect_last: string; suspect_phone: string;
   suspect_address: string; suspect_dl: string; suspect_dob: string; suspect_sex: string;
   suspect_hair: string; suspect_eyes: string; suspect_weight: string; suspect_height: string; suspect_save: boolean;
   suspect_animal_skip: boolean; suspect_animal_species: string; suspect_animal_breed: string;
@@ -116,6 +119,11 @@ interface ReportData {
 }
 
 // ── Deserialize DispatchCall → ReportData ─────────────────────────────────────
+function partyStatus(p: Record<string, unknown> | undefined): "undecided" | "entered" | "skipped" {
+  if (!p) return "undecided";
+  return p.status === "skipped" ? "skipped" : "entered";
+}
+
 function callToReportData(call: DispatchCall): ReportData {
   type P = Record<string, unknown>;
   const parties = (call.involved_parties || []) as P[];
@@ -127,13 +135,15 @@ function callToReportData(call: DispatchCall): ReportData {
   return {
     status: call.status || "Dispatched",
     arrival_time: "", departure_time: "", disposition_notes: "",
-    victim_skip: !victim, victim_person_id: s(victim?.person_id), victim_name: s(victim?.name), victim_first: s(victim?.first), victim_middle: s(victim?.middle), victim_last: s(victim?.last),
+    victim_status: partyStatus(victim), victim_skipped_by: s(victim?.skipped_by), victim_skipped_at: s(victim?.skipped_at),
+    victim_person_id: s(victim?.person_id), victim_name: s(victim?.name), victim_first: s(victim?.first), victim_middle: s(victim?.middle), victim_last: s(victim?.last),
     victim_phone: s(victim?.phone), victim_address: s(victim?.address), victim_dl: s(victim?.dl),
     victim_dob: s(victim?.dob), victim_sex: s(victim?.sex), victim_injuries: s(victim?.injuries), victim_save: false,
     victim_animal_skip: !aVic, victim_animal_species: s(aVic?.species) || "Dog", victim_animal_breed: s(aVic?.breed),
     victim_animal_color: s(aVic?.color), victim_animal_sex: s(aVic?.sex), victim_animal_size: s(aVic?.size),
     victim_animal_desc: s(aVic?.desc), victim_animal_condition: s(aVic?.condition) || "Unknown", victim_animal_injuries: s(aVic?.injuries),
-    suspect_skip: !suspect, suspect_person_id: s(suspect?.person_id), suspect_name: s(suspect?.name), suspect_first: s(suspect?.first), suspect_middle: s(suspect?.middle), suspect_last: s(suspect?.last),
+    suspect_status: partyStatus(suspect), suspect_skipped_by: s(suspect?.skipped_by), suspect_skipped_at: s(suspect?.skipped_at),
+    suspect_person_id: s(suspect?.person_id), suspect_name: s(suspect?.name), suspect_first: s(suspect?.first), suspect_middle: s(suspect?.middle), suspect_last: s(suspect?.last),
     suspect_phone: s(suspect?.phone), suspect_address: s(suspect?.address), suspect_dl: s(suspect?.dl),
     suspect_dob: s(suspect?.dob), suspect_sex: s(suspect?.sex), suspect_hair: s(suspect?.hair),
     suspect_eyes: s(suspect?.eyes), suspect_weight: s(suspect?.weight), suspect_height: s(suspect?.height), suspect_save: false,
@@ -162,11 +172,13 @@ function CallDetailPageInner() {
   const [step, setStep] = useState(() => (initialStep >= 1 && initialStep <= 10 ? initialStep : 1));
   const [data, setData] = useState<ReportData>({
     status: "Dispatched", arrival_time: "", departure_time: "", disposition_notes: "",
-    victim_skip: true, victim_person_id: "", victim_name: "", victim_first: "", victim_middle: "", victim_last: "", victim_phone: "", victim_address: "",
+    victim_status: "undecided", victim_skipped_by: "", victim_skipped_at: "",
+    victim_person_id: "", victim_name: "", victim_first: "", victim_middle: "", victim_last: "", victim_phone: "", victim_address: "",
     victim_dl: "", victim_dob: "", victim_sex: "", victim_injuries: "", victim_save: false,
     victim_animal_skip: true, victim_animal_species: "Dog", victim_animal_breed: "", victim_animal_color: "",
     victim_animal_sex: "", victim_animal_size: "", victim_animal_desc: "", victim_animal_condition: "Unknown", victim_animal_injuries: "",
-    suspect_skip: true, suspect_person_id: "", suspect_name: "", suspect_first: "", suspect_middle: "", suspect_last: "", suspect_phone: "", suspect_address: "",
+    suspect_status: "undecided", suspect_skipped_by: "", suspect_skipped_at: "",
+    suspect_person_id: "", suspect_name: "", suspect_first: "", suspect_middle: "", suspect_last: "", suspect_phone: "", suspect_address: "",
     suspect_dl: "", suspect_dob: "", suspect_sex: "", suspect_hair: "", suspect_eyes: "",
     suspect_weight: "", suspect_height: "", suspect_save: false,
     suspect_animal_skip: true, suspect_animal_species: "Dog", suspect_animal_breed: "", suspect_animal_color: "",
@@ -188,6 +200,68 @@ function CallDetailPageInner() {
   const [linkedAnimals, setLinkedAnimals] = useState<Animal[]>([]);
   const [showIntakeModal, setShowIntakeModal] = useState(false);
   const [officerStatuses, setOfficerStatuses] = useState<OfficerFieldProfile[]>([]);
+  const [dangerBlocks, setDangerBlocks] = useState<DangerAlertBlock[]>([]);
+
+  // ── Danger alert checks ────────────────────────────────────────────────────
+  const addDangerBlock = (block: DangerAlertBlock) => {
+    setDangerBlocks((prev) => prev.some((b) => b.id === block.id) ? prev : [...prev, block]);
+  };
+
+  const checkPersonDanger = useCallback(async (
+    peopleList: Person[],
+    opts: { personId?: string | null; first?: string; last?: string; phone?: string; address?: string }
+  ) => {
+    const person = findPersonMatch(peopleList, opts);
+    if (!person) return;
+    const notes = await fetchPopupNotesForPeople([person.id]);
+    if (notes.length === 0) return;
+    addDangerBlock({
+      id: `person-${person.id}`,
+      heading: `⚠️ CAUTION — ${person.first_name} ${person.last_name} has alert notes on file`,
+      lines: notes.map((n) => n.text),
+    });
+  }, []);
+
+  const checkAddressDanger = useCallback(async (peopleList: Person[], address: string, callId: string) => {
+    if (!address) return;
+    const matched = findPeopleAtAddress(peopleList, address);
+    if (matched.length > 0) {
+      const notes = await fetchPopupNotesForPeople(matched.map((p) => p.id));
+      if (notes.length > 0) {
+        const grouped = matched
+          .map((p) => ({ person: p, notes: notes.filter((n) => n.person_id === p.id) }))
+          .filter((g) => g.notes.length > 0);
+        addDangerBlock({
+          id: `address-people-${callId}`,
+          heading: "⚠️ ADDRESS ALERT — Known individual(s) at this location have caution flags:",
+          lines: grouped.flatMap((g) => [`${g.person.first_name} ${g.person.last_name}:`, ...g.notes.map((n) => `  • ${n.text}`)]),
+        });
+      }
+    }
+    const priorCount = await fetchAddressIncidentCount(address, callId);
+    if (priorCount > 0) {
+      addDangerBlock({
+        id: `address-history-${callId}`,
+        heading: "Prior Incident History",
+        lines: [`Prior incident history at this address: ${priorCount} previous call${priorCount === 1 ? "" : "s"}`],
+      });
+    }
+  }, []);
+
+  const handleAcknowledgeAlerts = async () => {
+    if (!call) { setDangerBlocks([]); return; }
+    const officerName = getNarrativeAuthor();
+    const summary = dangerBlocks.map((b) => b.heading).join("; ");
+    const ack: AlertAcknowledgment = { by: officerName, at: new Date().toISOString(), summary };
+    setDangerBlocks([]);
+    try {
+      const existing = (call.alert_acknowledgments || []) as AlertAcknowledgment[];
+      const saved = await updateCall(call.id, { alert_acknowledgments: [...existing, ack] });
+      setCall(saved);
+    } catch (e) {
+      console.error("[danger-alert] failed to log acknowledgment:", e);
+    }
+  };
 
   useEffect(() => {
     fetchOfficerFieldStatuses().then(setOfficerStatuses);
@@ -204,6 +278,17 @@ function CallDetailPageInner() {
             setLinkedAnimals(all.filter((a) => animalIds.includes(a.id)));
           });
         }
+        // Officer-safety checks: existing suspect/victim + call address
+        const parties = (c.involved_parties || []) as Record<string, unknown>[];
+        const victimParty = parties.find((pt) => pt.role === "Victim");
+        const suspectParty = parties.find((pt) => pt.role === "Suspect");
+        if (victimParty && victimParty.status !== "skipped") {
+          checkPersonDanger(p, { personId: victimParty.person_id as string | null, first: victimParty.first as string, last: victimParty.last as string, phone: victimParty.phone as string, address: victimParty.address as string });
+        }
+        if (suspectParty && suspectParty.status !== "skipped") {
+          checkPersonDanger(p, { personId: suspectParty.person_id as string | null, first: suspectParty.first as string, last: suspectParty.last as string, phone: suspectParty.phone as string, address: suspectParty.address as string });
+        }
+        if (c.address) checkAddressDanger(p, c.address, c.id);
       }
       setPeople(p);
       setOfficers(o);
@@ -211,6 +296,7 @@ function CallDetailPageInner() {
       setCallForms(forms);
       setLoading(false);
     });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const upd = (patch: Partial<ReportData>) => setData((d) => ({ ...d, ...patch }));
@@ -234,41 +320,45 @@ function CallDetailPageInner() {
   };
 
   // ── Build involved parties ────────────────────────────────────────────────
-  const buildInvolved = useCallback((): InvolvedParty[] => {
+  const buildInvolved = useCallback((d: ReportData = data): InvolvedParty[] => {
     const involved: InvolvedParty[] = [];
     // Preserve Caller from Phase 1 (read-only in Phase 2)
     type P = Record<string, unknown>;
     const callerParty = ((call?.involved_parties || []) as P[]).find((p) => p.role === "Caller");
     if (callerParty) involved.push(callerParty as InvolvedParty);
-    const victimFullName = [data.victim_first, data.victim_middle, data.victim_last].filter(Boolean).join(" ") || data.victim_name;
-    if (!data.victim_skip && victimFullName) {
-      involved.push({ role: "Victim", name: victimFullName, first: data.victim_first, middle: data.victim_middle, last: data.victim_last, phone: data.victim_phone, address: data.victim_address, dl: data.victim_dl, dob: data.victim_dob, sex: data.victim_sex, injuries: data.victim_injuries, person_id: data.victim_person_id || null });
+    const victimFullName = [d.victim_first, d.victim_middle, d.victim_last].filter(Boolean).join(" ") || d.victim_name;
+    if (d.victim_status === "skipped") {
+      involved.push({ role: "Victim", status: "skipped", skipped_by: d.victim_skipped_by, skipped_at: d.victim_skipped_at });
+    } else if (d.victim_status === "entered" && victimFullName) {
+      involved.push({ role: "Victim", status: "entered", name: victimFullName, first: d.victim_first, middle: d.victim_middle, last: d.victim_last, phone: d.victim_phone, address: d.victim_address, dl: d.victim_dl, dob: d.victim_dob, sex: d.victim_sex, injuries: d.victim_injuries, person_id: d.victim_person_id || null });
     }
-    const suspectFullName = [data.suspect_first, data.suspect_middle, data.suspect_last].filter(Boolean).join(" ") || data.suspect_name;
-    if (!data.suspect_skip && suspectFullName) {
-      involved.push({ role: "Suspect", name: suspectFullName, first: data.suspect_first, middle: data.suspect_middle, last: data.suspect_last, phone: data.suspect_phone, address: data.suspect_address, dl: data.suspect_dl, dob: data.suspect_dob, sex: data.suspect_sex, hair: data.suspect_hair, eyes: data.suspect_eyes, weight: data.suspect_weight, height: data.suspect_height, person_id: data.suspect_person_id || null });
+    const suspectFullName = [d.suspect_first, d.suspect_middle, d.suspect_last].filter(Boolean).join(" ") || d.suspect_name;
+    if (d.suspect_status === "skipped") {
+      involved.push({ role: "Suspect", status: "skipped", skipped_by: d.suspect_skipped_by, skipped_at: d.suspect_skipped_at });
+    } else if (d.suspect_status === "entered" && suspectFullName) {
+      involved.push({ role: "Suspect", status: "entered", name: suspectFullName, first: d.suspect_first, middle: d.suspect_middle, last: d.suspect_last, phone: d.suspect_phone, address: d.suspect_address, dl: d.suspect_dl, dob: d.suspect_dob, sex: d.suspect_sex, hair: d.suspect_hair, eyes: d.suspect_eyes, weight: d.suspect_weight, height: d.suspect_height, person_id: d.suspect_person_id || null });
     }
-    if (!data.victim_animal_skip && data.victim_animal_desc) {
-      involved.push({ role: "AnimalVictim", species: data.victim_animal_species, breed: data.victim_animal_breed, color: data.victim_animal_color, sex: data.victim_animal_sex, size: data.victim_animal_size, desc: data.victim_animal_desc, condition: data.victim_animal_condition, injuries: data.victim_animal_injuries });
+    if (!d.victim_animal_skip && d.victim_animal_desc) {
+      involved.push({ role: "AnimalVictim", species: d.victim_animal_species, breed: d.victim_animal_breed, color: d.victim_animal_color, sex: d.victim_animal_sex, size: d.victim_animal_size, desc: d.victim_animal_desc, condition: d.victim_animal_condition, injuries: d.victim_animal_injuries });
     }
-    if (!data.suspect_animal_skip && data.suspect_animal_desc) {
-      involved.push({ role: "AnimalSuspect", species: data.suspect_animal_species, breed: data.suspect_animal_breed, color: data.suspect_animal_color, sex: data.suspect_animal_sex, size: data.suspect_animal_size, desc: data.suspect_animal_desc, behavior: data.suspect_animal_behavior, dangerous: data.suspect_animal_dangerous });
+    if (!d.suspect_animal_skip && d.suspect_animal_desc) {
+      involved.push({ role: "AnimalSuspect", species: d.suspect_animal_species, breed: d.suspect_animal_breed, color: d.suspect_animal_color, sex: d.suspect_animal_sex, size: d.suspect_animal_size, desc: d.suspect_animal_desc, behavior: d.suspect_animal_behavior, dangerous: d.suspect_animal_dangerous });
     }
     return involved;
   }, [call, data]);
 
   // ── Build save payload ────────────────────────────────────────────────────
-  const buildPayload = useCallback((overrideStatus?: string): Partial<DispatchCall> => ({
-    status: overrideStatus ?? data.status,
-    assigned_officers: data.assigned_officers,
+  const buildPayload = useCallback((overrideStatus?: string, d: ReportData = data): Partial<DispatchCall> => ({
+    status: overrideStatus ?? d.status,
+    assigned_officers: d.assigned_officers,
     narrative: liveNarrative,
-    involved_parties: buildInvolved(),
+    involved_parties: buildInvolved(d),
     animal_ids: (call?.animal_ids || []) as string[],
     response_notes: [
       call?.response_notes,
-      data.arrival_time ? `Arrival: ${data.arrival_time}` : "",
-      data.departure_time ? `Departure: ${data.departure_time}` : "",
-      data.disposition_notes ? `Disposition: ${data.disposition_notes}` : "",
+      d.arrival_time ? `Arrival: ${d.arrival_time}` : "",
+      d.departure_time ? `Departure: ${d.departure_time}` : "",
+      d.disposition_notes ? `Disposition: ${d.disposition_notes}` : "",
     ].filter(Boolean).join("\n") || undefined,
   }), [data, liveNarrative, buildInvolved, call]);
 
@@ -418,14 +508,64 @@ function CallDetailPageInner() {
       await addPersonNote(p.id, `Auto-added from call ${call.id}: ${note}`, "Dispatch");
     };
     const victimFull = [data.victim_first, data.victim_middle, data.victim_last].filter(Boolean).join(" ") || data.victim_name;
-    if (!data.victim_skip && data.victim_save && victimFull && !data.victim_person_id) {
+    if (data.victim_status === "entered" && data.victim_save && victimFull && !data.victim_person_id) {
       await autoCreate(data.victim_first, data.victim_middle, data.victim_last, victimFull, "Victim", data.victim_phone, data.victim_address, `Victim in ${call.type} call`);
     }
     const suspectFull = [data.suspect_first, data.suspect_middle, data.suspect_last].filter(Boolean).join(" ") || data.suspect_name;
-    if (!data.suspect_skip && data.suspect_save && suspectFull && !data.suspect_person_id) {
+    if (data.suspect_status === "entered" && data.suspect_save && suspectFull && !data.suspect_person_id) {
       await autoCreate(data.suspect_first, data.suspect_middle, data.suspect_last, suspectFull, "Suspect", data.suspect_phone, data.suspect_address, `Suspect in ${call.type} call`);
     }
   };
+
+  // ── Victim / Suspect: Save & Continue / Skip / Reopen ─────────────────────
+  const persistPartyStep = async (nextData: ReportData, nextStep: number) => {
+    setData(nextData);
+    if (!call) { setStep(nextStep); return; }
+    setSaveState("saving");
+    try {
+      const saved = await updateCall(call.id, buildPayload(undefined, nextData));
+      applyFreshCall(saved);
+      setSaveState("saved");
+      setTimeout(() => setSaveState("idle"), 2000);
+    } catch (e: unknown) {
+      setSaveState("idle");
+      const err = e as { message?: string };
+      setSaveError(err?.message || "Save failed — unknown error");
+    }
+    setStep(nextStep);
+  };
+
+  const handleSaveVictim = () => {
+    const nextData: ReportData = { ...data, victim_status: "entered", victim_skipped_by: "", victim_skipped_at: "" };
+    checkPersonDanger(people, { personId: data.victim_person_id, first: data.victim_first, last: data.victim_last, phone: data.victim_phone, address: data.victim_address });
+    persistPartyStep(nextData, 3);
+  };
+  const handleSkipVictim = () => {
+    const officerName = getNarrativeAuthor();
+    const nextData: ReportData = {
+      ...data, victim_status: "skipped", victim_skipped_by: officerName, victim_skipped_at: new Date().toISOString(),
+      victim_person_id: "", victim_name: "", victim_first: "", victim_middle: "", victim_last: "", victim_phone: "", victim_address: "",
+      victim_dl: "", victim_dob: "", victim_sex: "", victim_injuries: "",
+    };
+    persistPartyStep(nextData, 3);
+  };
+  const handleReopenVictim = () => upd({ victim_status: "undecided" });
+
+  const handleSaveSuspect = () => {
+    const nextData: ReportData = { ...data, suspect_status: "entered", suspect_skipped_by: "", suspect_skipped_at: "" };
+    checkPersonDanger(people, { personId: data.suspect_person_id, first: data.suspect_first, last: data.suspect_last, phone: data.suspect_phone, address: data.suspect_address });
+    persistPartyStep(nextData, 5);
+  };
+  const handleSkipSuspect = () => {
+    const officerName = getNarrativeAuthor();
+    const nextData: ReportData = {
+      ...data, suspect_status: "skipped", suspect_skipped_by: officerName, suspect_skipped_at: new Date().toISOString(),
+      suspect_person_id: "", suspect_name: "", suspect_first: "", suspect_middle: "", suspect_last: "", suspect_phone: "", suspect_address: "",
+      suspect_dl: "", suspect_dob: "", suspect_sex: "", suspect_hair: "", suspect_eyes: "", suspect_weight: "", suspect_height: "",
+    };
+    persistPartyStep(nextData, 5);
+  };
+  const handleReopenSuspect = () => upd({ suspect_status: "undecided" });
 
   // ── Issue citation (auto-save then navigate) ──────────────────────────────
   const handleIssueCitation = async () => {
@@ -459,9 +599,9 @@ function CallDetailPageInner() {
   const stepComplete = (n: number): boolean => {
     switch (n) {
       case 1: return true;
-      case 2: return data.victim_skip || !!(data.victim_first || data.victim_last || data.victim_name);
+      case 2: return data.victim_status !== "undecided";
       case 3: return data.victim_animal_skip || !!data.victim_animal_desc;
-      case 4: return data.suspect_skip || !!(data.suspect_first || data.suspect_last || data.suspect_name);
+      case 4: return data.suspect_status !== "undecided";
       case 5: return data.suspect_animal_skip || !!data.suspect_animal_desc;
       case 6: return liveNarrative.length > 0;
       case 7: return (call?.evidence || []).length > 0 || evidenceFiles.length > 0;
@@ -565,6 +705,42 @@ function CallDetailPageInner() {
               </div>
             </div>
 
+            {/* Live suspect/victim summary — pulled straight from the call record */}
+            <div className={g2}>
+              {(() => {
+                type P = Record<string, unknown>;
+                const parties = (call.involved_parties || []) as P[];
+                const personCard = (title: string, p: P | undefined) => (
+                  <div className="card" style={{ padding: "14px 16px" }} key={title}>
+                    <div style={{ fontWeight: 700, fontSize: 11, textTransform: "uppercase", color: "var(--text-muted)", marginBottom: 8 }}>{title}</div>
+                    {!p ? (
+                      <div style={{ color: "var(--text-muted)", fontSize: 13, fontStyle: "italic" }}>Not yet addressed</div>
+                    ) : p.status === "skipped" ? (
+                      <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
+                        None identified — skipped by {String(p.skipped_by || "Unknown")}{p.skipped_at ? ` on ${formatDateTime(String(p.skipped_at))}` : ""}
+                      </div>
+                    ) : (
+                      <>
+                        <InfoRow label="Name" value={p.name as string} />
+                        <InfoRow label="Phone" value={p.phone as string} />
+                        <InfoRow label="Address" value={p.address as string} />
+                        <InfoRow label="DOB" value={p.dob as string} />
+                        {!!p.person_id && (
+                          <a href={`/people/${p.person_id}`} style={{ fontSize: 12, color: "var(--teal)", fontWeight: 600 }}>View linked person record →</a>
+                        )}
+                      </>
+                    )}
+                  </div>
+                );
+                return (
+                  <>
+                    {personCard("Victim", parties.find((p) => p.role === "Victim"))}
+                    {personCard("Suspect", parties.find((p) => p.role === "Suspect"))}
+                  </>
+                );
+              })()}
+            </div>
+
             <div className={g2}>
               <F label="Arrival Time">
                 <input className="form-input" type="time" value={data.arrival_time} onChange={(e) => upd({ arrival_time: e.target.value })} />
@@ -580,11 +756,17 @@ function CallDetailPageInner() {
       // ── 2: Victim (Person) ───────────────────────────────────────────────
       case 2: return (
         <div>
-          {skipBanner("Victim (Person)", data.victim_skip, () => upd({ victim_skip: true }), () => upd({ victim_skip: false }))}
-          {!data.victim_skip && (
+          {data.victim_status === "skipped" ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 6, marginBottom: 14 }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                <strong>No victim identified</strong> — skipped by {data.victim_skipped_by || "Unknown"}{data.victim_skipped_at ? ` on ${formatDateTime(data.victim_skipped_at)}` : ""}
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={handleReopenVictim}>+ Add Victim Now</button>
+            </div>
+          ) : (
             <>
               <PersonSearchRow people={people} selectedId={data.victim_person_id}
-                onSelect={(p) => upd({ victim_person_id: p.id, victim_first: p.first_name, victim_middle: p.middle_name || "", victim_last: p.last_name, victim_name: `${p.first_name} ${p.last_name}`, victim_phone: p.phone || "", victim_address: p.address || "" })}
+                onSelect={(p) => { upd({ victim_person_id: p.id, victim_first: p.first_name, victim_middle: p.middle_name || "", victim_last: p.last_name, victim_name: `${p.first_name} ${p.last_name}`, victim_phone: p.phone || "", victim_address: p.address || "" }); checkPersonDanger(people, { personId: p.id }); }}
                 onClear={() => upd({ victim_person_id: "", victim_first: "", victim_middle: "", victim_last: "", victim_name: "", victim_phone: "", victim_address: "" })} />
               <div className={g2}>
                 <F label="First Name"><input className="form-input" value={data.victim_first} onChange={(e) => upd({ victim_first: e.target.value })} /></F>
@@ -603,6 +785,10 @@ function CallDetailPageInner() {
                   Save victim to Contacts database
                 </label>
               )}
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <button className="btn btn-primary" onClick={handleSaveVictim} disabled={!(data.victim_first || data.victim_last || data.victim_name)} title={!(data.victim_first || data.victim_last || data.victim_name) ? "Enter at least a name, or use Skip" : undefined}>Save &amp; Continue →</button>
+                <button className="btn btn-secondary" style={{ background: "transparent" }} onClick={handleSkipVictim}>Skip — No Victim</button>
+              </div>
             </>
           )}
         </div>
@@ -636,11 +822,17 @@ function CallDetailPageInner() {
       // ── 4: Suspect (Person) ──────────────────────────────────────────────
       case 4: return (
         <div>
-          {skipBanner("Suspect (Person)", data.suspect_skip, () => upd({ suspect_skip: true }), () => upd({ suspect_skip: false }))}
-          {!data.suspect_skip && (
+          {data.suspect_status === "skipped" ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 14px", background: "#f1f5f9", border: "1px solid #e2e8f0", borderRadius: 6, marginBottom: 14 }}>
+              <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                <strong>No suspect identified</strong> — skipped by {data.suspect_skipped_by || "Unknown"}{data.suspect_skipped_at ? ` on ${formatDateTime(data.suspect_skipped_at)}` : ""}
+              </div>
+              <button className="btn btn-secondary btn-sm" onClick={handleReopenSuspect}>+ Add Suspect Now</button>
+            </div>
+          ) : (
             <>
               <PersonSearchRow people={people} selectedId={data.suspect_person_id}
-                onSelect={(p) => upd({ suspect_person_id: p.id, suspect_first: p.first_name, suspect_middle: p.middle_name || "", suspect_last: p.last_name, suspect_name: `${p.first_name} ${p.last_name}`, suspect_phone: p.phone || "", suspect_address: p.address || "" })}
+                onSelect={(p) => { upd({ suspect_person_id: p.id, suspect_first: p.first_name, suspect_middle: p.middle_name || "", suspect_last: p.last_name, suspect_name: `${p.first_name} ${p.last_name}`, suspect_phone: p.phone || "", suspect_address: p.address || "" }); checkPersonDanger(people, { personId: p.id }); }}
                 onClear={() => upd({ suspect_person_id: "", suspect_first: "", suspect_middle: "", suspect_last: "", suspect_name: "", suspect_phone: "", suspect_address: "" })} />
               <div className={g2}>
                 <F label="First Name"><input className="form-input" value={data.suspect_first} onChange={(e) => upd({ suspect_first: e.target.value })} /></F>
@@ -665,6 +857,10 @@ function CallDetailPageInner() {
                   Save suspect to Contacts database (role: Suspect)
                 </label>
               )}
+              <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <button className="btn btn-primary" onClick={handleSaveSuspect} disabled={!(data.suspect_first || data.suspect_last || data.suspect_name)} title={!(data.suspect_first || data.suspect_last || data.suspect_name) ? "Enter at least a name, or use Skip" : undefined}>Save &amp; Continue →</button>
+                <button className="btn btn-secondary" style={{ background: "transparent" }} onClick={handleSkipSuspect}>Skip — No Suspect</button>
+              </div>
             </>
           )}
         </div>
@@ -1021,9 +1217,11 @@ function CallDetailPageInner() {
             <Sect title="Call Info" items={[["ID", call.id], ["Type", call.type], ["Priority", call.priority], ["Status", data.status], ["Date", `${call.date_reported} ${call.time_reported}`], ["Arrival", data.arrival_time], ["Departure", data.departure_time]]} />
             <Sect title="Location" items={[["Address", `${call.address || ""}${call.city ? `, ${call.city}` : ""}`], ["Officers", data.assigned_officers.map((o) => o.name).join(", ") || "None"]]} />
 
-            {!data.victim_skip && (data.victim_first || data.victim_last || data.victim_name) && <Sect title="Victim (Person)" items={[["Name", [data.victim_first, data.victim_middle, data.victim_last].filter(Boolean).join(" ") || data.victim_name], ["Phone", data.victim_phone], ["DL", data.victim_dl], ["DOB", data.victim_dob]]} />}
+            {data.victim_status === "entered" && (data.victim_first || data.victim_last || data.victim_name) && <Sect title="Victim (Person)" items={[["Name", [data.victim_first, data.victim_middle, data.victim_last].filter(Boolean).join(" ") || data.victim_name], ["Phone", data.victim_phone], ["DL", data.victim_dl], ["DOB", data.victim_dob]]} />}
+            {data.victim_status === "skipped" && <Sect title="Victim (Person)" items={[["Status", `Skipped by ${data.victim_skipped_by || "Unknown"}`], ["Date", data.victim_skipped_at ? formatDateTime(data.victim_skipped_at) : ""]]} />}
             {!data.victim_animal_skip && data.victim_animal_desc && <Sect title="Victim (Animal)" items={[["Species", data.victim_animal_species], ["Description", data.victim_animal_desc], ["Condition", data.victim_animal_condition], ["Breed", data.victim_animal_breed]]} />}
-            {!data.suspect_skip && (data.suspect_first || data.suspect_last || data.suspect_name) && <Sect title="Suspect (Person)" items={[["Name", [data.suspect_first, data.suspect_middle, data.suspect_last].filter(Boolean).join(" ") || data.suspect_name], ["Phone", data.suspect_phone], ["DL", data.suspect_dl], ["Physical", [data.suspect_hair, data.suspect_eyes].filter(Boolean).join(" / ")]]} />}
+            {data.suspect_status === "entered" && (data.suspect_first || data.suspect_last || data.suspect_name) && <Sect title="Suspect (Person)" items={[["Name", [data.suspect_first, data.suspect_middle, data.suspect_last].filter(Boolean).join(" ") || data.suspect_name], ["Phone", data.suspect_phone], ["DL", data.suspect_dl], ["Physical", [data.suspect_hair, data.suspect_eyes].filter(Boolean).join(" / ")]]} />}
+            {data.suspect_status === "skipped" && <Sect title="Suspect (Person)" items={[["Status", `Skipped by ${data.suspect_skipped_by || "Unknown"}`], ["Date", data.suspect_skipped_at ? formatDateTime(data.suspect_skipped_at) : ""]]} />}
             {!data.suspect_animal_skip && data.suspect_animal_desc && <Sect title="Suspect (Animal)" items={[["Species", data.suspect_animal_species], ["Behavior", data.suspect_animal_behavior], ["Dangerous", data.suspect_animal_dangerous ? "YES 🚨" : "No"], ["Description", data.suspect_animal_desc]]} />}
 
             <Sect title="Narrative & Evidence" items={[["Narrative entries", String(liveNarrative.length)], ["Evidence files", String((call.evidence || []).length + evidenceFiles.length)], ["Citations", String(callCitations.length)], ["Disposition", data.disposition_notes]]} />
@@ -1077,6 +1275,33 @@ function CallDetailPageInner() {
             <strong>${o.name}</strong>${o.badge ? ` &nbsp;·&nbsp; Badge #${o.badge}` : ""}${o.vehicle ? ` &nbsp;·&nbsp; ${o.vehicle}` : ""}
           </div>`
         ).join("");
+
+    // Suspect/Victim sections — pulled live from the current call record, never a cached snapshot
+    type Party = Record<string, unknown>;
+    const parties = (call.involved_parties || []) as Party[];
+    const origin = window.location.origin;
+    const personSectionHtml = (title: string, p: Party | undefined, physical: boolean) => {
+      if (!p) return `<section><div class="section-title">${title} Information</div><div style="color:#94a3b8;font-style:italic;font-size:12px;">Not yet addressed.</div></section>`;
+      if (p.status === "skipped") {
+        const skippedDate = p.skipped_at ? new Date(p.skipped_at as string).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" }) : "";
+        return `<section><div class="section-title">${title} Information</div><div style="color:#475569;font-size:12px;">None identified — skipped by ${p.skipped_by || "Unknown"}${skippedDate ? ` on ${skippedDate}` : ""}.</div></section>`;
+      }
+      const physicalRows = physical
+        ? `${fld("Hair", p.hair as string)}${fld("Eyes", p.eyes as string)}${fld("Weight", p.weight as string)}${fld("Height", p.height as string)}`
+        : "";
+      const link = p.person_id ? `<div style="font-size:11px;padding-top:6px;"><a href="${origin}/people/${p.person_id}" style="color:#0369a1;">Linked ShelterTrace person record →</a></div>` : "";
+      return `<section>
+        <div class="section-title">${title} Information</div>
+        ${fld("Name", p.name as string)}
+        ${fld("Address", p.address as string)}
+        ${fld("Phone", p.phone as string)}
+        ${fld("Date of Birth", p.dob as string)}
+        ${physicalRows}
+        ${link}
+      </section>`;
+    };
+    const suspectHtml = personSectionHtml("Suspect", parties.find((p) => p.role === "Suspect"), true);
+    const victimHtml = personSectionHtml("Victim", parties.find((p) => p.role === "Victim"), false);
 
     w.document.write(`<!DOCTYPE html><html><head>
 <title>Call Review — ${call.id}</title>
@@ -1132,6 +1357,10 @@ function CallDetailPageInner() {
     <div class="section-title">Assigned Officers (${assignedOfficers.length})</div>
     ${officerList}
   </section>
+
+  <!-- Suspect / Victim -->
+  ${suspectHtml}
+  ${victimHtml}
 
   <!-- Narrative -->
   <section>
@@ -1240,6 +1469,8 @@ function CallDetailPageInner() {
         </div>
       )}
 
+      <DangerAlertModal blocks={dangerBlocks} onAcknowledge={handleAcknowledgeAlerts} />
+
       {/* Two-column layout */}
       <div className="dispatch-detail-layout">
         {/* Left: Step navigation */}
@@ -1285,7 +1516,7 @@ function CallDetailPageInner() {
                 {saving ? "Finalizing…" : "✓ Finalize & Close Call"}
               </button>
             )}
-            {step < 10 && (
+            {step < 10 && !((step === 2 && data.victim_status === "undecided") || (step === 4 && data.suspect_status === "undecided")) && (
               <button className="btn btn-primary" onClick={() => setStep((s) => Math.min(10, s + 1))}>Next →</button>
             )}
           </div>
