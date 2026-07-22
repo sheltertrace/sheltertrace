@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useAuth, useTheme } from "@/app/providers";
 import { hasPermission } from "@/lib/auth";
 import { fetchUnreadCount } from "@/lib/messages";
-import { countNewCitizenReports } from "@/lib/data";
+import { countNewCitizenReports, countNewWitnessStatements } from "@/lib/data";
 import { IS_DEMO, resetDemoData } from "@/lib/demo";
 import { supabase } from "@/lib/supabase";
 
@@ -38,6 +38,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/dispatch",        label: "Dispatch",        perm: "dispatch", icon: "📡" },
       { href: "/citizen-reports", label: "Citizen Reports",  perm: "dispatch", icon: "🌐" },
+      { href: "/witness-statements", label: "Witness Statements", perm: "dispatch", icon: "✍️" },
       { href: "/field-ops",       label: "Field Ops",        perm: "dispatch", icon: "🚓" },
       { href: "/citations",       label: "Citations",        perm: "dispatch", icon: "📋" },
       { href: "/bite-reports",    label: "Bite Reports",     perm: "dispatch", icon: "🦷" },
@@ -119,6 +120,14 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
     return () => clearInterval(id);
   }, []);
 
+  // ── New witness statement count ───────────────────────────────────────────
+  const [newStatements, setNewStatements] = useState(0);
+  useEffect(() => {
+    countNewWitnessStatements().then(setNewStatements).catch(() => {});
+    const id = setInterval(() => countNewWitnessStatements().then(setNewStatements).catch(() => {}), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
   // ── Diagnostic logging — always runs so browser console shows session state ──
   console.log("[sidebar] user.id:", user?.id);
   console.log("[sidebar] user.role:", user?.role);
@@ -184,6 +193,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 const isActive = pathname === item.href || (item.href !== "/dashboard" && pathname.startsWith(item.href));
                 const msgBadge    = item.href === "/messages"        && unreadMsgs  > 0 ? unreadMsgs  : 0;
                 const reportBadge = item.href === "/citizen-reports" && newReports   > 0 ? newReports  : 0;
+                const witnessBadge = item.href === "/witness-statements" && newStatements > 0 ? newStatements : 0;
                 return (
                   <Link
                     key={item.href}
@@ -202,6 +212,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                     {reportBadge > 0 && (
                       <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 999, minWidth: 18, height: 18, padding: "0 4px" }}>
                         {reportBadge > 99 ? "99+" : reportBadge}
+                      </span>
+                    )}
+                    {witnessBadge > 0 && (
+                      <span style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 800, borderRadius: 999, minWidth: 18, height: 18, padding: "0 4px" }}>
+                        {witnessBadge > 99 ? "99+" : witnessBadge}
                       </span>
                     )}
                   </Link>

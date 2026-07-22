@@ -1111,6 +1111,43 @@ export interface CitizenReport {
   updated_at?: string;
 }
 
+export interface WitnessAttachment {
+  name: string;
+  url: string;
+  type: string;
+  size: number;
+}
+
+export interface WitnessStatement {
+  id: string;
+  reference_number: string;
+  witness_first_name: string;
+  witness_last_name: string;
+  witness_phone: string;
+  witness_email?: string;
+  witness_address?: string;
+  witness_city?: string;
+  witness_state?: string;
+  witness_zip?: string;
+  preferred_contact?: string;
+  incident_date?: string;
+  incident_time?: string;
+  incident_location?: string;
+  provided_case_number?: string;
+  statement: string;
+  attachments?: WitnessAttachment[];
+  certified?: boolean;
+  typed_signature?: string;
+  status: string;
+  dispatch_call_id?: string;
+  attached_by?: string;
+  attached_at?: string;
+  dismissed_reason?: string;
+  staff_notes?: string;
+  submitted_at?: string;
+  created_at?: string;
+}
+
 export interface DrugInventory {
   id: string;
   drug_name: string;

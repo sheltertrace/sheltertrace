@@ -1,6 +1,6 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation, PersonNote } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation, PersonNote, WitnessStatement } from "./types";
 import type { IdexxConfig } from "./idexx";
 import { genId, genReceiptId, today } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
@@ -1939,6 +1939,65 @@ export async function countNewCitizenReports(): Promise<number> {
     .select("*", { count: "exact", head: true })
     .eq("status", "New");
   return count ?? 0;
+}
+
+// ── Witness Statements ────────────────────────────────────────────────────────
+const WITNESS_STATEMENT_DATE_FIELDS = ["incident_date"] as const;
+
+async function genWitnessRefNumber(): Promise<string> {
+  const year = new Date().getFullYear();
+  const { count } = await supabase.from("witness_statements").select("*", { count: "exact", head: true });
+  return `WS-${year}-${String((count || 0) + 1).padStart(4, "0")}`;
+}
+
+export async function createWitnessStatement(
+  ws: Omit<WitnessStatement, "id" | "reference_number" | "submitted_at" | "created_at" | "status">
+): Promise<WitnessStatement> {
+  const reference_number = await genWitnessRefNumber();
+  const payload = nullifyEmptyDates({ ...ws, reference_number, status: "New" }, WITNESS_STATEMENT_DATE_FIELDS);
+  const { data, error } = await supabase.from("witness_statements").insert(payload).select().single();
+  if (error) throw error;
+  return data as WitnessStatement;
+}
+
+export async function fetchWitnessStatements(filters?: { status?: string }): Promise<WitnessStatement[]> {
+  let q = supabase.from("witness_statements").select("*").order("submitted_at", { ascending: false });
+  if (filters?.status && filters.status !== "All") q = q.eq("status", filters.status);
+  const { data } = await q;
+  return (data || []) as WitnessStatement[];
+}
+
+export async function fetchWitnessStatement(id: string): Promise<WitnessStatement | null> {
+  const { data } = await supabase.from("witness_statements").select("*").eq("id", id).single();
+  return data as WitnessStatement | null;
+}
+
+export async function updateWitnessStatement(id: string, updates: Partial<WitnessStatement>): Promise<WitnessStatement> {
+  const { data, error } = await supabase
+    .from("witness_statements")
+    .update(updates)
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as WitnessStatement;
+}
+
+export async function countNewWitnessStatements(): Promise<number> {
+  const { count } = await supabase
+    .from("witness_statements")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "New");
+  return count ?? 0;
+}
+
+export async function fetchWitnessStatementsByCall(callId: string): Promise<WitnessStatement[]> {
+  const { data } = await supabase
+    .from("witness_statements")
+    .select("*")
+    .eq("dispatch_call_id", callId)
+    .order("submitted_at", { ascending: false });
+  return (data || []) as WitnessStatement[];
 }
 
 // ── Drug Log ──────────────────────────────────────────────────────────────────

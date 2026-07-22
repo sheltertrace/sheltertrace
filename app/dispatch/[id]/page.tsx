@@ -2,9 +2,9 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
-import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked, fetchAnimals, findPeopleAtAddress, findPersonMatch, fetchPopupNotesForPeople, fetchAddressIncidentCount } from "@/lib/data";
+import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked, fetchAnimals, findPeopleAtAddress, findPersonMatch, fetchPopupNotesForPeople, fetchAddressIncidentCount, fetchWitnessStatementsByCall } from "@/lib/data";
 import { fetchOfficerFieldStatuses } from "@/lib/fieldOps";
-import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType, OfficerFieldProfile, FieldStatus, AlertAcknowledgment } from "@/lib/types";
+import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType, OfficerFieldProfile, FieldStatus, AlertAcknowledgment, WitnessStatement } from "@/lib/types";
 import dynamic from "next/dynamic";
 const QuickIntakeModal = dynamic(() => import("@/components/dispatch/QuickIntakeModal"), { ssr: false });
 const MiniDispatchMap  = dynamic(() => import("@/components/map/MiniDispatchMap"),       { ssr: false });
@@ -201,6 +201,8 @@ function CallDetailPageInner() {
   const [showIntakeModal, setShowIntakeModal] = useState(false);
   const [officerStatuses, setOfficerStatuses] = useState<OfficerFieldProfile[]>([]);
   const [dangerBlocks, setDangerBlocks] = useState<DangerAlertBlock[]>([]);
+  const [witnessStatements, setWitnessStatements] = useState<WitnessStatement[]>([]);
+  const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null);
 
   // ── Danger alert checks ────────────────────────────────────────────────────
   const addDangerBlock = (block: DangerAlertBlock) => {
@@ -296,6 +298,7 @@ function CallDetailPageInner() {
       setCallForms(forms);
       setLoading(false);
     });
+    fetchWitnessStatementsByCall(id).then(setWitnessStatements).catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -1303,6 +1306,17 @@ function CallDetailPageInner() {
     const suspectHtml = personSectionHtml("Suspect", parties.find((p) => p.role === "Suspect"), true);
     const victimHtml = personSectionHtml("Victim", parties.find((p) => p.role === "Victim"), false);
 
+    // Witness statements — attached statements printed in their own section
+    const witnessHtml = witnessStatements.length === 0 ? "" : `
+      <section>
+        <div class="section-title">Witness Statements (${witnessStatements.length})</div>
+        ${witnessStatements.map((ws) => `
+          <div style="padding:10px 0;border-bottom:1px solid #f1f5f9;">
+            <div style="font-size:12px;font-weight:700;color:#0f2942;">${ws.witness_first_name} ${ws.witness_last_name} <span style="font-weight:400;color:#64748b;">— ${ws.reference_number} — ${ws.submitted_at ? new Date(ws.submitted_at).toLocaleString("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : ""}</span></div>
+            <div style="font-size:12px;color:#1e293b;white-space:pre-wrap;margin-top:6px;line-height:1.6;">${ws.statement}</div>
+          </div>`).join("")}
+      </section>`;
+
     w.document.write(`<!DOCTYPE html><html><head>
 <title>Call Review — ${call.id}</title>
 <style>
@@ -1372,6 +1386,8 @@ function CallDetailPageInner() {
     </div>
     ${narrativeRows}
   </section>
+
+  ${witnessHtml}
 
   ${dispositionText ? `
   <!-- Disposition -->
@@ -1575,6 +1591,51 @@ function CallDetailPageInner() {
           </table>
         )}
       </div>
+
+      {/* Witness Statements section */}
+      {witnessStatements.length > 0 && (
+        <div className="card" style={{ marginTop: 20, padding: 0, overflow: "hidden" }}>
+          <div style={{ padding: "10px 16px", background: "var(--surface-alt)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 14, fontWeight: 700 }}>✍️ Witness Statements ({witnessStatements.length})</span>
+          </div>
+          <div style={{ padding: "10px 16px" }}>
+            {witnessStatements.map((w) => {
+              const expanded = expandedStatementId === w.id;
+              return (
+                <div key={w.id} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px", marginBottom: 8 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, cursor: "pointer" }}
+                    onClick={() => setExpandedStatementId(expanded ? null : w.id)}>
+                    <div>
+                      <strong>{w.witness_first_name} {w.witness_last_name}</strong>
+                      <span style={{ color: "var(--text-muted)", fontSize: 12, marginLeft: 8 }}>
+                        {w.submitted_at ? formatDateTime(w.submitted_at) : ""} · {w.reference_number}
+                      </span>
+                    </div>
+                    <span style={{ fontSize: 12, color: "var(--teal)" }}>{expanded ? "▲ Hide" : "▼ View"}</span>
+                  </div>
+                  {expanded && (
+                    <div style={{ marginTop: 10, fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-wrap", background: "#f8fafc", padding: 12, borderRadius: 6, border: "1px solid var(--border-light)" }}>
+                      {w.statement}
+                      {w.attachments && w.attachments.length > 0 && (
+                        <div style={{ marginTop: 10, display: "flex", flexWrap: "wrap", gap: 8 }}>
+                          {w.attachments.map((a, i) => (
+                            <a key={i} href={a.url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "var(--teal)", fontWeight: 600 }}>
+                              📎 {a.name}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ marginTop: 10 }}>
+                        <a href={`/witness-statements/${w.id}`} className="btn btn-ghost btn-sm" style={{ fontSize: 11 }}>Open full record →</a>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Forms section */}
       <div className="card" style={{ marginTop: 20, padding: 0, overflow: "hidden" }}>
