@@ -1,5 +1,6 @@
 "use client";
 import { useState, useRef, useCallback, type DragEvent, type ChangeEvent } from "react";
+import { isFileTypeAccepted, deriveAcceptLabel, formatFileSize } from "@/lib/fileValidation";
 
 export interface UploadedFile {
   name: string;
@@ -16,7 +17,10 @@ interface Props {
   onFiles: (files: File[]) => void;
   accept?: string;
   multiple?: boolean;
-  maxSizeMB?: number;
+  /** Fixed MB limit, or a per-file function (e.g. larger limit for videos). */
+  maxSizeMB?: number | ((file: File) => number);
+  /** Human-readable list shown in the rejection message. Auto-derived from `accept` when omitted. */
+  acceptLabel?: string;
   label?: string;
   compact?: boolean;
   disabled?: boolean;
@@ -25,12 +29,6 @@ interface Props {
 }
 
 const DEFAULT_ACCEPT = "image/jpeg,image/png,image/gif,image/webp,image/heic,image/heif,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv";
-
-function formatSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function fileIcon(type: string): string {
   if (type.startsWith("image/")) return "🖼️";
@@ -45,6 +43,7 @@ export default function DragDropUpload({
   accept = DEFAULT_ACCEPT,
   multiple = false,
   maxSizeMB = 10,
+  acceptLabel,
   label,
   compact = false,
   disabled = false,
@@ -56,16 +55,10 @@ export default function DragDropUpload({
   const inputRef = useRef<HTMLInputElement>(null);
   const dragCountRef = useRef(0);
 
-  const maxBytes = maxSizeMB * 1024 * 1024;
+  const resolveMaxMB = useCallback((file: File): number =>
+    typeof maxSizeMB === "function" ? maxSizeMB(file) : maxSizeMB, [maxSizeMB]);
 
-  const acceptSet = new Set(
-    accept.split(",").map((s) => s.trim().toLowerCase())
-  );
-
-  const isAccepted = useCallback((file: File): boolean => {
-    const ext = `.${file.name.split(".").pop()?.toLowerCase() || ""}`;
-    return acceptSet.has(file.type.toLowerCase()) || acceptSet.has(ext) || acceptSet.has("*");
-  }, [acceptSet]);
+  const typeLabel = acceptLabel || deriveAcceptLabel(accept);
 
   const processFiles = useCallback((fileList: FileList | File[]) => {
     const files = Array.from(fileList);
@@ -73,10 +66,11 @@ export default function DragDropUpload({
     const valid: File[] = [];
 
     for (const f of files) {
-      if (!isAccepted(f)) {
-        errs.push(`${f.name}: file type not allowed`);
-      } else if (f.size > maxBytes) {
-        errs.push(`${f.name}: exceeds ${maxSizeMB}MB limit (${formatSize(f.size)})`);
+      const maxMB = resolveMaxMB(f);
+      if (!isFileTypeAccepted(f, accept)) {
+        errs.push(`${f.name}: file type not allowed.${typeLabel ? ` Accepted: ${typeLabel}` : ""}`);
+      } else if (f.size > maxMB * 1024 * 1024) {
+        errs.push(`${f.name}: exceeds ${maxMB}MB limit (${formatFileSize(f.size)})`);
       } else {
         valid.push(f);
       }
@@ -86,7 +80,7 @@ export default function DragDropUpload({
     if (valid.length > 0) {
       onFiles(multiple ? valid : [valid[0]]);
     }
-  }, [isAccepted, maxBytes, maxSizeMB, multiple, onFiles]);
+  }, [accept, typeLabel, resolveMaxMB, multiple, onFiles]);
 
   const handleDragEnter = (e: DragEvent) => {
     e.preventDefault();
@@ -187,7 +181,7 @@ export default function DragDropUpload({
         </div>
         {!compact && (
           <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>
-            {multiple ? "Multiple files allowed" : "Single file"} · Max {maxSizeMB}MB
+            {multiple ? "Multiple files allowed" : "Single file"}{typeof maxSizeMB === "number" ? ` · Max ${maxSizeMB}MB` : ""}
           </div>
         )}
       </div>
@@ -226,7 +220,7 @@ export function FilePreview({ file, url, onRemove }: { file?: File; url: string;
       )}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{name}</div>
-        {file && <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{formatSize(file.size)}</div>}
+        {file && <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{formatFileSize(file.size)}</div>}
       </div>
       {onRemove && (
         <button

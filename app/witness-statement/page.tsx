@@ -8,6 +8,15 @@ import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE, COUNTY_NAME } from "@/lib/sh
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
+// Images/HEIC/PDF cap at 10MB, video (mp4/mov) gets more room at 25MB.
+const ATTACHMENT_ACCEPT = "image/*,application/pdf,video/mp4,video/quicktime,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif,.pdf,.mp4,.mov";
+const ATTACHMENT_ACCEPT_LABEL = "JPG, PNG, HEIC, GIF, PDF, MP4, MOV";
+function attachmentMaxMB(file: File): number {
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  const isVideo = file.type.toLowerCase().startsWith("video/") || ext === "mp4" || ext === "mov";
+  return isVideo ? 25 : 10;
+}
+
 const MIN_STATEMENT_LENGTH = 50;
 
 function todayStr() {
@@ -234,7 +243,9 @@ export default function WitnessStatementPage() {
             <Field label="Attach any photos or videos related to the incident">
               <DragDropUpload
                 onFiles={addFiles}
-                accept="image/*,image/heic,image/heif,video/*,.pdf"
+                accept={ATTACHMENT_ACCEPT}
+                acceptLabel={ATTACHMENT_ACCEPT_LABEL}
+                maxSizeMB={attachmentMaxMB}
                 multiple
                 label="Drop photos, videos, or documents here or click to browse"
               />

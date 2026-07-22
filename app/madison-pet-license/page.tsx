@@ -206,7 +206,8 @@ export default function MadisonPetLicensePage() {
           </div>
           <DragDropUpload
             onFiles={(files) => setDocs((prev) => [...prev, ...files.map((f) => ({ name: f.name, file: f }))])}
-            accept="image/jpeg,image/png,application/pdf"
+            accept="image/*,application/pdf,.jpg,.jpeg,.png,.heic,.heif,.pdf"
+            acceptLabel="JPG, PNG, HEIC, PDF"
             multiple
             label="Drop rabies certificate and supporting docs here"
           />

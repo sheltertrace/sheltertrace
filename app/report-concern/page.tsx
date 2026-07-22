@@ -2,6 +2,10 @@
 import { useState, useEffect, useRef } from "react";
 import { supabasePublic } from "@/lib/supabase-public";
 import Image from "next/image";
+import { isFileTypeAccepted, deriveAcceptLabel, formatFileSize } from "@/lib/fileValidation";
+
+const PHOTO_ACCEPT = "image/*,.jpg,.jpeg,.png,.gif,.webp,.heic,.heif";
+const PHOTO_MAX_MB = 10;
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -97,12 +101,31 @@ export default function ReportConcernPage() {
   const [lookupLoading, setLookupLoading] = useState(false);
 
   const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []).slice(0, 5 - photos.length);
-    if (files.length + photos.length > 5) { alert("Maximum 5 photos allowed."); return; }
-    const newPreviews = files.map(f => URL.createObjectURL(f));
-    setPhotos(prev => [...prev, ...files]);
-    setPhotoPreviews(prev => [...prev, ...newPreviews]);
+    const incoming = Array.from(e.target.files || []);
     e.target.value = "";
+
+    const rejections: string[] = [];
+    const valid: File[] = [];
+    for (const f of incoming) {
+      if (!isFileTypeAccepted(f, PHOTO_ACCEPT)) {
+        rejections.push(`${f.name}: file type not allowed. Accepted: ${deriveAcceptLabel(PHOTO_ACCEPT)}`);
+      } else if (f.size > PHOTO_MAX_MB * 1024 * 1024) {
+        rejections.push(`${f.name}: exceeds ${PHOTO_MAX_MB}MB limit (${formatFileSize(f.size)})`);
+      } else {
+        valid.push(f);
+      }
+    }
+
+    const room = Math.max(0, 5 - photos.length);
+    if (valid.length > room) rejections.push(`Only ${room} more photo${room === 1 ? "" : "s"} can be added (max 5 total).`);
+    const accepted = valid.slice(0, room);
+
+    if (rejections.length) { setErrors(rejections); window.scrollTo({ top: 0, behavior: "smooth" }); }
+    if (accepted.length === 0) return;
+
+    const newPreviews = accepted.map(f => URL.createObjectURL(f));
+    setPhotos(prev => [...prev, ...accepted]);
+    setPhotoPreviews(prev => [...prev, ...newPreviews]);
   };
 
   const removePhoto = (i: number) => {
@@ -402,7 +425,7 @@ export default function ReportConcernPage() {
               </button>
             )}
           </div>
-          <input ref={fileRef} type="file" accept="image/*,image/heic,image/heif" multiple style={{ display: "none" }} onChange={handlePhotoSelect} />
+          <input ref={fileRef} type="file" accept={PHOTO_ACCEPT} multiple style={{ display: "none" }} onChange={handlePhotoSelect} />
           <div style={{ fontSize: 11, color: "#64748b" }}>Up to 5 photos · JPG, PNG, WEBP, HEIC · Max 10MB each</div>
         </div>
 
