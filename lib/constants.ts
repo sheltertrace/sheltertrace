@@ -460,11 +460,24 @@ export const CALL_PRIORITIES = ["Critical","High","Medium","Low"];
 export const PRIORITY_COLORS: Record<string, string> = {
   Critical: "#dc2626", High: "#f59e0b", Medium: "#0ea5e9", Low: "#6b7280",
 };
-export const CALL_STATUSES = ["Pending","Dispatched","En Route","On Scene","Resolved","Cancelled"];
+export const CALL_STATUSES = ["Pending","Dispatched","En Route","On Scene","Pending Follow-Up","Resolved","Cancelled"];
 export const CALL_STATUS_COLORS: Record<string, string> = {
   Pending: "#f59e0b", Dispatched: "#6366f1", "En Route": "#0ea5e9",
-  "On Scene": "#e8590c", Resolved: "#16a34a", Cancelled: "#9ca3af",
+  "On Scene": "#e8590c", "Pending Follow-Up": "#d97706", Resolved: "#16a34a", Cancelled: "#9ca3af",
 };
+// Statuses eligible to be moved into Pending Follow-Up (not yet closed, not already follow-up)
+export const FOLLOW_UP_ELIGIBLE_STATUSES = ["Pending", "Dispatched", "En Route", "On Scene"];
+export const FOLLOW_UP_REASONS = [
+  "Waiting on Owner Contact",
+  "Waiting on Vet/Medical Report",
+  "Quarantine Period In Progress",
+  "Awaiting Court Date",
+  "Awaiting Witness Statement",
+  "Awaiting Photos/Evidence",
+  "Owner Given Time to Comply",
+  "Suspect Not Located",
+  "Other",
+];
 export const OFFICER_STATUSES = ["Available","On Call","En Route","Busy","Off Duty"];
 export const OFFICER_STATUS_COLORS: Record<string, string> = {
   Available: "#16a34a", "On Call": "#0ea5e9", "En Route": "#f59e0b",

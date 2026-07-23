@@ -125,6 +125,18 @@ export default function DashboardPage() {
   const pendingCalls = calls.filter((c) => c.status === "Pending").length;
   const activeCalls = calls.filter((c) => ["Dispatched", "En Route", "On Scene"].includes(c.status || "")).length;
 
+  // Pending Follow-Up
+  const followUpCalls = calls.filter((c) => c.status === "Pending Follow-Up");
+  const isOverdue = (dateStr?: string) => {
+    if (!dateStr) return false;
+    const due = new Date(dateStr + "T00:00:00");
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    return due.getTime() < now.getTime();
+  };
+  const overdueFollowUps = followUpCalls.filter((c) => isOverdue(c.follow_up_due_date));
+  const myName = user ? `${user.firstName || user.first_name || ""} ${user.lastName || user.last_name || ""}`.trim() || user.username : "";
+  const myOverdueFollowUps = overdueFollowUps.filter((c) => c.follow_up_assigned_officer && c.follow_up_assigned_officer === myName);
+
   // Unconfirmed (Scheduled) vaccines
   const scheduledMeds = medical.filter((m) => !m.status || m.status === "Scheduled" || m.status === "Pending");
   const animalIdsWithScheduled = [...new Set(scheduledMeds.map((m) => m.animal_id))];
@@ -168,6 +180,32 @@ export default function DashboardPage() {
         <div style={{ textAlign: "center", color: "var(--text-muted)", padding: 40 }}>Loading dashboard…</div>
       ) : (
         <div>
+          {/* My overdue follow-ups banner */}
+          {myOverdueFollowUps.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 18px", borderRadius: 10, marginBottom: 16, background: "#fef2f2", border: "1px solid #fca5a5" }}>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <div style={{ flex: 1, fontSize: 13, color: "#dc2626", fontWeight: 600 }}>
+                You have <strong>{myOverdueFollowUps.length}</strong> overdue follow-up{myOverdueFollowUps.length !== 1 ? "s" : ""} assigned to you.
+              </div>
+              <Link href="/dispatch?tab=followup" style={{ fontSize: 12, color: "#dc2626", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+                View →
+              </Link>
+            </div>
+          )}
+
+          {/* Overdue follow-ups widget (all officers) */}
+          {overdueFollowUps.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 18px", borderRadius: 10, marginBottom: 16, background: "#fff7ed", border: "1px solid #fed7aa" }}>
+              <span style={{ fontSize: 18 }}>⚠️</span>
+              <div style={{ flex: 1, fontSize: 13, color: "#d97706", fontWeight: 600 }}>
+                <strong>{overdueFollowUps.length}</strong> follow-up{overdueFollowUps.length !== 1 ? "s are" : " is"} overdue
+              </div>
+              <Link href="/dispatch?tab=followup" style={{ fontSize: 12, color: "#d97706", fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
+                View Pending Follow-Up →
+              </Link>
+            </div>
+          )}
+
           {/* GDA reminder banner */}
           {gdaReminder && (
             <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "11px 18px", borderRadius: 10, marginBottom: 16, background: gdaReminder.bg, border: `1px solid ${gdaReminder.color}30` }}>
@@ -224,6 +262,11 @@ export default function DashboardPage() {
             <StatCard icon="🏡" value={adopted} label="Adopted This Year" color="#6366f1" />
             <StatCard icon="💊" value={medHold} label="Medical Hold" color="#ef4444" />
             <StatCard icon="📡" value={pendingCalls} label="Pending Dispatch Calls" color="#f59e0b" />
+          </div>
+
+          <div className="grid-2" style={{ marginBottom: 20 }}>
+            <StatCard icon="⏰" value={followUpCalls.length} label="Pending Follow-Up" color="#d97706" />
+            <StatCard icon="🚨" value={overdueFollowUps.length} label="Overdue Follow-Ups" color="#dc2626" />
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 20 }}>
@@ -332,6 +375,7 @@ export default function DashboardPage() {
                 {[
                   { label: "Pending", value: calls.filter((c) => c.status === "Pending").length, color: "#f59e0b" },
                   { label: "Active (En Route / On Scene)", value: activeCalls, color: "#0d6efd" },
+                  { label: "Pending Follow-Up", value: followUpCalls.length, color: "#d97706" },
                   { label: "Closed (all time)", value: calls.filter((c) => c.status === "Closed").length, color: "#22c55e" },
                 ].map((r) => (
                   <div key={r.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

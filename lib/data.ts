@@ -1,8 +1,8 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation, PersonNote, WitnessStatement } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation, PersonNote, WitnessStatement, NarrativeEntry } from "./types";
 import type { IdexxConfig } from "./idexx";
-import { genId, genReceiptId, today } from "./utils";
+import { genId, genReceiptId, today, nowTime } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
 import { CURRENT_USER_KEY } from "./auth";
 import { nullifyEmptyDates, nullifyEmptyBooleans } from "./sanitize";
@@ -477,6 +477,81 @@ export async function updateCall(id: string, updates: Partial<DispatchCall>): Pr
   }
   console.log("[dispatch save success]", data);
   return data as DispatchCall;
+}
+
+// ── Pending Follow-Up ─────────────────────────────────────────────────────────
+const DISPATCH_CALL_DATE_FIELDS = ["follow_up_due_date"] as const;
+
+export interface FollowUpInput {
+  reason: string;
+  dueDate: string;
+  assignedOfficer?: string;
+  notes?: string;
+  movedBy: string;
+}
+
+export async function moveCallToPendingFollowUp(call: DispatchCall, input: FollowUpInput): Promise<DispatchCall> {
+  const entry: NarrativeEntry = {
+    id: genId(), time: nowTime(), officer: "System",
+    text: `Call moved to Pending Follow-Up by ${input.movedBy} on ${today()}. Reason: ${input.reason}. Due: ${input.dueDate}.`,
+  };
+  const narrative = [...((call.narrative || []) as NarrativeEntry[]), entry];
+  const payload = nullifyEmptyDates({
+    status: "Pending Follow-Up",
+    follow_up_required: true,
+    follow_up_reason: input.reason,
+    follow_up_due_date: input.dueDate,
+    follow_up_assigned_officer: input.assignedOfficer || undefined,
+    follow_up_moved_by: input.movedBy,
+    follow_up_moved_at: new Date().toISOString(),
+    follow_up_notes: input.notes || undefined,
+    narrative,
+  }, DISPATCH_CALL_DATE_FIELDS);
+  return updateCall(call.id, payload);
+}
+
+export async function extendFollowUp(call: DispatchCall, input: FollowUpInput): Promise<DispatchCall> {
+  const entry: NarrativeEntry = {
+    id: genId(), time: nowTime(), officer: "System",
+    text: `Follow-up extended by ${input.movedBy} on ${today()}. New due date: ${input.dueDate}. Reason: ${input.reason}.`,
+  };
+  const narrative = [...((call.narrative || []) as NarrativeEntry[]), entry];
+  const payload = nullifyEmptyDates({
+    follow_up_reason: input.reason,
+    follow_up_due_date: input.dueDate,
+    follow_up_assigned_officer: input.assignedOfficer || undefined,
+    follow_up_notes: input.notes || undefined,
+    narrative,
+  }, DISPATCH_CALL_DATE_FIELDS);
+  return updateCall(call.id, payload);
+}
+
+export async function reopenFollowUp(call: DispatchCall, reopenedBy: string, newStatus = "Dispatched"): Promise<DispatchCall> {
+  const entry: NarrativeEntry = {
+    id: genId(), time: nowTime(), officer: "System",
+    text: `Call reopened from Pending Follow-Up by ${reopenedBy} on ${today()}. Status set to ${newStatus}.`,
+  };
+  const narrative = [...((call.narrative || []) as NarrativeEntry[]), entry];
+  return updateCall(call.id, { status: newStatus, follow_up_required: false, narrative });
+}
+
+export async function closeFollowUp(call: DispatchCall, closedBy: string, disposition: string): Promise<DispatchCall> {
+  const entry: NarrativeEntry = {
+    id: genId(), time: nowTime(), officer: "System",
+    text: `Case closed from Pending Follow-Up by ${closedBy} on ${today()}.${disposition ? ` Disposition: ${disposition}` : ""}`,
+  };
+  const narrative = [...((call.narrative || []) as NarrativeEntry[]), entry];
+  const response_notes = [call.response_notes, disposition ? `Disposition: ${disposition}` : ""].filter(Boolean).join("\n");
+  return updateCall(call.id, { status: "Resolved", follow_up_required: false, narrative, response_notes: response_notes || undefined });
+}
+
+export async function fetchPendingFollowUpCalls(): Promise<DispatchCall[]> {
+  const { data } = await supabase
+    .from("dispatch_calls")
+    .select("*")
+    .eq("status", "Pending Follow-Up")
+    .order("follow_up_due_date", { ascending: true });
+  return (data as DispatchCall[]) || [];
 }
 
 // ── Citations ─────────────────────────────────────────────────────────────────

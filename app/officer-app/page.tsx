@@ -255,6 +255,11 @@ export default function OfficerAppPage() {
   const [gpsState, setGpsState] = useState<GpsState>("idle");
   const [gpsCoords, setGpsCoords] = useState<{ lat: number; lng: number; accuracy: number } | null>(null);
   const [myCalls, setMyCalls] = useState<DispatchCall[]>([]);
+  const [myFollowUps, setMyFollowUps] = useState<DispatchCall[]>([]);
+  const [editingFollowUp, setEditingFollowUp] = useState<DispatchCall | null>(null);
+  const [fuDueDate, setFuDueDate] = useState("");
+  const [fuNotes, setFuNotes] = useState("");
+  const [fuSaving, setFuSaving] = useState(false);
   const [todayLog, setTodayLog] = useState<{ status: FieldStatus; time: string }[]>([]);
   const [isOnline, setIsOnline] = useState(true);
   const [installPrompt, setInstallPrompt] = useState<{ prompt: () => void } | null>(null);
@@ -333,11 +338,22 @@ export default function OfficerAppPage() {
     ));
   }, []);
 
+  const loadMyFollowUps = useCallback(async (acc: StaffAccount) => {
+    const name = `${acc.first_name ?? acc.firstName ?? ""} ${acc.last_name ?? acc.lastName ?? ""}`.trim().toLowerCase();
+    const { data } = await supabasePublic
+      .from("dispatch_calls")
+      .select("*")
+      .eq("status", "Pending Follow-Up")
+      .order("follow_up_due_date", { ascending: true });
+    const calls = (data as DispatchCall[] | null) ?? [];
+    setMyFollowUps(calls.filter((c) => (c.follow_up_assigned_officer ?? "").trim().toLowerCase() === name));
+  }, []);
+
   useEffect(() => {
-    if (officer) loadMyCalls(officer);
-    const id = setInterval(() => { if (officer) loadMyCalls(officer); }, 60_000);
+    if (officer) { loadMyCalls(officer); loadMyFollowUps(officer); }
+    const id = setInterval(() => { if (officer) { loadMyCalls(officer); loadMyFollowUps(officer); } }, 60_000);
     return () => clearInterval(id);
-  }, [officer, loadMyCalls]);
+  }, [officer, loadMyCalls, loadMyFollowUps]);
 
   // ── GPS tracking ─────────────────────────────────────────────────────────
   const persistPing = useCallback((pos: GeolocationPosition) => {
@@ -540,6 +556,68 @@ export default function OfficerAppPage() {
     finally { setNarrativeSaving(false); }
   }
 
+  // ── Follow-Ups ────────────────────────────────────────────────────────────
+  function openFollowUpEditor(call: DispatchCall) {
+    setEditingFollowUp(call);
+    setFuDueDate(call.follow_up_due_date ?? "");
+    setFuNotes(call.follow_up_notes ?? "");
+  }
+
+  function officerDisplayName(): string {
+    return `${officer?.first_name ?? officer?.firstName ?? ""} ${officer?.last_name ?? officer?.lastName ?? ""}`.trim() || officer?.username || "Officer";
+  }
+
+  async function handleSaveFollowUp() {
+    if (!editingFollowUp) return;
+    setFuSaving(true);
+    try {
+      const name = officerDisplayName();
+      const entry = {
+        id: Math.random().toString(36).slice(2).toUpperCase(),
+        time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        officer: "System",
+        text: `Follow-up updated by ${name} on ${today()}.${fuDueDate && fuDueDate !== editingFollowUp.follow_up_due_date ? ` New due date: ${fuDueDate}.` : ""}`,
+      };
+      const narrative = [...((editingFollowUp.narrative ?? []) as typeof entry[]), entry];
+      const { data } = await supabasePublic
+        .from("dispatch_calls")
+        .update({ follow_up_due_date: fuDueDate || null, follow_up_notes: fuNotes, narrative, updated_at: new Date().toISOString() })
+        .eq("id", editingFollowUp.id)
+        .select()
+        .single();
+      const updated = data as DispatchCall | null;
+      if (updated) setMyFollowUps((prev) => prev.map((c) => c.id === updated.id ? updated : c));
+      setEditingFollowUp(null);
+    } catch (e) { console.error("[follow-up save]", e); }
+    finally { setFuSaving(false); }
+  }
+
+  async function handleCloseFollowUp() {
+    if (!editingFollowUp) return;
+    setFuSaving(true);
+    try {
+      const name = officerDisplayName();
+      const entry = {
+        id: Math.random().toString(36).slice(2).toUpperCase(),
+        time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        officer: "System",
+        text: `Case closed from Pending Follow-Up by ${name} on ${today()}.${fuNotes.trim() ? ` Disposition: ${fuNotes.trim()}` : ""}`,
+      };
+      const narrative = [...((editingFollowUp.narrative ?? []) as typeof entry[]), entry];
+      const response_notes = [editingFollowUp.response_notes, fuNotes.trim() ? `Disposition: ${fuNotes.trim()}` : ""].filter(Boolean).join("\n");
+      const { data } = await supabasePublic
+        .from("dispatch_calls")
+        .update({ status: "Resolved", follow_up_required: false, narrative, response_notes: response_notes || null, updated_at: new Date().toISOString() })
+        .eq("id", editingFollowUp.id)
+        .select()
+        .single();
+      const updated = data as DispatchCall | null;
+      if (updated) setMyFollowUps((prev) => prev.filter((c) => c.id !== updated.id));
+      setEditingFollowUp(null);
+    } catch (e) { console.error("[follow-up close]", e); }
+    finally { setFuSaving(false); }
+  }
+
   async function confirmLogout() {
     // Always set Off Duty in DB before clearing session
     if (officer) {
@@ -729,6 +807,44 @@ export default function OfficerAppPage() {
           })}
         </div>
 
+        {/* ── My Follow-Ups ── */}
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "#7fc6c6", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+            My Follow-Ups ({myFollowUps.length})
+          </div>
+          {myFollowUps.length === 0 ? (
+            <div style={{ background: "#1a3a5c", borderRadius: 12, padding: "16px 18px", fontSize: 14, color: "#475569", textAlign: "center" }}>
+              No pending follow-ups assigned to you
+            </div>
+          ) : myFollowUps.map((call) => {
+            const due = call.follow_up_due_date;
+            const daysLeft = due ? Math.round((new Date(due + "T00:00:00").getTime() - new Date(new Date().toDateString()).getTime()) / 86400000) : null;
+            const overdue = daysLeft !== null && daysLeft < 0;
+            return (
+              <div key={call.id} style={{ background: "#1a3a5c", borderRadius: 12, padding: "14px 16px", marginBottom: 10, borderLeft: `4px solid ${overdue ? "#ef4444" : "#f59e0b"}` }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800 }}>{call.type}</div>
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>{call.follow_up_reason || "No reason recorded"}</div>
+                  </div>
+                  <span style={{ fontSize: 11, fontWeight: 800, padding: "3px 8px", borderRadius: 8, background: overdue ? "#7f1d1d" : "#78350f", color: overdue ? "#fca5a5" : "#fcd34d" }}>
+                    {due ? (overdue ? `OVERDUE ${Math.abs(daysLeft!)}d` : `Due in ${daysLeft}d`) : "No due date"}
+                  </span>
+                </div>
+                {call.follow_up_notes && (
+                  <div style={{ fontSize: 12, color: "#cbd5e1", marginTop: 4, marginBottom: 6 }}>{call.follow_up_notes}</div>
+                )}
+                <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                  <button onClick={() => openFollowUpEditor(call)}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#0f2942", color: "#7fc6c6", fontSize: 13, fontWeight: 700, border: "1px solid #334155", cursor: "pointer" }}>
+                    ✏️ Update / Close
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
         {/* ── Quick Actions ── */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: "#7fc6c6", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Quick Actions</div>
@@ -850,6 +966,47 @@ export default function OfficerAppPage() {
                 {narrativeSaving ? "Saving…" : "Save Entry"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {editingFollowUp && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "flex-end", zIndex: 300 }} onClick={() => setEditingFollowUp(null)}>
+          <div style={{ background: "#1a3a5c", borderRadius: "20px 20px 0 0", padding: "20px 20px 32px", width: "100%", maxHeight: "80dvh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, background: "#334155", borderRadius: 2, margin: "0 auto 16px" }} />
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Follow-Up</div>
+            <div style={{ fontSize: 12, color: "#7fc6c6", marginBottom: 14 }}>{editingFollowUp.type} · {editingFollowUp.follow_up_reason || ""}</div>
+
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Due Date</div>
+            <input
+              type="date"
+              value={fuDueDate}
+              onChange={(e) => setFuDueDate(e.target.value)}
+              style={{ width: "100%", background: "#0f2942", border: "1px solid #334155", borderRadius: 10, padding: "12px 14px", color: "#e2e8f0", fontSize: 14, marginBottom: 14, boxSizing: "border-box" }}
+            />
+
+            <div style={{ fontSize: 12, color: "#94a3b8", marginBottom: 4 }}>Notes</div>
+            <textarea
+              value={fuNotes}
+              onChange={(e) => setFuNotes(e.target.value)}
+              placeholder="Follow-up notes or closing disposition…"
+              rows={4}
+              style={{ width: "100%", background: "#0f2942", border: "1px solid #334155", borderRadius: 10, padding: "12px 14px", color: "#e2e8f0", fontSize: 14, resize: "none", marginBottom: 14, boxSizing: "border-box" }}
+            />
+
+            <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+              <button onClick={() => setEditingFollowUp(null)} style={{ flex: 1, padding: "14px 0", borderRadius: 10, background: "#0f2942", color: "#94a3b8", border: "1px solid #334155", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={handleSaveFollowUp} disabled={fuSaving}
+                style={{ flex: 2, padding: "14px 0", borderRadius: 10, background: fuSaving ? "#334155" : "#1a8a8a", color: "#fff", border: "none", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
+                {fuSaving ? "Saving…" : "💾 Save Changes"}
+              </button>
+            </div>
+            <button onClick={handleCloseFollowUp} disabled={fuSaving}
+              style={{ width: "100%", padding: "14px 0", borderRadius: 10, background: "#14532d", color: "#86efac", border: "1px solid #22c55e", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
+              ✅ Close Case
+            </button>
           </div>
         </div>
       )}

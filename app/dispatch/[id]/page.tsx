@@ -9,7 +9,8 @@ import dynamic from "next/dynamic";
 const QuickIntakeModal = dynamic(() => import("@/components/dispatch/QuickIntakeModal"), { ssr: false });
 const MiniDispatchMap  = dynamic(() => import("@/components/map/MiniDispatchMap"),       { ssr: false });
 import DangerAlertModal, { type DangerAlertBlock } from "@/components/dispatch/DangerAlertModal";
-import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS } from "@/lib/constants";
+import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS, FOLLOW_UP_ELIGIBLE_STATUSES } from "@/lib/constants";
+import FollowUpModal from "@/components/dispatch/FollowUpModal";
 import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/providers";
@@ -199,6 +200,7 @@ function CallDetailPageInner() {
   const [showCallForms, setShowCallForms] = useState(false);
   const [linkedAnimals, setLinkedAnimals] = useState<Animal[]>([]);
   const [showIntakeModal, setShowIntakeModal] = useState(false);
+  const [showFollowUpModal, setShowFollowUpModal] = useState(false);
   const [officerStatuses, setOfficerStatuses] = useState<OfficerFieldProfile[]>([]);
   const [dangerBlocks, setDangerBlocks] = useState<DangerAlertBlock[]>([]);
   const [witnessStatements, setWitnessStatements] = useState<WitnessStatement[]>([]);
@@ -483,6 +485,13 @@ function CallDetailPageInner() {
     showToast(`Status updated to ${newStatus}`);
   };
 
+  // Pending Follow-Up requires a reason/due date — route through the modal
+  // instead of setting the bare status from the generic selector/buttons.
+  const handleStatusSelect = (newStatus: string) => {
+    if (newStatus === "Pending Follow-Up") { setShowFollowUpModal(true); return; }
+    handleStatusChange(newStatus);
+  };
+
   // ── Upload evidence files ─────────────────────────────────────────────────
   const uploadNewEvidence = async (): Promise<EvidenceItem[]> => {
     if (evidenceFiles.length === 0 || !call) return (call?.evidence || []) as EvidenceItem[];
@@ -655,7 +664,7 @@ function CallDetailPageInner() {
               </div>
               <div>
                 <label className="form-label" style={{ fontSize: 11, marginBottom: 3 }}>Status</label>
-                <select className="form-select" style={{ fontSize: 13, fontWeight: 700, color: CALL_STATUS_COLORS[data.status] || "#374151" }} value={data.status} onChange={(e) => handleStatusChange(e.target.value)}>
+                <select className="form-select" style={{ fontSize: 13, fontWeight: 700, color: CALL_STATUS_COLORS[data.status] || "#374151" }} value={data.status} onChange={(e) => handleStatusSelect(e.target.value)}>
                   {CALL_STATUSES.map((s) => <option key={s}>{s}</option>)}
                 </select>
               </div>
@@ -1133,7 +1142,7 @@ function CallDetailPageInner() {
             <label className="form-label">Call Status</label>
             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               {CALL_STATUSES.map((s) => (
-                <button key={s} onClick={() => handleStatusChange(s)}
+                <button key={s} onClick={() => handleStatusSelect(s)}
                   style={{ padding: "8px 14px", borderRadius: 6, border: `2px solid ${data.status === s ? CALL_STATUS_COLORS[s] || "#0f2942" : "var(--border)"}`, background: data.status === s ? `${CALL_STATUS_COLORS[s] || "#0f2942"}15` : "#fff", color: data.status === s ? CALL_STATUS_COLORS[s] || "#0f2942" : "var(--text-secondary)", fontWeight: data.status === s ? 800 : 400, fontSize: 13, cursor: "pointer" }}>
                   {s}
                 </button>
@@ -1460,6 +1469,15 @@ function CallDetailPageInner() {
         <div className="dispatch-page-header-actions" style={{ marginLeft: "auto" }}>
           {saveState === "saved" && <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 700 }}>✓ Saved</span>}
           {saveState === "saving" && <span style={{ fontSize: 12, color: "var(--text-muted)" }}>Saving…</span>}
+          {FOLLOW_UP_ELIGIBLE_STATUSES.includes(call.status || "") && (
+            <button
+              className="btn btn-sm"
+              style={{ background: "#fff7ed", color: "#d97706", borderColor: "#fed7aa", fontWeight: 700 }}
+              onClick={() => setShowFollowUpModal(true)}
+            >
+              ⏰ Move to Pending Follow-Up
+            </button>
+          )}
           <button className="btn btn-secondary btn-sm" onClick={printCallReview} title="Print narrative and call review">
             🖨 Print
           </button>
@@ -1693,6 +1711,16 @@ function CallDetailPageInner() {
           callType={call.type}
           onAdded={handleAnimalAdded}
           onClose={() => setShowIntakeModal(false)}
+        />
+      )}
+      {showFollowUpModal && call && (
+        <FollowUpModal
+          call={call}
+          officers={officers}
+          currentUserName={getNarrativeAuthor()}
+          mode="move"
+          onClose={() => setShowFollowUpModal(false)}
+          onSaved={(updated) => { applyFreshCall(updated); setShowFollowUpModal(false); showToast("Call moved to Pending Follow-Up"); }}
         />
       )}
     </AppShell>

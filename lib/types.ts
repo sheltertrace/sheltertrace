@@ -226,6 +226,13 @@ export interface DispatchCall {
   created_at?: string;
   updated_at?: string;
   alert_acknowledgments?: AlertAcknowledgment[];
+  follow_up_required?: boolean;
+  follow_up_reason?: string;
+  follow_up_due_date?: string;
+  follow_up_assigned_officer?: string;
+  follow_up_moved_by?: string;
+  follow_up_moved_at?: string;
+  follow_up_notes?: string;
 }
 
 export interface AssignedOfficer {
