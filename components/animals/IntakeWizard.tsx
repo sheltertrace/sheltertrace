@@ -7,17 +7,21 @@ import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import {
   INTAKE_TYPES, CIRCUMSTANCE_TYPES, ALL_BREEDS_DOG, ALL_BREEDS_CAT,
   ALL_COLORS, COAT_TYPES, EAR_TYPES, EYE_COLORS, SIZE_OPTIONS,
-  BEHAVIOR_FLAGS,
+  BEHAVIOR_FLAGS, TAIL_TYPES, INTAKE_EAR_TYPES, INTAKE_COAT_TYPES,
+  BODY_CONDITION_SCORES, INTAKE_METHODS, STATES,
 } from "@/lib/constants";
+import { STATEMENT_OF_SURRENDER_TEXT } from "@/lib/shelterInfo";
 import { useKennels } from "@/app/providers";
 import { dobToAgeEstimate, genId, today, nowTime } from "@/lib/utils";
 import AgeInput from "@/components/ui/AgeInput";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
 import DateInput from "@/components/ui/DateInput";
+import SignaturePad from "@/components/ui/SignaturePad";
+import { linkAnimalToPerson, addAnimalNote } from "@/lib/data";
 
 interface Props {
-  onComplete: (animal: Partial<Animal>) => Promise<void>;
+  onComplete: (animal: Partial<Animal>) => Promise<Animal>;
   onCancel: () => void;
   people: Person[];
   onAddPerson: (p: Partial<Person>) => Promise<Person>;
@@ -46,6 +50,8 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const [intakeTime, setIntakeTime] = useState(nowTime());
   const [acoRecord, setAcoRecord] = useState("");
   const [caseNumber, setCaseNumber] = useState("");
+  const [intakeMethod, setIntakeMethod] = useState("");
+  const [processedByEmployee, setProcessedByEmployee] = useState("");
 
   // Step 2
   const [species, setSpecies] = useState("Dog");
@@ -64,6 +70,13 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const [markings, setMarkings] = useState("");
   const [fixed, setFixed] = useState("Unknown");
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [tailType, setTailType] = useState("");
+  const [earsTypeIntake, setEarsTypeIntake] = useState("");
+  const [coatTypeDetail, setCoatTypeDetail] = useState("");
+  const [collarTag, setCollarTag] = useState("");
+  const [distinguishingFeatures, setDistinguishingFeatures] = useState("");
+  const [ownerVet, setOwnerVet] = useState("");
+  const [ownerVetPhone, setOwnerVetPhone] = useState("");
 
   // Step 3
   const [microchip, setMicrochip] = useState("");
@@ -84,6 +97,13 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const [behaviorFlags, setBehaviorFlags] = useState<Record<string, boolean>>({});
   const [isCrueltyCase, setIsCrueltyCase] = useState(false);
   const [isDangerous, setIsDangerous] = useState(false);
+  const [bodyConditionScore, setBodyConditionScore] = useState("");
+  const [conditionVisibleInjury, setConditionVisibleInjury] = useState(false);
+  const [conditionSignsOfIllness, setConditionSignsOfIllness] = useState(false);
+  const [conditionParasitesObserved, setConditionParasitesObserved] = useState(false);
+  const [conditionPregnantNursing, setConditionPregnantNursing] = useState(false);
+  const [assessedByInitials, setAssessedByInitials] = useState("");
+  const [assessmentDate, setAssessmentDate] = useState(today());
 
   // Step 5
   const [broughtBy, setBroughtBy] = useState<Person | null>(null);
@@ -93,8 +113,18 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const [npLast, setNpLast] = useState("");
   const [npPhone, setNpPhone] = useState("");
   const [npRole, setNpRole] = useState("Contact");
+  const [npAddress, setNpAddress] = useState("");
+  const [npState, setNpState] = useState("GA");
+  const [npZip, setNpZip] = useState("");
   const [foundAddress, setFoundAddress] = useState("");
   const [foundCity, setFoundCity] = useState("");
+  const [finderWantsIfUnclaimed, setFinderWantsIfUnclaimed] = useState(false);
+  const [finderWantsAdoptionContact, setFinderWantsAdoptionContact] = useState(false);
+  const [statementAcknowledged, setStatementAcknowledged] = useState(false);
+  const [surrenderSignature, setSurrenderSignature] = useState<string | null>(null);
+  const [surrenderSignedAt, setSurrenderSignedAt] = useState<string | null>(null);
+  const [finderSignature, setFinderSignature] = useState<string | null>(null);
+  const [finderSignedAt, setFinderSignedAt] = useState<string | null>(null);
 
   // Step 6
   const [kennel, setKennel] = useState("Unassigned");
@@ -127,10 +157,17 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
 
   const handleCreatePerson = async () => {
     if (!npFirst.trim() || !npLast.trim()) return;
-    const p = await onAddPerson({ first_name: npFirst.trim(), last_name: npLast.trim(), phone: npPhone.trim(), role: npRole, city: foundCity });
+    const isOwnerOrFinder = npRole === "Previous Owner" || npRole === "Finder";
+    const p = await onAddPerson({
+      first_name: npFirst.trim(), last_name: npLast.trim(), phone: npPhone.trim(), role: npRole,
+      address: isOwnerOrFinder ? npAddress.trim() || undefined : undefined,
+      city: isOwnerOrFinder ? foundCity || undefined : foundCity,
+      state: isOwnerOrFinder ? npState || undefined : undefined,
+      zip: isOwnerOrFinder ? npZip.trim() || undefined : undefined,
+    });
     setBroughtBy(p);
     setShowNewPerson(false);
-    setNpFirst(""); setNpLast(""); setNpPhone("");
+    setNpFirst(""); setNpLast(""); setNpPhone(""); setNpAddress(""); setNpZip("");
   };
 
   const pMatches = pSearch
@@ -157,8 +194,38 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
         behavior_flags: behaviorFlags,
         is_cruelty_case: isCrueltyCase, is_dangerous: isDangerous,
         found_address: foundAddress, found_city: foundCity,
+        // MCAS Animal Intake Form fields
+        intake_method: intakeMethod || undefined,
+        processed_by_employee: processedByEmployee.trim() || undefined,
+        body_condition_score: bodyConditionScore ? Number(bodyConditionScore) : undefined,
+        tail_type: tailType || undefined,
+        ears_type: earsTypeIntake || undefined,
+        coat_type_detail: coatTypeDetail || undefined,
+        collar_tag: collarTag.trim() || undefined,
+        distinguishing_features: distinguishingFeatures.trim() || undefined,
+        owner_vet: ownerVet.trim() || undefined,
+        owner_vet_phone: ownerVetPhone.trim() || undefined,
+        condition_visible_injury: conditionVisibleInjury,
+        condition_signs_of_illness: conditionSignsOfIllness,
+        condition_parasites_observed: conditionParasitesObserved,
+        condition_pregnant_nursing: conditionPregnantNursing,
+        assessed_by_initials: assessedByInitials.trim() || undefined,
+        assessment_date: assessmentDate || undefined,
+        finder_wants_if_unclaimed: intakeType === "Stray" ? finderWantsIfUnclaimed : undefined,
+        finder_wants_adoption_contact: intakeType === "Stray" ? finderWantsAdoptionContact : undefined,
+        finder_signature: intakeType === "Stray" ? finderSignature || undefined : undefined,
+        statement_of_surrender_acknowledged: intakeType === "Surrender" ? statementAcknowledged : undefined,
+        surrender_signature: intakeType === "Surrender" ? surrenderSignature || undefined : undefined,
       };
-      await onComplete(animal);
+      const created = await onComplete(animal);
+      if (created?.id) {
+        if (broughtBy) {
+          await linkAnimalToPerson(created.id, broughtBy.id, broughtBy.role || "Contact");
+        }
+        if (initialNotes.trim()) {
+          await addAnimalNote(created.id, initialNotes.trim(), "Intake");
+        }
+      }
     } finally {
       setSaving(false);
     }
@@ -209,12 +276,26 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
               <F label="Intake Time">
                 <input className="form-input" type="time" value={intakeTime} onChange={(e) => setIntakeTime(e.target.value)} />
               </F>
-              <F label="ACO Record #">
+              <F label="ACO Record # / AC#">
                 <input className="form-input" value={acoRecord} onChange={(e) => setAcoRecord(e.target.value)} placeholder="ACO-..." />
               </F>
               <F label="Case Number">
                 <input className="form-input" value={caseNumber} onChange={(e) => setCaseNumber(e.target.value)} placeholder="If applicable" />
               </F>
+              <F label="Employee">
+                <input className="form-input" value={processedByEmployee} onChange={(e) => setProcessedByEmployee(e.target.value)} placeholder="Staff member processing intake" />
+              </F>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Intake Method</label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {INTAKE_METHODS.map((m) => (
+                  <label key={m} style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", borderRadius: 7, border: `1.5px solid ${intakeMethod === m ? "var(--teal)" : "var(--border)"}`, background: intakeMethod === m ? "rgba(26,138,138,0.08)" : "transparent", cursor: "pointer", fontSize: 13 }}>
+                    <input type="radio" name="intakeMethod" checked={intakeMethod === m} onChange={() => setIntakeMethod(m)} />
+                    {m}
+                  </label>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -229,7 +310,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                   <img src={photoPreview} alt="" style={{ width: 100, height: 100, borderRadius: 12, objectFit: "cover", border: "2px solid var(--border)" }} />
                 ) : (
                   <div style={{ width: 100, height: 100, borderRadius: 12, background: "#f1f5f9", border: "2px dashed var(--border)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4, cursor: "pointer" }}>
-                    <span style={{ fontSize: 28 }}>{species === "Dog" ? "🐕" : "🐈"}</span>
+                    <span style={{ fontSize: 28 }}>{species === "Dog" ? "🐕" : species === "Cat" ? "🐈" : "🐾"}</span>
                     <span style={{ fontSize: 9, color: "var(--text-muted)" }}>Upload Photo</span>
                   </div>
                 )}
@@ -237,9 +318,9 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
               </label>
               <div style={{ flex: 1 }}>
                 <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                  {["Dog", "Cat"].map((s) => (
+                  {["Dog", "Cat", "Other"].map((s) => (
                     <button key={s} onClick={() => { setSpecies(s); setBreed(""); }} className={`btn btn-sm ${species === s ? "btn-primary" : "btn-secondary"}`}>
-                      {s === "Dog" ? "🐕" : "🐈"} {s}
+                      {s === "Dog" ? "🐕" : s === "Cat" ? "🐈" : "🐾"} {s}
                     </button>
                   ))}
                 </div>
@@ -254,9 +335,13 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
             </div>
             <div className="grid-3">
               <F label="Breed">
-                <select className="form-select" value={breed} onChange={(e) => setBreed(e.target.value)}>
-                  {(species === "Cat" ? ALL_BREEDS_CAT : ALL_BREEDS_DOG).map((o) => <option key={o} value={o}>{o || "— Select —"}</option>)}
-                </select>
+                {species === "Other" ? (
+                  <input className="form-input" value={breed} onChange={(e) => setBreed(e.target.value)} placeholder="Describe species/breed" />
+                ) : (
+                  <select className="form-select" value={breed} onChange={(e) => setBreed(e.target.value)}>
+                    {(species === "Cat" ? ALL_BREEDS_CAT : ALL_BREEDS_DOG).map((o) => <option key={o} value={o}>{o || "— Select —"}</option>)}
+                  </select>
+                )}
               </F>
               <F label="Sex">
                 <select className="form-select" value={sex} onChange={(e) => setSex(e.target.value)}>
@@ -311,6 +396,43 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
             </div>
             <F label="Markings / Description">
               <textarea className="form-textarea" value={markings} onChange={(e) => setMarkings(e.target.value)} placeholder="Distinctive markings, patterns, scars…" rows={2} />
+            </F>
+
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--teal)", margin: "20px 0 16px" }}>Intake Form — Animal Description</h3>
+            <div className="grid-3">
+              <F label="Tail">
+                <select className="form-select" value={tailType} onChange={(e) => setTailType(e.target.value)}>
+                  {TAIL_TYPES.map((o) => <option key={o} value={o}>{o || "— Select —"}</option>)}
+                </select>
+              </F>
+              <F label="Ears">
+                <select className="form-select" value={earsTypeIntake} onChange={(e) => setEarsTypeIntake(e.target.value)}>
+                  {INTAKE_EAR_TYPES.map((o) => <option key={o} value={o}>{o || "— Select —"}</option>)}
+                </select>
+              </F>
+              <F label="Coat">
+                <select className="form-select" value={coatTypeDetail} onChange={(e) => setCoatTypeDetail(e.target.value)}>
+                  {INTAKE_COAT_TYPES.map((o) => <option key={o} value={o}>{o || "— Select —"}</option>)}
+                </select>
+              </F>
+              <F label="Body Condition Score (1–9)">
+                <select className="form-select" value={bodyConditionScore} onChange={(e) => setBodyConditionScore(e.target.value)}>
+                  <option value="">— Select —</option>
+                  {BODY_CONDITION_SCORES.map((n) => <option key={n} value={n}>{n}</option>)}
+                </select>
+              </F>
+              <F label="Collar / Tag">
+                <input className="form-input" value={collarTag} onChange={(e) => setCollarTag(e.target.value)} placeholder="Description of collar/tag" />
+              </F>
+              <F label="Vet">
+                <input className="form-input" value={ownerVet} onChange={(e) => setOwnerVet(e.target.value)} placeholder="Owner's veterinarian" />
+              </F>
+              <F label="Vet's Phone">
+                <input className="form-input" type="tel" value={ownerVetPhone} onChange={(e) => setOwnerVetPhone(e.target.value)} placeholder="(706) 555-0000" />
+              </F>
+            </div>
+            <F label="Distinguishing Features">
+              <textarea className="form-textarea" value={distinguishingFeatures} onChange={(e) => setDistinguishingFeatures(e.target.value)} placeholder="Scars, tail kinks, unusual markings…" rows={2} />
             </F>
           </div>
         )}
@@ -370,9 +492,30 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
               </F>
               <F label="Intake Behavior">
                 <select className="form-select" value={intakeBehavior} onChange={(e) => setIntakeBehavior(e.target.value)}>
-                  {["", "Friendly", "Fearful", "Aggressive", "Anxious", "Calm", "Unknown"].map((o) => <option key={o} value={o}>{o || "— Select —"}</option>)}
+                  {["", "Friendly/Approachable", "Fearful/Skittish", "Aggressive", "Feral/Unhandleable", "Unknown"].map((o) => <option key={o} value={o}>{o || "— Select —"}</option>)}
                 </select>
               </F>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Condition Assessment</label>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox" checked={conditionVisibleInjury} onChange={(e) => setConditionVisibleInjury(e.target.checked)} />
+                  Visible Injury
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox" checked={conditionSignsOfIllness} onChange={(e) => setConditionSignsOfIllness(e.target.checked)} />
+                  Signs of Illness
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox" checked={conditionParasitesObserved} onChange={(e) => setConditionParasitesObserved(e.target.checked)} />
+                  Parasites Observed
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 13 }}>
+                  <input type="checkbox" checked={conditionPregnantNursing} onChange={(e) => setConditionPregnantNursing(e.target.checked)} />
+                  Pregnant / Nursing
+                </label>
+              </div>
             </div>
             <F label="Injuries / Medical Notes">
               <textarea className="form-textarea" value={injuries} onChange={(e) => setInjuries(e.target.value)} placeholder="Describe any injuries or medical concerns…" rows={2} />
@@ -409,17 +552,27 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                 ))}
               </div>
             </div>
+            <div className="grid-2">
+              <F label="Assessed By (Staff Initials)">
+                <input className="form-input" value={assessedByInitials} onChange={(e) => setAssessedByInitials(e.target.value)} placeholder="e.g. JS" maxLength={6} />
+              </F>
+              <F label="Assessment Date">
+                <DateInput className="form-input" value={assessmentDate} onChange={(e) => setAssessmentDate(e.target.value)} />
+              </F>
+            </div>
           </div>
         )}
 
         {/* Step 5: Source / Brought By */}
         {step === 5 && (
           <div>
-            <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--teal)", marginBottom: 16 }}>Source / Brought By</h3>
+            <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--teal)", marginBottom: 16 }}>
+              {intakeType === "Surrender" ? "Owner Surrender" : intakeType === "Stray" ? "Finder" : "Source / Brought By"}
+            </h3>
             {intakeType === "Stray" && (
               <div className="grid-2" style={{ marginBottom: 14 }}>
                 <div className="form-group">
-                  <label className="form-label">Found Address</label>
+                  <label className="form-label">Location Found</label>
                   <input className="form-input" value={foundAddress} onChange={(e) => setFoundAddress(e.target.value)} placeholder="Street address where found" />
                 </div>
                 <div className="form-group">
@@ -430,7 +583,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
             )}
 
             <div className="form-group">
-              <label className="form-label">Brought By (search existing contacts)</label>
+              <label className="form-label">{intakeType === "Surrender" ? "Owner" : intakeType === "Stray" ? "Finder" : "Brought By"} (search existing contacts)</label>
               <input
                 className="form-input"
                 value={pSearch}
@@ -461,7 +614,13 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
             )}
 
             {!showNewPerson ? (
-              <button className="btn btn-secondary btn-sm" onClick={() => setShowNewPerson(true)}>+ Create New Contact</button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => {
+                  setNpRole(intakeType === "Surrender" ? "Previous Owner" : intakeType === "Stray" ? "Finder" : "Contact");
+                  setShowNewPerson(true);
+                }}
+              >+ Create New Contact</button>
             ) : (
               <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
@@ -493,11 +652,76 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                       {["Contact", "Previous Owner", "Finder", "Surrender", "Transfer"].map((r) => <option key={r}>{r}</option>)}
                     </select>
                   </div>
+                  {(npRole === "Previous Owner" || npRole === "Finder") && (
+                    <>
+                      <div className="form-group" style={{ gridColumn: "1/-1" }}>
+                        <label className="form-label">Address</label>
+                        <input className="form-input" value={npAddress} onChange={(e) => setNpAddress(e.target.value)} placeholder="Street address" />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">City</label>
+                        <input className="form-input" value={foundCity} onChange={(e) => setFoundCity(e.target.value)} placeholder="City" />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">State</label>
+                        <select className="form-select" value={npState} onChange={(e) => setNpState(e.target.value)}>
+                          {STATES.map((s) => <option key={s}>{s}</option>)}
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Zip</label>
+                        <input className="form-input" value={npZip} onChange={(e) => setNpZip(e.target.value)} placeholder="30650" maxLength={10} />
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button className="btn btn-primary btn-sm" onClick={handleCreatePerson}>Save Contact</button>
                   <button className="btn btn-ghost btn-sm" onClick={() => setShowNewPerson(false)}>Cancel</button>
                 </div>
+              </div>
+            )}
+
+            {/* Owner Surrender certification */}
+            {intakeType === "Surrender" && (
+              <div style={{ marginTop: 20, borderTop: "2px solid var(--border)", paddingTop: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Statement of Surrender</div>
+                <div style={{ maxHeight: 160, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 8, padding: "12px 14px", background: "#f9fafb", fontSize: 12, lineHeight: 1.7, color: "#1f2937", marginBottom: 12 }}>
+                  {STATEMENT_OF_SURRENDER_TEXT}
+                </div>
+                <label style={{ display: "flex", alignItems: "flex-start", gap: 10, fontSize: 13, cursor: "pointer", marginBottom: 14 }}>
+                  <input type="checkbox" checked={statementAcknowledged} onChange={(e) => setStatementAcknowledged(e.target.checked)} style={{ marginTop: 2 }} />
+                  <span><strong>I have read and agree to the Statement of Surrender</strong> as stated above.</span>
+                </label>
+                <SignaturePad
+                  label="Owner Signature"
+                  value={surrenderSignature}
+                  timestamp={surrenderSignedAt}
+                  onAccept={(data, ts) => { setSurrenderSignature(data); setSurrenderSignedAt(ts); }}
+                  onClear={() => { setSurrenderSignature(null); setSurrenderSignedAt(null); }}
+                />
+              </div>
+            )}
+
+            {/* Finder certification */}
+            {intakeType === "Stray" && (
+              <div style={{ marginTop: 20, borderTop: "2px solid var(--border)", paddingTop: 16 }}>
+                <div style={{ fontWeight: 800, fontSize: 14, marginBottom: 10 }}>Finder Preferences</div>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer", marginBottom: 10 }}>
+                  <input type="checkbox" checked={finderWantsIfUnclaimed} onChange={(e) => setFinderWantsIfUnclaimed(e.target.checked)} />
+                  Wants to keep animal if unclaimed
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 10, fontSize: 13, cursor: "pointer", marginBottom: 14 }}>
+                  <input type="checkbox" checked={finderWantsAdoptionContact} onChange={(e) => setFinderWantsAdoptionContact(e.target.checked)} />
+                  Wants to be contacted re: adoption
+                </label>
+                <SignaturePad
+                  label="Finder Signature"
+                  value={finderSignature}
+                  timestamp={finderSignedAt}
+                  onAccept={(data, ts) => { setFinderSignature(data); setFinderSignedAt(ts); }}
+                  onClear={() => { setFinderSignature(null); setFinderSignedAt(null); }}
+                />
               </div>
             )}
           </div>
@@ -534,7 +758,19 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
                 <div><span style={{ color: "var(--text-secondary)" }}>Fixed:</span> {fixed}</div>
                 <div><span style={{ color: "var(--text-secondary)" }}>Microchip:</span> {microchip || "None"}</div>
                 <div><span style={{ color: "var(--text-secondary)" }}>Brought By:</span> {broughtBy ? `${broughtBy.first_name} ${broughtBy.last_name}` : "Unknown"}</div>
+                <div><span style={{ color: "var(--text-secondary)" }}>Intake Method:</span> {intakeMethod || "—"}</div>
+                <div><span style={{ color: "var(--text-secondary)" }}>Body Condition Score:</span> {bodyConditionScore || "—"}</div>
               </div>
+              {intakeType === "Surrender" && (
+                <div style={{ marginTop: 8, fontSize: 12, color: statementAcknowledged && surrenderSignature ? "#15803d" : "#b45309" }}>
+                  {statementAcknowledged && surrenderSignature ? "✓ Statement of Surrender signed" : "⚠ Statement of Surrender not yet signed"}
+                </div>
+              )}
+              {intakeType === "Stray" && (
+                <div style={{ marginTop: 8, fontSize: 12, color: finderSignature ? "#15803d" : "#b45309" }}>
+                  {finderSignature ? "✓ Finder signature on file" : "⚠ Finder signature not yet captured"}
+                </div>
+              )}
               {(isCrueltyCase || isDangerous) && (
                 <div style={{ marginTop: 10, display: "flex", gap: 8 }}>
                   {isCrueltyCase && <span style={{ background: "#fee2e2", color: "#dc2626", padding: "3px 10px", borderRadius: 20, fontSize: 12, fontWeight: 700 }}>⚠️ CRUELTY CASE</span>}

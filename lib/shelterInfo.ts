@@ -27,6 +27,13 @@ export const COURT_STATE_ADDR      = IS_DEMO ? "2 Demo Blvd, Maplewood, GA 30650
 export const COUNTY_NAME           = IS_DEMO ? "Demo County"                           : "Morgan County";
 export const COUNTY_STATE          = IS_DEMO ? "Demo County, GA"                       : "Morgan County, Georgia";
 
+// Statement of Surrender — printed on the MCAS Animal Intake Form and shown
+// to the public before the owner-surrender / finder signature is captured.
+export const STATEMENT_OF_SURRENDER_TEXT =
+  `I certify that I am the rightful owner of this animal, or am otherwise authorized to relinquish or release custody of this animal, and that the information I have provided above is true and accurate to the best of my knowledge. ` +
+  `I understand that by signing below I am voluntarily surrendering all ownership rights, interest, and claim to this animal to ${AGENCY_NAME}, and that ${AGENCY_NAME} may, at its sole discretion, offer this animal for adoption, transfer it to another organization, or humanely euthanize it. ` +
+  `I release ${AGENCY_NAME}, ${COUNTY_NAME}, its officers, employees, and agents from any and all liability arising from the care, custody, placement, or disposition of this animal after surrender.`;
+
 // ── Demo ordinances ────────────────────────────────────────────────────────────
 // Generic animal control ordinances used on the demo deployment.
 // Same interface as MorganCountyOrdinance so they're drop-in compatible.

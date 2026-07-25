@@ -75,6 +75,29 @@ export interface Animal {
   death_recorded_at?: string;
   created_at?: string;
   updated_at?: string;
+  // MCAS Animal Intake Form digitization
+  body_condition_score?: number;
+  tail_type?: string;
+  ears_type?: string;
+  coat_type_detail?: string;
+  distinguishing_features?: string;
+  surrender_signature?: string;
+  finder_signature?: string;
+  finder_wants_if_unclaimed?: boolean;
+  finder_wants_adoption_contact?: boolean;
+  statement_of_surrender_acknowledged?: boolean;
+  assessed_by_initials?: string;
+  assessment_date?: string;
+  // Supplemental intake-form gaps found during audit
+  intake_method?: string;
+  processed_by_employee?: string;
+  owner_vet?: string;
+  owner_vet_phone?: string;
+  collar_tag?: string;
+  condition_visible_injury?: boolean;
+  condition_signs_of_illness?: boolean;
+  condition_parasites_observed?: boolean;
+  condition_pregnant_nursing?: boolean;
 }
 
 export interface EuthanasiaRecord {

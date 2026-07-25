@@ -1,9 +1,10 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { fetchForms } from "@/lib/data";
-import type { ShelterForm, FormType } from "@/lib/types";
+import { fetchForms, fetchAnimals, fetchPeopleForAnimal, fetchEuthanasiaLog } from "@/lib/data";
+import type { ShelterForm, FormType, Animal } from "@/lib/types";
 import { formatDate } from "@/lib/utils";
+import { printIntakeForm } from "@/lib/intakeFormPrint";
 import DoorKnockerForm from "./DoorKnockerForm";
 import RabiesQuarantineForm from "./RabiesQuarantineForm";
 import RequestForComplianceForm from "./RequestForComplianceForm";
@@ -113,6 +114,46 @@ export default function FormsPage() {
   const [highlightId, setHighlightId] = useState<string | null>(null);
   const historyRef = useRef<HTMLDivElement>(null);
 
+  // MCAS Animal Intake Form — generate from an existing animal record
+  const [showIntakeAnimalPicker, setShowIntakeAnimalPicker] = useState(false);
+  const [intakeAnimals, setIntakeAnimals] = useState<Animal[]>([]);
+  const [intakeAnimalsLoaded, setIntakeAnimalsLoaded] = useState(false);
+  const [intakeAnimalSearch, setIntakeAnimalSearch] = useState("");
+  const [generatingIntakeFor, setGeneratingIntakeFor] = useState<string | null>(null);
+
+  const openIntakeAnimalPicker = useCallback(async () => {
+    setShowIntakeAnimalPicker(true);
+    if (!intakeAnimalsLoaded) {
+      const a = await fetchAnimals();
+      setIntakeAnimals(a);
+      setIntakeAnimalsLoaded(true);
+    }
+  }, [intakeAnimalsLoaded]);
+
+  const intakeAnimalMatches = useMemo(() => {
+    const q = intakeAnimalSearch.trim().toLowerCase();
+    if (!q) return [];
+    return intakeAnimals.filter((a) =>
+      a.name.toLowerCase().includes(q) || a.id.toLowerCase().includes(q)
+    ).slice(0, 10);
+  }, [intakeAnimals, intakeAnimalSearch]);
+
+  const handleGenerateFilledIntakeForm = async (animal: Animal) => {
+    setGeneratingIntakeFor(animal.id);
+    try {
+      const linked = await fetchPeopleForAnimal(animal.id);
+      const ownerPerson = linked.find((lp) => lp.role === "Previous Owner")?.person || null;
+      const finderPerson = linked.find((lp) => lp.role === "Finder")?.person || null;
+      const needsEuthanasiaLog = animal.status === "Euthanized" || animal.status === "Died in Care";
+      const euthanasiaLogs = needsEuthanasiaLog ? await fetchEuthanasiaLog({ animalId: animal.id }) : [];
+      printIntakeForm(animal, { ownerPerson, finderPerson, euthanasiaLogs });
+      setShowIntakeAnimalPicker(false);
+      setIntakeAnimalSearch("");
+    } finally {
+      setGeneratingIntakeFor(null);
+    }
+  };
+
   const load = useCallback(async () => {
     try {
       const f = await fetchForms();
@@ -168,6 +209,30 @@ export default function FormsPage() {
 
   return (
     <AppShell title="${AGENCY_SHORT} Forms">
+      {/* MCAS Animal Intake Form — not part of the generic form-history system; its
+          data lives on the animal record itself, not a separately saved form entry. */}
+      <div className="card" style={{ padding: 20, borderTop: "4px solid #0f2942", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 14, marginBottom: 14 }}>
+          <div style={{ width: 48, height: 48, borderRadius: 10, background: "#eef2f7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+            🐾
+          </div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 14, lineHeight: 1.3 }}>MCAS Animal Intake Form</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 5, lineHeight: 1.5 }}>
+              Owner surrender / finder blocks, staff intake details, animal description, condition &amp; behavior assessment, and euthanasia log — matches the paper intake form.
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <button className="btn btn-secondary btn-sm" onClick={() => printIntakeForm(null)}>
+            🖨 Print Blank Form
+          </button>
+          <button className="btn btn-primary btn-sm" style={{ background: "#0f2942", borderColor: "#0f2942" }} onClick={openIntakeAnimalPicker}>
+            🔍 Generate from Animal Record
+          </button>
+        </div>
+      </div>
+
       {/* Form type cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginBottom: 28 }}>
         {FORM_CARDS.map((card) => (
@@ -309,6 +374,45 @@ export default function FormsPage() {
       )}
       {activeFormType === "adoption_application" && (
         <AdoptionApplicationForm onSave={handleFormSaved} onClose={() => setActiveFormType(null)} />
+      )}
+
+      {/* Intake Form — animal picker for "Generate from Animal Record" */}
+      {showIntakeAnimalPicker && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.5)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }} onClick={() => setShowIntakeAnimalPicker(false)}>
+          <div style={{ background: "var(--surface)", borderRadius: 10, padding: "20px 22px", width: "100%", maxWidth: 480, maxHeight: "80vh", display: "flex", flexDirection: "column", boxShadow: "0 8px 32px rgba(0,0,0,.25)" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 12 }}>Generate Intake Form from Animal Record</div>
+            <input
+              className="form-input"
+              autoFocus
+              value={intakeAnimalSearch}
+              onChange={(e) => setIntakeAnimalSearch(e.target.value)}
+              placeholder="Search by animal name or ID…"
+              style={{ marginBottom: 12 }}
+            />
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {!intakeAnimalsLoaded ? (
+                <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}>Loading animals…</div>
+              ) : intakeAnimalSearch.trim() === "" ? (
+                <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}>Start typing to search.</div>
+              ) : intakeAnimalMatches.length === 0 ? (
+                <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)" }}>No matching animals found.</div>
+              ) : (
+                intakeAnimalMatches.map((a) => (
+                  <div key={a.id} onClick={() => handleGenerateFilledIntakeForm(a)}
+                    style={{ padding: "10px 12px", borderRadius: 6, cursor: "pointer", marginBottom: 4, border: "1px solid var(--border)", fontSize: 13, opacity: generatingIntakeFor === a.id ? 0.6 : 1 }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "var(--surface-alt)")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                    <div style={{ fontWeight: 700 }}>{a.name} <span style={{ fontFamily: "monospace", fontWeight: 400, color: "var(--text-muted)", fontSize: 11 }}>{a.id}</span></div>
+                    <div style={{ color: "var(--text-secondary)", fontSize: 12 }}>{a.species} · {a.breed} · {a.status}</div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 12 }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowIntakeAnimalPicker(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
     </AppShell>
   );

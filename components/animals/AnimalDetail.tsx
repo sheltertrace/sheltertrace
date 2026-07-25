@@ -22,9 +22,10 @@ import {
   createDepartureReceipt, fetchDepartureReceiptsByAnimal, fetchAdoptionsByAnimal,
   lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled, toggleAnimalNotePopup,
   logKennelMove, fetchKennelMoves, type KennelMove, type AnimalDocument,
-  fetchPeopleForAnimal, unlinkAnimalFromPerson,
+  fetchPeopleForAnimal, unlinkAnimalFromPerson, fetchEuthanasiaLog,
 } from "@/lib/data";
 import type { AnimalPerson } from "@/lib/types";
+import { printIntakeForm } from "@/lib/intakeFormPrint";
 import LinkPersonModal from "./LinkPersonModal";
 import { IS_DEMO } from "@/lib/demo";
 import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult } from "@/lib/idexx";
@@ -652,6 +653,14 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const animalMed = medRecords.filter((m) => m.animal_id === animal.id).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   const flags = animal.behavior_flags || {};
 
+  const handlePrintIntakeForm = async () => {
+    const ownerPerson = linkedPeople.find((lp) => lp.role === "Previous Owner")?.person || null;
+    const finderPerson = linkedPeople.find((lp) => lp.role === "Finder")?.person || null;
+    const needsEuthanasiaLog = animal.status === "Euthanized" || animal.status === "Died in Care";
+    const euthanasiaLogs = needsEuthanasiaLog ? await fetchEuthanasiaLog({ animalId: animal.id }) : [];
+    printIntakeForm(animal, { ownerPerson, finderPerson, euthanasiaLogs });
+  };
+
   const printKennelCard = () => {
     const w = window.open("", "_blank", "width=820,height=1060");
     if (!w) return;
@@ -823,6 +832,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button className="btn btn-secondary btn-sm" onClick={printKennelCard}>🖨 Kennel Card</button>
+          <button className="btn btn-secondary btn-sm" onClick={handlePrintIntakeForm}>🖨 Intake Form</button>
           <a
             href={`/bite-reports/new?type=animal_human&animalId=${animal.id}&animalName=${encodeURIComponent(animal.name)}&species=${encodeURIComponent(animal.species || "")}&breed=${encodeURIComponent(animal.breed || "")}&color=${encodeURIComponent(animal.color || "")}&microchip=${encodeURIComponent(animal.microchip || "")}`}
             className="btn btn-ghost btn-sm"

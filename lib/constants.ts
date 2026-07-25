@@ -158,6 +158,17 @@ export const EAR_TYPES = ["","Erect","Floppy","Semi-erect","Rose","Button","Crop
 export const EYE_COLORS = ["","Brown","Blue","Green","Hazel","Amber","Heterochromia"];
 export const SIZE_OPTIONS = ["","Small","Medium","Large","Extra Large"];
 
+// ── MCAS Animal Intake Form descriptors ────────────────────────────────────────
+// Distinct from the general-purpose COAT_TYPES/EAR_TYPES above — these mirror
+// the exact checkbox wording on the paper intake form and are stored in the
+// dedicated tail_type/ears_type/coat_type_detail columns.
+export const TAIL_TYPES = ["", "Long", "Short", "Bush", "Docked", "Curly"];
+export const INTAKE_EAR_TYPES = ["", "Drooping", "Erect", "Semi-Erect", "Rose Cut", "Cropped"];
+export const INTAKE_COAT_TYPES = ["", "Smooth", "Medium", "Long", "Wire Hair", "Curly"];
+export const BODY_CONDITION_SCORES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
+export const INTAKE_METHODS = ["Office Intake", "Field Intake", "Cage Trap", "Owner Surrender"];
+export const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
+
 export const BEHAVIOR_FLAGS = [
   { id: "biter", label: "Biter", icon: "⚠️", color: "#dc2626" },
   { id: "house_trained", label: "House Trained", icon: "🏠", color: "#16a34a" },

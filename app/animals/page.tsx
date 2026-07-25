@@ -80,13 +80,15 @@ export default function AnimalsPage() {
     historical: animals.filter((a) => isImported(a) && !IN_SHELTER_STATUSES.has(a.status)).length,
   }), [animals]);
 
-  const handleIntakeComplete = async (animalData: Partial<Animal>) => {
+  const handleIntakeComplete = async (animalData: Partial<Animal>): Promise<Animal> => {
     try {
       const created = await createAnimal(animalData);
       setAnimals((prev) => [created, ...prev]);
       setShowIntake(false);
+      return created;
     } catch (err) {
       console.error(err);
+      throw err;
     }
   };
 

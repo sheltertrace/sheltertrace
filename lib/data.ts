@@ -11,7 +11,7 @@ import { nullifyEmptyDates, nullifyEmptyBooleans } from "./sanitize";
 const ANIMAL_DATE_FIELDS = [
   "dob", "microchip_date", "rabies_expiry", "available_date",
   "transfer_due", "spay_neuter_due", "transfer_date",
-  "hold_start_date", "hold_end_date", "death_date",
+  "hold_start_date", "hold_end_date", "death_date", "assessment_date",
 ] as const;
 const PERSON_DATE_FIELDS = ["dob"] as const;
 const CITATION_DATE_FIELDS = ["date", "court_date", "due_date", "violator_dob"] as const;
@@ -2094,12 +2094,13 @@ export async function updateDrugInventory(id: string, updates: Partial<DrugInven
   return data as DrugInventory;
 }
 
-export async function fetchEuthanasiaLog(filters?: { dateFrom?: string; dateTo?: string; species?: string; staffId?: string }): Promise<EuthanasiaLog[]> {
+export async function fetchEuthanasiaLog(filters?: { dateFrom?: string; dateTo?: string; species?: string; staffId?: string; animalId?: string }): Promise<EuthanasiaLog[]> {
   let q = supabase.from("euthanasia_log").select("*").order("created_at", { ascending: false });
   if (filters?.dateFrom) q = q.gte("log_date", filters.dateFrom);
   if (filters?.dateTo)   q = q.lte("log_date", filters.dateTo);
   if (filters?.species && filters.species !== "All") q = q.eq("species", filters.species);
   if (filters?.staffId)  q = q.eq("administered_by_id", filters.staffId);
+  if (filters?.animalId) q = q.eq("animal_id", filters.animalId);
   const { data } = await q;
   return (data || []) as EuthanasiaLog[];
 }
