@@ -851,6 +851,7 @@ export default function OfficerAppPage() {
           <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
             {[
               { icon: "📡", label: "New Call",     href: "/dispatch/new" },
+              { icon: "📋", label: "Field Intake", href: "/officer/field-intake" },
               { icon: "🔬", label: "Microchip",    href: "/search?tab=microchip" },
               { icon: "🪪", label: "Scan License", href: "/search?tab=people" },
               { icon: "🐾", label: "Find Animal",  href: "/search?tab=animals" },

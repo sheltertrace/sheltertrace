@@ -184,10 +184,10 @@ export function buildIntakeFormHTML(animal: Partial<Animal> | null, opts: Intake
   </div>
   <div style="margin:6px 0 2px;font-size:9px;font-weight:700;color:#374151;text-transform:uppercase;">Behavior</div>
   <div style="margin-bottom:6px;">
-    ${box(a.intake_behavior === "Friendly/Approachable", "Friendly / Approachable")}
-    ${box(a.intake_behavior === "Fearful/Skittish", "Fearful / Skittish")}
-    ${box(a.intake_behavior === "Aggressive", "Aggressive")}
-    ${box(a.intake_behavior === "Feral/Unhandleable", "Feral / Unhandleable")}
+    ${box((a.intake_behavior || "").includes("Friendly/Approachable"), "Friendly / Approachable")}
+    ${box((a.intake_behavior || "").includes("Fearful/Skittish"), "Fearful / Skittish")}
+    ${box((a.intake_behavior || "").includes("Aggressive"), "Aggressive")}
+    ${box((a.intake_behavior || "").includes("Feral/Unhandleable"), "Feral / Unhandleable")}
   </div>
   ${line("Staff Notes / Observations", a.injuries, 500)}
   <div style="margin-top:6px;">
