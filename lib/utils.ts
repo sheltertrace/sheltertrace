@@ -79,6 +79,29 @@ export function nowTime(): string {
   return now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
 }
 
+// 24-hour "HH:mm" — use this (not nowTime) to seed the value of any
+// <input type="time">. Native time inputs reject AM/PM strings outright
+// ("does not conform to required format HH:mm"); nowTime()'s 12-hour output
+// is only safe for human-readable display text (narrative/note timestamps).
+export function now24Time(): string {
+  const now = new Date();
+  return `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+}
+
+// Defensive conversion for a text-input time source that might contain an
+// AM/PM suffix (e.g. "4:09 PM") into 24-hour "HH:mm". Returns the input
+// unchanged if it doesn't look like a 12-hour AM/PM string.
+export function to24HourTime(value: string): string {
+  const m = value.trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (!m) return value;
+  let hour = parseInt(m[1], 10);
+  const minute = m[2];
+  const isPM = m[3].toUpperCase() === "PM";
+  if (isPM && hour !== 12) hour += 12;
+  if (!isPM && hour === 12) hour = 0;
+  return `${String(hour).padStart(2, "0")}:${minute}`;
+}
+
 // ── Microchip manufacturer identification ─────────────────────────────────────
 
 export interface ChipId {

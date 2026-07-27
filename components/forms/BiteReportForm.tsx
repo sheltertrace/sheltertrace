@@ -14,7 +14,7 @@ import {
 import { createBiteReport, updateBiteReport } from "@/lib/biteReportData";
 import { getCurrentUserName, getCurrentUserId } from "@/lib/auth";
 import { printBiteReport } from "@/lib/biteReportPrint";
-import { today, nowTime } from "@/lib/utils";
+import { today, now24Time } from "@/lib/utils";
 import DateInput from "@/components/ui/DateInput";
 import DragDropUpload from "@/components/ui/DragDropUpload";
 
@@ -309,7 +309,7 @@ export default function BiteReportForm({ reportType, initialData, onSave, onCanc
       ...blankBiteReport(reportType),
       ...initialData,
       incident_date: initialData?.incident_date || today(),
-      incident_time: initialData?.incident_time || nowTime(),
+      incident_time: initialData?.incident_time || now24Time(),
       investigating_officer: initialData?.investigating_officer || getCurrentUserName(),
       investigating_officer_id: initialData?.investigating_officer_id || getCurrentUserId() || "",
     };

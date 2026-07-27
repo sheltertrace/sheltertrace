@@ -12,7 +12,7 @@ import {
 } from "@/lib/constants";
 import { STATEMENT_OF_SURRENDER_TEXT } from "@/lib/shelterInfo";
 import { useKennels } from "@/app/providers";
-import { dobToAgeEstimate, genId, today, nowTime } from "@/lib/utils";
+import { dobToAgeEstimate, genId, today, now24Time } from "@/lib/utils";
 import AgeInput from "@/components/ui/AgeInput";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import type { AamvaData } from "@/lib/parseAamva";
@@ -47,7 +47,7 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const [intakeType, setIntakeType] = useState<string>(INTAKE_TYPES[0]);
   const [circumstance, setCircumstance] = useState(CIRCUMSTANCE_TYPES[0]);
   const [intakeDate, setIntakeDate] = useState(today());
-  const [intakeTime, setIntakeTime] = useState(nowTime());
+  const [intakeTime, setIntakeTime] = useState(now24Time());
   const [acoRecord, setAcoRecord] = useState("");
   const [caseNumber, setCaseNumber] = useState("");
   const [intakeMethod, setIntakeMethod] = useState("");
@@ -209,6 +209,10 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
         condition_signs_of_illness: conditionSignsOfIllness,
         condition_parasites_observed: conditionParasitesObserved,
         condition_pregnant_nursing: conditionPregnantNursing,
+        behavior_friendly: intakeBehavior === "Friendly/Approachable",
+        behavior_fearful_skittish: intakeBehavior === "Fearful/Skittish",
+        behavior_aggressive: intakeBehavior === "Aggressive",
+        behavior_feral_unhandleable: intakeBehavior === "Feral/Unhandleable",
         assessed_by_initials: assessedByInitials.trim() || undefined,
         assessment_date: assessmentDate || undefined,
         finder_wants_if_unclaimed: intakeType === "Stray" ? finderWantsIfUnclaimed : undefined,

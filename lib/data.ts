@@ -13,6 +13,16 @@ const ANIMAL_DATE_FIELDS = [
   "transfer_due", "spay_neuter_due", "transfer_date",
   "hold_start_date", "hold_end_date", "death_date", "assessment_date",
 ] as const;
+// BOOLEAN columns — empty strings must become null/false, never sent as "".
+const ANIMAL_BOOL_FIELDS = [
+  "fixed", "is_cruelty_case", "is_dangerous", "show_on_website",
+  "finder_wants_if_unclaimed", "finder_wants_adoption_contact",
+  "statement_of_surrender_acknowledged",
+  "condition_visible_injury", "condition_signs_of_illness",
+  "condition_parasites_observed", "condition_pregnant_nursing",
+  "behavior_friendly", "behavior_fearful_skittish",
+  "behavior_aggressive", "behavior_feral_unhandleable",
+] as const;
 const PERSON_DATE_FIELDS = ["dob"] as const;
 const CITATION_DATE_FIELDS = ["date", "court_date", "due_date", "violator_dob"] as const;
 const FOSTER_DATE_FIELDS = ["start_date", "expected_return_date", "actual_return_date"] as const;
@@ -185,7 +195,7 @@ export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
   const id = await genAnimalId();
   const { data, error } = await supabase
     .from("animals")
-    .insert({ ...nullifyEmptyDates(animal, ANIMAL_DATE_FIELDS), id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...demoTag() })
+    .insert({ ...nullifyEmptyBooleans(nullifyEmptyDates(animal, ANIMAL_DATE_FIELDS), ANIMAL_BOOL_FIELDS), id, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), ...demoTag() })
     .select()
     .single();
   if (error) throw error;
@@ -266,7 +276,7 @@ export async function updateAnimal(id: string, updates: Partial<Animal>): Promis
   // Strip fields that are not real DB columns (joined/virtual fields)
   const { notes: _notes, ...dbUpdates } = updates as Partial<Animal> & { notes?: unknown };
   void _notes;
-  const cleanUpdates = nullifyEmptyDates(dbUpdates, ANIMAL_DATE_FIELDS);
+  const cleanUpdates = nullifyEmptyBooleans(nullifyEmptyDates(dbUpdates, ANIMAL_DATE_FIELDS), ANIMAL_BOOL_FIELDS);
   console.log("[updateAnimal] payload:", JSON.stringify(cleanUpdates));
   const { data, error } = await supabase
     .from("animals")

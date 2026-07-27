@@ -5,7 +5,7 @@ import AppShell from "@/components/layout/AppShell";
 import { fetchPeople, fetchOfficers, createCall, createPerson, addPersonNote } from "@/lib/data";
 import type { Person, Officer } from "@/lib/types";
 import { CALL_TYPES, CALL_PRIORITIES, PRIORITY_COLORS, MORGAN_COUNTY_JURISDICTIONS } from "@/lib/constants";
-import { today, nowTime } from "@/lib/utils";
+import { today, now24Time } from "@/lib/utils";
 import { getCurrentUserName } from "@/lib/auth";
 import DateInput from "@/components/ui/DateInput";
 
@@ -70,7 +70,7 @@ const STEPS = ["Call Info", "Caller", "Location", "Assign Officer", "Dispatch Su
 
 const INIT: Phase1Data = {
   type: CALL_TYPES[0], priority: "Medium",
-  date_reported: today(), time_reported: nowTime(), description: "",
+  date_reported: today(), time_reported: now24Time(), description: "",
   caller_anonymous: false, caller_person_id: "", caller: "",
   caller_first: "", caller_middle: "", caller_last: "", caller_phone: "",
   caller_address: "", caller_city: "", caller_state: "GA", caller_save: false,

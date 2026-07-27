@@ -103,6 +103,8 @@ const ANIMAL_BOOL_KEYS = [
   "finder_wants_adoption_contact", "statement_of_surrender_acknowledged",
   "condition_visible_injury", "condition_signs_of_illness",
   "condition_parasites_observed", "condition_pregnant_nursing",
+  "behavior_friendly", "behavior_fearful_skittish",
+  "behavior_aggressive", "behavior_feral_unhandleable",
 ] as const;
 
 async function dataUrlToFile(dataUrl: string, name: string): Promise<File> {

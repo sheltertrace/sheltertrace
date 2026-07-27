@@ -98,6 +98,11 @@ export interface Animal {
   condition_signs_of_illness?: boolean;
   condition_parasites_observed?: boolean;
   condition_pregnant_nursing?: boolean;
+  // Dedicated behavior checkboxes (replace fragile intake_behavior string matching)
+  behavior_friendly?: boolean;
+  behavior_fearful_skittish?: boolean;
+  behavior_aggressive?: boolean;
+  behavior_feral_unhandleable?: boolean;
 }
 
 export interface EuthanasiaRecord {
