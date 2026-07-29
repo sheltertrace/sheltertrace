@@ -5,7 +5,9 @@ import AppShell from "@/components/layout/AppShell";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Pagination from "@/components/ui/Pagination";
 import IntakeWizard from "@/components/animals/IntakeWizard";
-import { fetchAnimals, createAnimal, fetchPeople, createPerson } from "@/lib/data";
+import ReturningAnimalCheck from "@/components/animals/ReturningAnimalCheck";
+import ReturnIntakeForm from "@/components/animals/ReturnIntakeForm";
+import { fetchAnimals, createAnimal, fetchPeople, createPerson, fetchIntakeHistoryCounts } from "@/lib/data";
 import type { Animal, Person } from "@/lib/types";
 import { STATUSES, STATUS_COLORS } from "@/lib/constants";
 import { formatDate, displayAge, isImported, IN_SHELTER_STATUSES } from "@/lib/utils";
@@ -28,14 +30,17 @@ export default function AnimalsPage() {
   const [filterSpecies, setFilterSpecies] = useState("All");
   const [filterStatus, setFilterStatus] = useState("All");
   const [page, setPage] = useState(1);
-  const [showIntake, setShowIntake] = useState(false);
+  const [intakeMode, setIntakeMode] = useState<"closed" | "check" | "new" | "returning">("closed");
+  const [returningAnimal, setReturningAnimal] = useState<Animal | null>(null);
+  const [intakeCounts, setIntakeCounts] = useState<Record<string, number>>({});
   const perPage = 15;
 
   const load = useCallback(async () => {
     try {
-      const [a, p] = await Promise.all([fetchAnimals(), fetchPeople()]);
+      const [a, p, counts] = await Promise.all([fetchAnimals(), fetchPeople(), fetchIntakeHistoryCounts()]);
       setAnimals(a);
       setPeople(p);
+      setIntakeCounts(counts);
     } catch { } finally { setLoading(false); }
   }, []);
 
@@ -84,7 +89,7 @@ export default function AnimalsPage() {
     try {
       const created = await createAnimal(animalData);
       setAnimals((prev) => [created, ...prev]);
-      setShowIntake(false);
+      setIntakeMode("closed");
       return created;
     } catch (err) {
       console.error(err);
@@ -98,15 +103,40 @@ export default function AnimalsPage() {
     return created;
   };
 
-  if (showIntake) {
+  const handleReturnIntakeSuccess = (updated: Animal) => {
+    setAnimals((prev) => prev.map((a) => (a.id === updated.id ? updated : a)));
+    setIntakeCounts((prev) => ({ ...prev, [updated.id]: (prev[updated.id] || 1) + 1 }));
+    setIntakeMode("closed");
+    setReturningAnimal(null);
+    router.push(`/animals/${updated.id}`);
+  };
+
+  if (intakeMode !== "closed") {
     return (
-      <AppShell title="New Animal Intake">
-        <IntakeWizard
-          onComplete={handleIntakeComplete}
-          onCancel={() => setShowIntake(false)}
-          people={people}
-          onAddPerson={handleAddPerson}
-        />
+      <AppShell title={intakeMode === "returning" ? "Return-to-Shelter Intake" : "New Animal Intake"}>
+        {intakeMode === "check" && (
+          <ReturningAnimalCheck
+            onSelectNew={() => setIntakeMode("new")}
+            onSelectReturning={(a) => { setReturningAnimal(a); setIntakeMode("returning"); }}
+            onCancel={() => setIntakeMode("closed")}
+          />
+        )}
+        {intakeMode === "new" && (
+          <IntakeWizard
+            onComplete={handleIntakeComplete}
+            onCancel={() => setIntakeMode("closed")}
+            people={people}
+            onAddPerson={handleAddPerson}
+            onDetectedReturningAnimal={(a) => { setReturningAnimal(a); setIntakeMode("returning"); }}
+          />
+        )}
+        {intakeMode === "returning" && returningAnimal && (
+          <ReturnIntakeForm
+            animal={returningAnimal}
+            onSuccess={handleReturnIntakeSuccess}
+            onCancel={() => setIntakeMode("closed")}
+          />
+        )}
       </AppShell>
     );
   }
@@ -115,7 +145,7 @@ export default function AnimalsPage() {
     <AppShell
       title="Animal Records"
       action={
-        <button className="btn btn-primary" onClick={() => setShowIntake(true)}>
+        <button className="btn btn-primary" onClick={() => setIntakeMode("check")}>
           + New Intake
         </button>
       }
@@ -233,7 +263,14 @@ export default function AnimalsPage() {
                       </span>
                     )}
                   </td>
-                  <td style={{ fontWeight: 700 }}>{a.name}</td>
+                  <td style={{ fontWeight: 700 }}>
+                    {a.name}
+                    {intakeCounts[a.id] > 1 && (
+                      <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, background: "#fef3c7", color: "#92400e", borderRadius: 10, padding: "1px 6px", verticalAlign: "middle" }}>
+                        {IN_SHELTER_STATUSES.has(a.status) ? `Return #${intakeCounts[a.id]} — Current` : `${intakeCounts[a.id] - 1} previous intake${intakeCounts[a.id] - 1 !== 1 ? "s" : ""}`}
+                      </span>
+                    )}
+                  </td>
                   <td>{a.species}</td>
                   <td style={{ fontSize: 12 }}>{a.breed}</td>
                   <td style={{ fontSize: 12 }}>{a.sex}</td>

@@ -1156,6 +1156,233 @@ export async function createTransfer(
   return data as import("./types").Transfer;
 }
 
+// ── Return-to-Shelter Intake (animal_intake_history) ─────────────────────────
+const RETURN_INTAKE_DATE_FIELDS = ["intake_date", "previous_outcome_date"] as const;
+const DANGEROUS_RETURN_REASONS = ["Cruelty Seizure", "Post-Adoption Return"] as const;
+
+// Uploads return-intake photos to the same animal-photos bucket used elsewhere
+// and appends them to the animal's own gallery so they show up immediately.
+export async function uploadReturnIntakePhotos(animalId: string, files: File[]): Promise<string[]> {
+  const urls: string[] = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const path = `${animalId}/return-intake/${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: false, contentType: file.type });
+    if (!error) {
+      const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
+      urls.push(urlData.publicUrl);
+    }
+  }
+  if (urls.length > 0) {
+    const { data } = await supabase.from("animals").select("photo_urls, photo_url").eq("id", animalId).single();
+    const existing = (data?.photo_urls as string[] | null) || [];
+    await supabase.from("animals").update({
+      photo_urls: [...existing, ...urls],
+      photo_url: data?.photo_url || urls[0],
+    }).eq("id", animalId);
+  }
+  return urls;
+}
+
+// All return-intake records across all animals, for reporting (return rate,
+// top return reasons, repeat returns).
+export async function fetchAllIntakeHistory(): Promise<import("./types").AnimalIntakeHistory[]> {
+  const { data } = await supabase.from("animal_intake_history").select("*").order("intake_date", { ascending: false });
+  return (data as import("./types").AnimalIntakeHistory[]) || [];
+}
+
+export async function fetchIntakeHistory(animalId: string): Promise<import("./types").AnimalIntakeHistory[]> {
+  const { data } = await supabase
+    .from("animal_intake_history")
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("intake_number", { ascending: false });
+  return (data as import("./types").AnimalIntakeHistory[]) || [];
+}
+
+// Bulk max intake_number per animal, for the animal-list "Return #N" badge —
+// one query instead of one per row.
+export async function fetchIntakeHistoryCounts(): Promise<Record<string, number>> {
+  const { data } = await supabase.from("animal_intake_history").select("animal_id, intake_number");
+  const counts: Record<string, number> = {};
+  ((data as { animal_id: string; intake_number: number }[]) || []).forEach((r) => {
+    counts[r.animal_id] = Math.max(counts[r.animal_id] || 0, r.intake_number);
+  });
+  return counts;
+}
+
+// What happened last time this animal left our care, for display on the
+// return-intake form ("Previous Outcome: Adopted 05/15/2026").
+export async function fetchPreviousOutcome(animal: Animal): Promise<{ outcome: string; date?: string }> {
+  const status = animal.status;
+  if (status === "Adopted") {
+    const records = await fetchAdoptionsByAnimal(animal.id);
+    return { outcome: "Adopted", date: records[0]?.adoption_date };
+  }
+  if (status === "Transferred") {
+    const records = await fetchTransfersByAnimal(animal.id);
+    return { outcome: "Transferred", date: records[0]?.date };
+  }
+  if (status === "Redeemed") {
+    const records = await fetchRedemptions(animal.id);
+    return { outcome: "Returned to Owner", date: records[0]?.redemption_date };
+  }
+  return { outcome: status, date: animal.updated_at };
+}
+
+export interface AnimalSearchMatch {
+  animal: Animal;
+  matchedOn: string;
+}
+
+// Search bar for "Check if this animal has been with us before" — matches on
+// name, microchip, rabies tag, shelter tag, description, or previous owner name.
+export async function searchAnimalsForReturnIntake(query: string): Promise<AnimalSearchMatch[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  const like = `%${q}%`;
+
+  const [byFields, byOwner] = await Promise.all([
+    supabase
+      .from("animals")
+      .select("*")
+      .or(`name.ilike.${like},microchip.ilike.${like},rabies_tag.ilike.${like},shelter_tag.ilike.${like},markings.ilike.${like},distinguishing_features.ilike.${like}`)
+      .limit(25),
+    supabase
+      .from("people")
+      .select("id, first_name, last_name")
+      .or(`first_name.ilike.${like},last_name.ilike.${like}`)
+      .limit(25),
+  ]);
+
+  const matches = new Map<string, AnimalSearchMatch>();
+  ((byFields.data as Animal[]) || []).forEach((a) => matches.set(a.id, { animal: a, matchedOn: "Animal record" }));
+
+  const owners = (byOwner.data as { id: string; first_name: string; last_name: string }[]) || [];
+  if (owners.length > 0) {
+    const { data: links } = await supabase
+      .from("animal_people")
+      .select("animal_id, person_id")
+      .in("person_id", owners.map((p) => p.id));
+    const linkRows = (links as { animal_id: string; person_id: string }[]) || [];
+    const animalIds = [...new Set(linkRows.map((l) => l.animal_id))].filter((id) => !matches.has(id));
+    if (animalIds.length > 0) {
+      const { data: linkedAnimals } = await supabase.from("animals").select("*").in("id", animalIds);
+      ((linkedAnimals as Animal[]) || []).forEach((a) => {
+        const link = linkRows.find((l) => l.animal_id === a.id);
+        const owner = link ? owners.find((p) => p.id === link.person_id) : null;
+        matches.set(a.id, { animal: a, matchedOn: owner ? `Previous Owner: ${owner.first_name} ${owner.last_name}` : "Previous Owner" });
+      });
+    }
+  }
+
+  return [...matches.values()];
+}
+
+// Auto-detect during new intake: does this microchip or rabies tag belong to
+// an animal we've already had in our care?
+export async function findAnimalByChipOrTag(microchip?: string, rabiesTag?: string): Promise<Animal | null> {
+  const chip = microchip?.trim();
+  const tag = rabiesTag?.trim();
+  if (!chip && !tag) return null;
+  const orParts: string[] = [];
+  if (chip) orParts.push(`microchip.eq.${chip}`);
+  if (tag) orParts.push(`rabies_tag.eq.${tag}`);
+  const { data } = await supabase.from("animals").select("*").or(orParts.join(",")).limit(1);
+  return ((data as Animal[]) || [])[0] || null;
+}
+
+export interface ReturnIntakePayload {
+  animalId: string;
+  intake_date: string;
+  intake_time?: string;
+  intake_method?: string;
+  return_reason?: string;
+  return_reason_notes?: string;
+  previous_outcome?: string;
+  previous_outcome_date?: string;
+  returned_by_type?: string;
+  returned_by_name?: string;
+  returned_by_phone?: string;
+  returned_by_address?: string;
+  location_found?: string;
+  intake_officer?: string;
+  intake_officer_id?: string;
+  case_number?: string;
+  linked_dispatch_call_id?: string;
+  linked_citation_id?: string;
+  animal_condition_notes?: string;
+  photos?: string[];
+  documents?: string[];
+  new_status?: string;
+  // Condition/behavior fields to refresh on the animal itself (BCS, intake_condition,
+  // intake_behavior, injuries, etc.) so the rest of the app reflects the animal's
+  // state as of this return rather than its original intake years ago.
+  animal_updates?: Partial<Animal>;
+}
+
+// Re-intakes an animal already known to MCAS: increments intake_number, writes
+// the animal_intake_history row, resets the animal's status/kennel to reflect
+// it's back in our care, and adds a system note (popup for the reasons that
+// warrant an immediate staff heads-up).
+export async function submitReturnIntake(payload: ReturnIntakePayload): Promise<{ historyRecord: import("./types").AnimalIntakeHistory; animal: Animal }> {
+  const { data: existingRows } = await supabase
+    .from("animal_intake_history")
+    .select("intake_number")
+    .eq("animal_id", payload.animalId)
+    .order("intake_number", { ascending: false })
+    .limit(1);
+  const nextIntakeNumber = (((existingRows as { intake_number: number }[] | null) || [])[0]?.intake_number || 1) + 1;
+
+  const record = nullifyEmptyDates(
+    {
+      animal_id: payload.animalId,
+      intake_number: nextIntakeNumber,
+      intake_date: payload.intake_date,
+      intake_time: payload.intake_time,
+      intake_method: payload.intake_method,
+      return_reason: payload.return_reason,
+      return_reason_notes: payload.return_reason_notes,
+      previous_outcome: payload.previous_outcome,
+      previous_outcome_date: payload.previous_outcome_date,
+      returned_by_type: payload.returned_by_type,
+      returned_by_name: payload.returned_by_name,
+      returned_by_phone: payload.returned_by_phone,
+      returned_by_address: payload.returned_by_address,
+      location_found: payload.location_found,
+      intake_officer: payload.intake_officer,
+      intake_officer_id: payload.intake_officer_id,
+      case_number: payload.case_number,
+      linked_dispatch_call_id: payload.linked_dispatch_call_id,
+      linked_citation_id: payload.linked_citation_id,
+      animal_condition_notes: payload.animal_condition_notes,
+      photos: payload.photos || [],
+      documents: payload.documents || [],
+    },
+    RETURN_INTAKE_DATE_FIELDS
+  );
+
+  const { data, error } = await supabase.from("animal_intake_history").insert(record).select().single();
+  if (error) throw error;
+
+  const updatedAnimal = await updateAnimal(payload.animalId, {
+    ...payload.animal_updates,
+    status: payload.new_status || "Available",
+    kennel: undefined,
+    updated_by: payload.intake_officer,
+  });
+
+  const isUrgent = DANGEROUS_RETURN_REASONS.includes(payload.return_reason as typeof DANGEROUS_RETURN_REASONS[number]);
+  await addAnimalNote(
+    payload.animalId,
+    `Returned to care on ${payload.intake_date} — ${payload.return_reason || "Unknown reason"}. Intake #${nextIntakeNumber}. Handled by ${payload.intake_officer || "Unknown"}.`,
+    "Intake",
+    isUrgent
+  );
+
+  return { historyRecord: data as import("./types").AnimalIntakeHistory, animal: updatedAnimal };
+}
+
 // ── Volunteer Logs ────────────────────────────────────────────────────────────
 export async function fetchVolunteerLogs(opts?: { personId?: string; dateFrom?: string; dateTo?: string; date?: string }): Promise<import("./types").VolunteerLog[]> {
   let q = supabase.from("volunteer_sessions").select("*").order("clock_in", { ascending: false });

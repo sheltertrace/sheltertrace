@@ -167,6 +167,9 @@ export const INTAKE_EAR_TYPES = ["", "Drooping", "Erect", "Semi-Erect", "Rose Cu
 export const INTAKE_COAT_TYPES = ["", "Smooth", "Medium", "Long", "Wire Hair", "Curly"];
 export const BODY_CONDITION_SCORES = [1, 2, 3, 4, 5, 6, 7, 8, 9];
 export const INTAKE_METHODS = ["Office Intake", "Field Intake", "Cage Trap", "Owner Surrender"];
+export const RETURN_INTAKE_METHODS = ["Field Intake", "Office Intake", "Cage Trap", "Owner Surrender", "Rescue Return", "Post-Adoption Return"];
+export const RETURN_REASONS = ["Found Running At Large", "Post-Adoption Return", "Post-Reclaim Return", "Rescue Group Return", "Repeat Owner Surrender", "Cruelty Seizure", "Other"];
+export const RETURNED_BY_TYPES = ["Owner", "Adopter", "Rescue Group", "Officer", "Public Finder", "Anonymous"];
 export const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
 export const BEHAVIOR_FLAGS = [

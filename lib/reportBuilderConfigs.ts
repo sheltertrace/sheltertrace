@@ -12,6 +12,7 @@ import {
   fetchMicrochipRegistry,
   fetchDepartureReceipts,
   fetchFosterPlacementsByAnimal,
+  fetchAllIntakeHistory,
 } from "@/lib/data";
 import type { ReportConfig, ReportRow } from "@/lib/reportTypes";
 import type { FosterPlacement } from "@/lib/types";
@@ -343,6 +344,216 @@ export const REPORT_CONFIGS: ReportConfig[] = [
             notes: r.notes ?? "—",
           } as ReportRow;
         });
+    },
+  },
+
+  {
+    id: "return_to_shelter_rate",
+    title: "Return-to-Shelter Rate",
+    icon: "🔄",
+    description: "What share of adopted animals came back into our care, and how quickly.",
+    category: "Outcome Reports",
+    filters: [
+      { key: "species", label: "Species", type: "select", options: ["Dog", "Cat", "Other"] },
+      { key: "within_days", label: "Return Window (days)", type: "text" },
+    ],
+    fields: [
+      { key: "animal_id", label: "Animal ID" },
+      { key: "animal_name", label: "Animal Name" },
+      { key: "species", label: "Species" },
+      { key: "adoption_date", label: "Adoption Date", format: (val) => fmtDate(val as string) },
+      { key: "returned", label: "Returned?" },
+      { key: "return_date", label: "Return Date", format: (val) => fmtDate(val as string) },
+      { key: "days_to_return", label: "Days to Return" },
+      { key: "return_reason", label: "Return Reason" },
+    ],
+    fetchData: async (dateFrom, dateTo, filters) => {
+      const [adoptions, animals, history] = await Promise.all([fetchAdoptions(), fetchAnimals(), fetchAllIntakeHistory()]);
+      const animalMap = new Map(animals.map((a) => [a.id, a]));
+      const withinDays = filters.within_days ? Number(filters.within_days) : null;
+      const rows: ReportRow[] = [];
+      for (const ad of adoptions) {
+        if (!inRange(ad.adoption_date, dateFrom, dateTo)) continue;
+        const animal = animalMap.get(ad.animal_id);
+        if (filters.species && filters.species !== "All") {
+          if (!match(animal?.species, filters.species)) continue;
+        }
+        const returnRow = history
+          .filter((h) => h.animal_id === ad.animal_id && h.previous_outcome === "Adopted" && h.previous_outcome_date === ad.adoption_date)
+          .sort((a, b) => a.intake_date.localeCompare(b.intake_date))[0];
+        const daysToReturn = returnRow ? days(ad.adoption_date, returnRow.intake_date) : null;
+        const withinWindow = withinDays == null || daysToReturn == null || daysToReturn <= withinDays;
+        rows.push({
+          animal_id: ad.animal_id,
+          animal_name: ad.animal_name,
+          species: animal?.species ?? "—",
+          adoption_date: ad.adoption_date,
+          returned: returnRow && withinWindow ? "Yes" : "No",
+          return_date: returnRow?.intake_date ?? "—",
+          days_to_return: daysToReturn != null ? daysToReturn : "—",
+          return_reason: returnRow?.return_reason ?? "—",
+        });
+      }
+      return rows;
+    },
+    summaryRow: (rows) => {
+      const total = rows.length;
+      const returned = rows.filter((r) => r.returned === "Yes").length;
+      const pct = total > 0 ? ((returned / total) * 100).toFixed(1) : "0.0";
+      return {
+        animal_id: "TOTAL",
+        animal_name: `${total} adoptions`,
+        species: "",
+        adoption_date: "",
+        returned: `${returned} (${pct}%)`,
+        return_date: "",
+        days_to_return: "",
+        return_reason: "",
+      };
+    },
+  },
+
+  {
+    id: "top_return_reasons",
+    title: "Top Return Reasons",
+    icon: "📊",
+    description: "Ranked breakdown of why animals are coming back into our care.",
+    category: "Outcome Reports",
+    filters: [
+      { key: "species", label: "Species", type: "select", options: ["Dog", "Cat", "Other"] },
+    ],
+    fields: [
+      { key: "return_reason", label: "Return Reason" },
+      { key: "count", label: "# of Returns" },
+      { key: "pct_of_total", label: "% of All Returns" },
+    ],
+    fetchData: async (dateFrom, dateTo, filters) => {
+      const [history, animals] = await Promise.all([fetchAllIntakeHistory(), fetchAnimals()]);
+      const animalMap = new Map(animals.map((a) => [a.id, a]));
+      const filtered = history.filter((h) => {
+        if (!inRange(h.intake_date, dateFrom, dateTo)) return false;
+        if (filters.species && filters.species !== "All") {
+          if (!match(animalMap.get(h.animal_id)?.species, filters.species)) return false;
+        }
+        return true;
+      });
+      const counts = new Map<string, number>();
+      filtered.forEach((h) => {
+        const reason = h.return_reason || "Unspecified";
+        counts.set(reason, (counts.get(reason) || 0) + 1);
+      });
+      const total = filtered.length;
+      return [...counts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .map(([reason, count]) => ({
+          return_reason: reason,
+          count,
+          pct_of_total: total > 0 ? `${((count / total) * 100).toFixed(1)}%` : "0.0%",
+        } as ReportRow));
+    },
+    summaryRow: (rows) => ({
+      return_reason: "TOTAL",
+      count: rows.reduce((s, r) => s + (Number(r.count) || 0), 0),
+      pct_of_total: "100.0%",
+    }),
+  },
+
+  {
+    id: "adopters_with_returns",
+    title: "Adopters With Returned Animals",
+    icon: "👤",
+    description: "Adopters whose animal was later returned to our care — useful context for future application review.",
+    category: "Outcome Reports",
+    filters: [
+      { key: "species", label: "Species", type: "select", options: ["Dog", "Cat", "Other"] },
+    ],
+    fields: [
+      { key: "adopter_name", label: "Adopter Name" },
+      { key: "animal_id", label: "Animal ID" },
+      { key: "animal_name", label: "Animal Name" },
+      { key: "species", label: "Species" },
+      { key: "adoption_date", label: "Adoption Date", format: (val) => fmtDate(val as string) },
+      { key: "return_date", label: "Return Date", format: (val) => fmtDate(val as string) },
+      { key: "days_to_return", label: "Days to Return" },
+      { key: "return_reason", label: "Return Reason" },
+    ],
+    fetchData: async (dateFrom, dateTo, filters) => {
+      const [adoptions, animals, history] = await Promise.all([fetchAdoptions(), fetchAnimals(), fetchAllIntakeHistory()]);
+      const animalMap = new Map(animals.map((a) => [a.id, a]));
+      const rows: ReportRow[] = [];
+      for (const h of history) {
+        if (h.previous_outcome !== "Adopted") continue;
+        if (!inRange(h.intake_date, dateFrom, dateTo)) continue;
+        const animal = animalMap.get(h.animal_id);
+        if (filters.species && filters.species !== "All") {
+          if (!match(animal?.species, filters.species)) continue;
+        }
+        const adoption = adoptions.find((a) => a.animal_id === h.animal_id && a.adoption_date === h.previous_outcome_date);
+        rows.push({
+          adopter_name: adoption?.adopter_name ?? "Unknown",
+          animal_id: h.animal_id,
+          animal_name: animal?.name ?? h.animal_id,
+          species: animal?.species ?? "—",
+          adoption_date: h.previous_outcome_date ?? "—",
+          return_date: h.intake_date,
+          days_to_return: h.previous_outcome_date ? days(h.previous_outcome_date, h.intake_date) : "—",
+          return_reason: h.return_reason ?? "—",
+        });
+      }
+      return rows;
+    },
+  },
+
+  {
+    id: "repeat_returns",
+    title: "Animals With Repeat Returns",
+    icon: "🔁",
+    description: "Animals with two or more intakes — repeat returns to our care.",
+    category: "Outcome Reports",
+    filters: [
+      { key: "species", label: "Species", type: "select", options: ["Dog", "Cat", "Other"] },
+      { key: "min_intakes", label: "Minimum Intakes", type: "text" },
+    ],
+    fields: [
+      { key: "animal_id", label: "Animal ID" },
+      { key: "animal_name", label: "Animal Name" },
+      { key: "species", label: "Species" },
+      { key: "breed", label: "Breed" },
+      { key: "total_intakes", label: "Total Intakes" },
+      { key: "current_status", label: "Current Status" },
+      { key: "last_return_date", label: "Last Return Date", format: (val) => fmtDate(val as string) },
+      { key: "last_return_reason", label: "Last Return Reason" },
+    ],
+    fetchData: async (dateFrom, dateTo, filters) => {
+      const [animals, history] = await Promise.all([fetchAnimals(), fetchAllIntakeHistory()]);
+      const minIntakes = filters.min_intakes ? Math.max(2, Number(filters.min_intakes)) : 2;
+      const byAnimal = new Map<string, typeof history>();
+      history.forEach((h) => {
+        if (!byAnimal.has(h.animal_id)) byAnimal.set(h.animal_id, []);
+        byAnimal.get(h.animal_id)!.push(h);
+      });
+      const rows: ReportRow[] = [];
+      for (const [animalId, hist] of byAnimal) {
+        const totalIntakes = Math.max(...hist.map((h) => h.intake_number));
+        if (totalIntakes < minIntakes) continue;
+        const animal = animals.find((a) => a.id === animalId);
+        if (filters.species && filters.species !== "All") {
+          if (!match(animal?.species, filters.species)) continue;
+        }
+        const last = [...hist].sort((a, b) => b.intake_number - a.intake_number)[0];
+        if (!inRange(last.intake_date, dateFrom, dateTo)) continue;
+        rows.push({
+          animal_id: animalId,
+          animal_name: animal?.name ?? animalId,
+          species: animal?.species ?? "—",
+          breed: animal?.breed ?? "—",
+          total_intakes: totalIntakes,
+          current_status: animal?.status ?? "—",
+          last_return_date: last.intake_date,
+          last_return_reason: last.return_reason ?? "—",
+        });
+      }
+      return rows.sort((a, b) => (Number(b.total_intakes) || 0) - (Number(a.total_intakes) || 0));
     },
   },
 

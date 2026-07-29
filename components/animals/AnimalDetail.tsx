@@ -12,7 +12,7 @@ import {
 } from "@/lib/constants";
 import StaffSelect from "@/components/ui/StaffSelect";
 import { useKennels } from "@/app/providers";
-import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId, isImported } from "@/lib/utils";
+import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId, isImported, IN_SHELTER_STATUSES } from "@/lib/utils";
 import { AGENCY_NAME } from "@/lib/shelterInfo";
 import AgeInput from "@/components/ui/AgeInput";
 import {
@@ -23,8 +23,9 @@ import {
   lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled, toggleAnimalNotePopup,
   logKennelMove, fetchKennelMoves, type KennelMove, type AnimalDocument,
   fetchPeopleForAnimal, unlinkAnimalFromPerson, fetchEuthanasiaLog,
+  fetchIntakeHistory, fetchRedemptions,
 } from "@/lib/data";
-import type { AnimalPerson } from "@/lib/types";
+import type { AnimalPerson, AnimalIntakeHistory, Redemption } from "@/lib/types";
 import { printIntakeForm } from "@/lib/intakeFormPrint";
 import LinkPersonModal from "./LinkPersonModal";
 import { IS_DEMO } from "@/lib/demo";
@@ -179,6 +180,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [adoptionRecords, setAdoptionRecords] = useState<AdoptionRecord[]>([]);
   const [animalLicenses, setAnimalLicenses]   = useState<import("@/lib/types").PetLicense[]>([]);
 
+  // Return-to-shelter intake history
+  const [intakeHistory, setIntakeHistory] = useState<AnimalIntakeHistory[]>([]);
+  const [redemptions, setRedemptions] = useState<Redemption[]>([]);
+
   // People attachment
   const [showAttachPerson, setShowAttachPerson] = useState(false);
   const [personSearch, setPersonSearch] = useState("");
@@ -198,6 +203,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchIdexxEnabled().then(setIdexxEnabled).catch(() => {});
     fetchKennelMoves(animal.id).then(setKennelMoves).catch(() => {});
     fetchPeopleForAnimal(animal.id).then(setLinkedPeople).catch(() => {});
+    fetchIntakeHistory(animal.id).then(setIntakeHistory).catch(() => {});
+    fetchRedemptions(animal.id).then(setRedemptions).catch(() => {});
   }, [animal.id]);
 
   // Realtime subscription — auto-refresh medical records when IDEXX updates them
@@ -816,6 +823,11 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <h1 style={{ fontSize: 24, fontWeight: 800 }}>{animal.name}</h1>
             <StatusBadge status={animal.status} />
+            {intakeHistory.length > 0 && (
+              <span style={{ background: "#fef3c7", color: "#92400e", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
+                {IN_SHELTER_STATUSES.has(animal.status) ? `Return #${intakeHistory[0].intake_number} — Current` : `${intakeHistory.length} previous intake${intakeHistory.length !== 1 ? "s" : ""}`}
+              </span>
+            )}
             {animal.sub_status && <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{animal.sub_status}</span>}
             {animal.is_dangerous && <span style={{ background: "#fee2e2", color: "#dc2626", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>🚨 DANGEROUS</span>}
             {animal.is_cruelty_case && <span style={{ background: "#fee2e2", color: "#dc2626", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>⚠️ CRUELTY CASE</span>}
@@ -1066,6 +1078,81 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                 <textarea className="form-textarea" defaultValue={animal.injuries} onBlur={(e) => save({ injuries: e.target.value })} rows={2} />
               </F>
             )}
+          </CollapsibleSection>
+
+          {/* Intake History — every time this animal has come in and out of our care */}
+          <CollapsibleSection title={`Intake History (${intakeHistory.length + 1})`} color="#b45309" defaultOpen={intakeHistory.length > 0}>
+            {(() => {
+              const outcomeDetail = (outcome?: string, date?: string): string | undefined => {
+                if (!outcome) return undefined;
+                if (outcome === "Adopted") {
+                  const rec = adoptionRecords.find((a) => a.adoption_date === date) || adoptionRecords[0];
+                  return rec ? `Adopter: ${rec.adopter_name}` : undefined;
+                }
+                if (outcome === "Transferred") {
+                  const rec = animalTransfers.find((t) => t.date === date) || animalTransfers[0];
+                  return rec?.rescue_group_name ? `Rescue: ${rec.rescue_group_name}` : undefined;
+                }
+                if (outcome === "Returned to Owner") {
+                  const rec = redemptions.find((r) => r.redemption_date === date) || redemptions[0];
+                  return rec?.officer ? `Processed by: ${rec.officer}` : undefined;
+                }
+                return undefined;
+              };
+
+              return (
+                <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                  {intakeHistory.map((h) => {
+                    const detail = outcomeDetail(h.previous_outcome, h.previous_outcome_date);
+                    return (
+                      <div key={h.id}>
+                        <div style={{ border: "1px solid var(--border)", borderTop: "3px solid #b45309", borderRadius: 8, padding: "12px 16px", marginBottom: 8 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                            <span style={{ fontWeight: 800, fontSize: 13 }}>INTAKE #{h.intake_number} — {formatDate(h.intake_date)}</span>
+                            {(h.return_reason === "Cruelty Seizure" || h.return_reason === "Post-Adoption Return") && (
+                              <span style={{ background: "#fee2e2", color: "#dc2626", padding: "2px 8px", borderRadius: 20, fontSize: 10, fontWeight: 700 }}>⚠ FLAGGED</span>
+                            )}
+                          </div>
+                          <div style={{ fontSize: 12, color: "var(--text-secondary)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                            {h.intake_method && <div>Method: {h.intake_method}</div>}
+                            {h.return_reason && <div>Return Reason: {h.return_reason}</div>}
+                            {h.returned_by_type && <div>Returned By: {h.returned_by_type}{h.returned_by_name ? ` (${h.returned_by_name})` : ""}</div>}
+                            {h.location_found && <div>Location: {h.location_found}</div>}
+                            {h.intake_officer && <div>Officer: {h.intake_officer}</div>}
+                            {h.previous_outcome && <div>Previous Outcome: {h.previous_outcome}{h.previous_outcome_date ? ` ${formatDate(h.previous_outcome_date)}` : ""}</div>}
+                          </div>
+                          {h.return_reason_notes && <div style={{ fontSize: 12, marginTop: 6, fontStyle: "italic", color: "var(--text-secondary)" }}>&ldquo;{h.return_reason_notes}&rdquo;</div>}
+                          {(h.photos && h.photos.length > 0) && (
+                            <div style={{ display: "flex", gap: 6, marginTop: 8, flexWrap: "wrap" }}>
+                              {h.photos.map((url, i) => (
+                                <img key={i} src={url} alt="" style={{ width: 48, height: 48, borderRadius: 6, objectFit: "cover", border: "1px solid var(--border)" }} />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {h.previous_outcome && (
+                          <div style={{ background: "#f8fafc", border: "1px solid var(--border-light)", borderRadius: 8, padding: "8px 16px", marginBottom: 8, fontSize: 12 }}>
+                            <strong>OUTCOME:</strong> {h.previous_outcome}{h.previous_outcome_date ? ` — ${formatDate(h.previous_outcome_date)}` : ""}
+                            {detail && <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>{detail}</div>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Synthetic Intake #1 — the animal's original intake, which predates the animal_intake_history table */}
+                  <div style={{ border: "1px solid var(--border)", borderTop: "3px solid #64748b", borderRadius: 8, padding: "12px 16px" }}>
+                    <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>INTAKE #1 — {formatDate(animal.intake_date)}</div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+                      {animal.intake_method && <div>Method: {animal.intake_method}</div>}
+                      {animal.intake_type && <div>Intake Type: {animal.intake_type}</div>}
+                      {animal.circumstance && <div>Circumstance: {animal.circumstance}</div>}
+                      {animal.processed_by_employee && <div>Officer: {animal.processed_by_employee}</div>}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </CollapsibleSection>
 
           {/* Identification */}

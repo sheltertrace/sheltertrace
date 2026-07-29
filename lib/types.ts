@@ -474,6 +474,33 @@ export interface Transfer {
   created_at?: string;
 }
 
+export interface AnimalIntakeHistory {
+  id: string;
+  animal_id: string;
+  intake_number: number;
+  intake_date: string;
+  intake_time?: string;
+  intake_method?: string;
+  return_reason?: string;
+  return_reason_notes?: string;
+  previous_outcome?: string;
+  previous_outcome_date?: string;
+  returned_by_type?: string;
+  returned_by_name?: string;
+  returned_by_phone?: string;
+  returned_by_address?: string;
+  location_found?: string;
+  intake_officer?: string;
+  intake_officer_id?: string;
+  case_number?: string;
+  linked_dispatch_call_id?: string;
+  linked_citation_id?: string;
+  animal_condition_notes?: string;
+  photos?: string[];
+  documents?: string[];
+  created_at?: string;
+}
+
 export interface ShelterSettings {
   shelter_name: string;
   shelter_address: string;

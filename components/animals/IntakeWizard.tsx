@@ -1,7 +1,7 @@
 ﻿"use client";
 import { useState, useCallback, useEffect } from "react";
 import type { Animal, Person } from "@/lib/types";
-import { lookupMicrochip } from "@/lib/data";
+import { lookupMicrochip, findAnimalByChipOrTag } from "@/lib/data";
 import type { MicrochipRegistration } from "@/lib/types";
 import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import {
@@ -25,6 +25,7 @@ interface Props {
   onCancel: () => void;
   people: Person[];
   onAddPerson: (p: Partial<Person>) => Promise<Person>;
+  onDetectedReturningAnimal?: (animal: Animal) => void;
 }
 
 const STEPS = ["Intake Info", "Animal Info", "Identification", "Condition & Behavior", "Source / Brought By", "Kennel & Review"];
@@ -38,7 +39,7 @@ function F({ label, children }: { label: string; children: React.ReactNode }) {
   );
 }
 
-export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson }: Props) {
+export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson, onDetectedReturningAnimal }: Props) {
   const { kennelLabels } = useKennels();
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
@@ -88,6 +89,8 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
   const [barCode, setBarCode] = useState("");
   const [chipMatch, setChipMatch] = useState<MicrochipRegistration | null>(null);
   const [chipSearching, setChipSearching] = useState(false);
+  const [returningMatch, setReturningMatch] = useState<Animal | null>(null);
+  const [returningMatchDismissed, setReturningMatchDismissed] = useState(false);
 
   // Step 4
   const [intakeCondition, setIntakeCondition] = useState("");
@@ -154,6 +157,20 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
     }, 600);
     return () => clearTimeout(timer);
   }, [microchip]);
+
+  // Auto-detect: does this microchip or rabies tag match an animal MCAS has
+  // already had in its care? Prompts staff to redirect into the return-intake
+  // flow instead of creating a duplicate animal record.
+  useEffect(() => {
+    if (returningMatchDismissed) return;
+    if (microchip.trim().length < 6 && rabiesTag.trim().length < 3) { setReturningMatch(null); return; }
+    const timer = setTimeout(() => {
+      findAnimalByChipOrTag(microchip.trim(), rabiesTag.trim())
+        .then(setReturningMatch)
+        .catch(() => setReturningMatch(null));
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [microchip, rabiesTag, returningMatchDismissed]);
 
   const handleCreatePerson = async () => {
     if (!npFirst.trim() || !npLast.trim()) return;
@@ -445,6 +462,21 @@ export default function IntakeWizard({ onComplete, onCancel, people, onAddPerson
         {step === 3 && (
           <div>
             <h3 style={{ fontSize: 15, fontWeight: 700, color: "var(--teal)", marginBottom: 16 }}>Identification</h3>
+            {returningMatch && onDetectedReturningAnimal && (
+              <div style={{ marginBottom: 16, padding: "12px 14px", borderRadius: 8, background: "#fef3c7", border: "1px solid #fbbf24" }}>
+                <div style={{ fontWeight: 800, color: "#92400e", marginBottom: 4 }}>
+                  ⚠ This {microchip.trim() ? "microchip" : "rabies tag"} matches {returningMatch.name}, last with us {returningMatch.intake_date}. Is this the same animal?
+                </div>
+                <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                  <button className="btn btn-primary btn-sm" onClick={() => onDetectedReturningAnimal(returningMatch)}>
+                    Yes — this is a returning animal
+                  </button>
+                  <button className="btn btn-secondary btn-sm" onClick={() => { setReturningMatchDismissed(true); setReturningMatch(null); }}>
+                    No, different animal
+                  </button>
+                </div>
+              </div>
+            )}
             <div className="grid-2">
               <F label="Microchip Number">
                 <input className="form-input" value={microchip} onChange={(e) => setMicrochip(e.target.value)} placeholder="Scan or enter chip #" />
