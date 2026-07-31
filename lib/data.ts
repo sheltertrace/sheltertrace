@@ -192,6 +192,8 @@ const INTAKE_VACCINES: Record<string, Array<{ type: string; description: string;
 };
 
 export async function createAnimal(animal: Partial<Animal>): Promise<Animal> {
+  console.log("[intake] SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "set" : "MISSING");
+  console.log("[intake] SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "set" : "MISSING");
   const id = await genAnimalId();
   const { data, error } = await supabase
     .from("animals")

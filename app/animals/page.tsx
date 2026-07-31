@@ -21,6 +21,8 @@ const TAB_LABELS: Record<Tab, string> = {
 };
 
 export default function AnimalsPage() {
+  console.log("[intake] SUPABASE_URL:", process.env.NEXT_PUBLIC_SUPABASE_URL ? "set" : "MISSING");
+  console.log("[intake] SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? "set" : "MISSING");
   const router = useRouter();
   const [animals, setAnimals] = useState<Animal[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
