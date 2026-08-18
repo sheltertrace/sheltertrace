@@ -20,6 +20,7 @@ import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import DateInput from "@/components/ui/DateInput";
+import { canEditNarrative } from "@/lib/permissions";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const STEPS = [
@@ -191,6 +192,7 @@ function CallDetailPageInner() {
   const [editingNarrId, setEditingNarrId] = useState<string | null>(null);
   const [editNarrText, setEditNarrText] = useState("");
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [historyModalId, setHistoryModalId] = useState<string | null>(null);
   const [evidenceFiles, setEvidenceFiles] = useState<Array<{ id: string; file: File; notes: string }>>([]);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -429,7 +431,7 @@ function CallDetailPageInner() {
     if (!text || !call) return;
     const now = new Date();
     const timestamp = `${(now.getMonth()+1).toString().padStart(2,"0")}/${now.getDate().toString().padStart(2,"0")}/${now.getFullYear()} ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
-    const entry: NarrativeEntry = { id: genId(), time: timestamp, officer: getNarrativeAuthor(), text };
+    const entry: NarrativeEntry = { id: genId(), time: timestamp, officer: getNarrativeAuthor(), author_id: user?.id, text };
     const updated = [...liveNarrative, entry];
     setLiveNarrative(updated);  // Optimistic — shows immediately
     setNewNarrText("");
@@ -442,9 +444,18 @@ function CallDetailPageInner() {
     const text = editNarrText.trim();
     if (!text || !call) return;
     const editorName = user ? `${user.firstName || user.first_name || ""} ${user.lastName || user.last_name || ""}`.trim() || user.username : "Staff";
+    const editedAt = new Date().toISOString();
     const updated = liveNarrative.map((n) =>
       n.id === entryId
-        ? { ...n, text, edited: true, edited_by: editorName, edited_at: new Date().toISOString() }
+        ? {
+            ...n,
+            text,
+            edited: true,
+            edited_by: editorName,
+            edited_at: editedAt,
+            edit_count: (n.edit_count || 0) + 1,
+            edit_history: [...(n.edit_history || []), { text: n.text, edited_by: editorName, edited_at: editedAt }],
+          }
         : n
     );
     setLiveNarrative(updated);
@@ -465,12 +476,27 @@ function CallDetailPageInner() {
     showToast("Narrative entry deleted");
   };
 
-  // ── Permission check for narrative edit/delete ────────────────────────────
-  const canEditNarrative = (entry: NarrativeEntry): boolean => {
-    if (!user) return false;
-    if (user.role === "Admin" || user.role === "Administrator") return true;
-    const myName = `${user.firstName || user.first_name || ""} ${user.lastName || user.last_name || ""}`.trim() || user.username;
-    return entry.officer === myName;
+  // ── Narrative version timeline (for the "View history" modal) ────────────
+  // edit_history[k] holds the text that was in effect BEFORE the edit event
+  // described by edit_history[k].{edited_by,edited_at}. Reconstruct the full
+  // chain, oldest first, ending with the current live text.
+  const narrativeVersionTimeline = (entry: NarrativeEntry) => {
+    const history = entry.edit_history || [];
+    // entry.time is already a display-formatted string (creation timestamp);
+    // edited_at values are ISO strings, formatted with formatDateTime at render time.
+    const versions: { text: string; author: string; at: string; label: string }[] = history.map((h, k) => ({
+      text: h.text,
+      author: k === 0 ? entry.officer : history[k - 1].edited_by,
+      at: k === 0 ? entry.time : formatDateTime(history[k - 1].edited_at),
+      label: k === 0 ? "Original" : `Edit #${k}`,
+    }));
+    versions.push({
+      text: entry.text,
+      author: entry.edited_by || entry.officer,
+      at: entry.edited_at ? formatDateTime(entry.edited_at) : entry.time,
+      label: "Current",
+    });
+    return versions;
   };
 
   // ── Status change (auto-logs narrative) ──────────────────────────────────
@@ -927,7 +953,7 @@ function CallDetailPageInner() {
                 <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: 10 }}>Timeline ({liveNarrative.length} entries)</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
                   {[...liveNarrative].reverse().map((n, i) => (
-                    <div key={n.id} style={{ display: "flex", gap: 14, padding: "10px 0", borderBottom: i < liveNarrative.length - 1 ? "1px solid var(--border-light)" : "none" }}>
+                    <div key={n.id} className="narr-entry" style={{ display: "flex", gap: 14, padding: "10px 0", borderBottom: i < liveNarrative.length - 1 ? "1px solid var(--border-light)" : "none" }}>
                       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 4 }}>
                         <div style={{ width: 10, height: 10, borderRadius: "50%", background: n.officer === "System" ? "#cbd5e1" : "var(--teal)", flexShrink: 0 }} />
                         {i < liveNarrative.length - 1 && <div style={{ width: 2, flex: 1, background: "#e2e8f0", marginTop: 4 }} />}
@@ -936,11 +962,8 @@ function CallDetailPageInner() {
                         <div style={{ display: "flex", gap: 10, marginBottom: 3, alignItems: "center" }}>
                           <span style={{ fontSize: 12, fontWeight: 700, color: n.officer === "System" ? "var(--text-muted)" : "#0f2942" }}>{n.officer}</span>
                           <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{n.time}</span>
-                          {n.edited && (
-                            <span style={{ fontSize: 10, color: "var(--text-muted)", fontStyle: "italic" }} title={`Edited by ${n.edited_by} at ${n.edited_at ? new Date(n.edited_at).toLocaleString() : ""}`}>(edited)</span>
-                          )}
-                          {n.officer !== "System" && canEditNarrative(n) && editingNarrId !== n.id && (
-                            <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                          {n.officer !== "System" && canEditNarrative(user, n) && editingNarrId !== n.id && (
+                            <div className="narr-entry-actions" style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
                               <button
                                 className="btn btn-ghost btn-sm"
                                 title="Edit entry"
@@ -971,7 +994,7 @@ function CallDetailPageInner() {
                                 className="btn btn-primary btn-sm"
                                 disabled={!editNarrText.trim()}
                                 onClick={() => handleSaveNarrEdit(n.id)}
-                              >Save</button>
+                              >Save Changes</button>
                               <button
                                 className="btn btn-secondary btn-sm"
                                 onClick={() => { setEditingNarrId(null); setEditNarrText(""); }}
@@ -979,7 +1002,20 @@ function CallDetailPageInner() {
                             </div>
                           </div>
                         ) : (
-                          <div style={{ fontSize: 13, color: n.officer === "System" ? "var(--text-muted)" : "inherit", fontStyle: n.officer === "System" ? "italic" : "normal" }}>{n.text}</div>
+                          <>
+                            <div style={{ fontSize: 13, color: n.officer === "System" ? "var(--text-muted)" : "inherit", fontStyle: n.officer === "System" ? "italic" : "normal" }}>{n.text}</div>
+                            {n.edited && (
+                              <div style={{ fontSize: 11, color: "var(--text-muted)", fontStyle: "italic", marginTop: 3 }}>
+                                (edited by {n.edited_by} on {n.edited_at ? formatDateTime(n.edited_at) : "—"}
+                                {" · "}
+                                <button
+                                  style={{ fontSize: 11, fontStyle: "italic", background: "none", border: "none", padding: 0, color: "var(--teal)", cursor: "pointer", textDecoration: "underline" }}
+                                  onClick={() => setHistoryModalId(n.id)}
+                                >View history</button>
+                                )
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -1007,6 +1043,39 @@ function CallDetailPageInner() {
               </div>
             </div>
           )}
+
+          {/* Narrative edit history modal */}
+          {historyModalId && (() => {
+            const entry = liveNarrative.find((n) => n.id === historyModalId);
+            if (!entry) return null;
+            const versions = narrativeVersionTimeline(entry);
+            return (
+              <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center" }}
+                onClick={() => setHistoryModalId(null)}>
+                <div style={{ background: "var(--surface)", borderRadius: 10, padding: "24px 28px", maxWidth: 560, width: "90%", maxHeight: "80vh", overflowY: "auto", boxShadow: "0 8px 32px rgba(0,0,0,.2)" }}
+                  onClick={(e) => e.stopPropagation()}>
+                  <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 4 }}>Narrative Entry Edit History</div>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 18 }}>
+                    {versions.length} version{versions.length !== 1 ? "s" : ""} · oldest first
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {versions.map((v, i) => (
+                      <div key={i} style={{ border: `1px solid ${v.label === "Current" ? "var(--teal)" : "var(--border)"}`, borderRadius: 8, padding: "10px 14px", background: v.label === "Current" ? "rgba(26,138,138,0.06)" : "transparent" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: v.label === "Current" ? "var(--teal)" : "var(--text-secondary)", textTransform: "uppercase" }}>{v.label}</span>
+                          <span style={{ fontSize: 11, color: "var(--text-muted)" }}>{v.author} · {v.at}</span>
+                        </div>
+                        <div style={{ fontSize: 13, whiteSpace: "pre-wrap" }}>{v.text}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 18 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setHistoryModalId(null)}>Close</button>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
       );
 
@@ -1273,6 +1342,7 @@ function CallDetailPageInner() {
           </div>
           <div style="flex:1;font-size:12px;color:${n.officer === "System" ? "#94a3b8" : "#1e293b"};font-style:${n.officer === "System" ? "italic" : "normal"};">
             ${n.text}
+            ${n.edited ? `<div style="font-size:10px;color:#94a3b8;font-style:italic;margin-top:3px;">(This entry was edited ${n.edit_count || 1} time${(n.edit_count || 1) === 1 ? "" : "s"}. Last edit by ${n.edited_by || "Unknown"} on ${n.edited_at ? formatDateTime(n.edited_at) : "Unknown"}.)</div>` : ""}
           </div>
         </div>`).join("");
 
@@ -1431,6 +1501,70 @@ function CallDetailPageInner() {
     w.document.close();
   };
 
+  // Full narrative audit trail (every prior version of every edited entry) —
+  // a separate print, kept off the standard Call Review, for cases like court
+  // discovery where the full edit history needs to be produced.
+  const printNarrativeEditHistory = () => {
+    if (!call) return;
+    const w = window.open("", "_blank", "width=860,height=1100");
+    if (!w) return;
+
+    const editedEntries = liveNarrative.filter((n) => n.edited);
+
+    const entryHtml = editedEntries.length === 0
+      ? `<div style="color:#94a3b8;font-style:italic;font-size:12px;padding:10px 0;">No narrative entries on this call have been edited.</div>`
+      : editedEntries.map((n) => {
+        const versions = narrativeVersionTimeline(n);
+        return `
+        <section style="margin-bottom:24px;">
+          <div class="section-title">Narrative Entry — created ${n.time} by ${n.officer} — edited ${n.edit_count || versions.length - 1} time${(n.edit_count || versions.length - 1) === 1 ? "" : "s"}</div>
+          ${versions.map((v) => `
+            <div style="display:flex;gap:16px;padding:8px 0;border-bottom:1px solid #f1f5f9;">
+              <div style="width:80px;flex-shrink:0;font-size:10px;font-weight:700;text-transform:uppercase;color:${v.label === "Current" ? "#0f766e" : "#64748b"};padding-top:2px;">${v.label}</div>
+              <div style="width:170px;flex-shrink:0;font-size:11px;color:#475569;">${v.author}<br/><span style="color:#94a3b8;">${v.at}</span></div>
+              <div style="flex:1;font-size:12px;color:#1e293b;white-space:pre-wrap;">${v.text}</div>
+            </div>`).join("")}
+        </section>`;
+      }).join("");
+
+    w.document.write(`<!DOCTYPE html><html><head>
+<title>Narrative Edit History — ${call.id}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+  body { font-family: Arial, Helvetica, sans-serif; background: #fff; color: #0f172a; }
+  @page {
+    size: letter;
+    margin: 18mm 16mm 18mm 16mm;
+    @top-left   { content: "MORGAN COUNTY ANIMAL SERVICES · Narrative Edit History"; font-size: 8pt; color: #64748b; font-family: Arial, sans-serif; }
+    @top-right  { content: "Call ${call.id} · Page " counter(page) " of " counter(pages); font-size: 8pt; color: #64748b; font-family: Arial, sans-serif; }
+    @bottom-center { content: "CONFIDENTIAL — FOR OFFICIAL USE ONLY"; font-size: 7pt; color: #94a3b8; font-family: Arial, sans-serif; }
+  }
+  @media print { .no-print { display: none !important; } }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: #1e3a5f; border-bottom: 2px solid #1e3a5f; padding-bottom: 5px; margin-bottom: 10px; }
+</style>
+</head><body style="padding:0.5in;">
+
+  <div class="no-print" style="margin-bottom:16px;">
+    <button onclick="window.print()" style="background:#0f2942;color:#fff;border:none;padding:8px 20px;border-radius:5px;font-size:13px;font-weight:700;cursor:pointer;">🖨 Print / Save as PDF</button>
+  </div>
+
+  <div style="border-bottom:3px solid #0f2942;padding-bottom:14px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;">
+    <div>
+      <div style="font-size:18px;font-weight:900;letter-spacing:0.3px;color:#0f2942;">MORGAN COUNTY ANIMAL SERVICES</div>
+      <div style="font-size:10px;color:#64748b;margin-top:2px;">ShelterTrace · Shelter Data Systems</div>
+    </div>
+    <div style="text-align:right;">
+      <div style="font-size:13px;font-weight:800;text-transform:uppercase;color:#1e3a5f;letter-spacing:0.5px;">Narrative Edit History — Full Audit Trail</div>
+      <div style="font-size:11px;color:#64748b;margin-top:3px;">Call ${call.id} · Printed: ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })} at ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}</div>
+    </div>
+  </div>
+
+  ${entryHtml}
+
+</body></html>`);
+    w.document.close();
+  };
+
   if (loading) return (
     <AppShell title="Officer Field Report">
       <div className="empty-state" style={{ padding: "60px 0" }}>Loading call…</div>
@@ -1480,6 +1614,9 @@ function CallDetailPageInner() {
           )}
           <button className="btn btn-secondary btn-sm" onClick={printCallReview} title="Print narrative and call review">
             🖨 Print
+          </button>
+          <button className="btn btn-secondary btn-sm" onClick={printNarrativeEditHistory} title="Print the full narrative edit audit trail (e.g. for court)">
+            🖨 Print Narrative Edit History
           </button>
           <button className="btn btn-secondary btn-sm" onClick={handleSaveProgress} disabled={saveState === "saving"}>
             💾 Save

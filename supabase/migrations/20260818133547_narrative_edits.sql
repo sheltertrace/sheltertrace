@@ -1,0 +1,26 @@
+-- No column changes — dispatch_calls.narrative is already JSONB. This
+-- documents the shape change to that JSONB array's per-entry object, so the
+-- new fields are discoverable from the schema itself and not just app code.
+--
+-- Each element of dispatch_calls.narrative now looks like:
+-- {
+--   id: string,
+--   time: string,            -- display-formatted creation timestamp (pre-existing)
+--   officer: string,         -- author display name (pre-existing)
+--   author_id: string,       -- NEW: staff_accounts.id of the author, for reliable
+--                            --      "the officer who wrote it can edit it" checks
+--   text: string,
+--   edited: boolean,         -- pre-existing
+--   edited_by: string,       -- pre-existing
+--   edited_at: string,       -- pre-existing (ISO timestamp)
+--   edit_count: number,      -- NEW: number of times this entry has been edited
+--   edit_history: [          -- NEW: prior versions, oldest first
+--     { text: string, edited_by: string, edited_at: string }
+--   ]
+-- }
+--
+-- Older entries predating this change simply omit author_id/edit_count/
+-- edit_history — app code tolerates their absence on read (edit_count
+-- treated as 0, edit_history as []) rather than requiring a backfill.
+COMMENT ON COLUMN dispatch_calls.narrative IS
+  'JSONB array of narrative entries: {id, time, officer, author_id, text, edited, edited_by, edited_at, edit_count, edit_history[]}. See migration 20260818133547_narrative_edits.sql for the full shape and field history.';

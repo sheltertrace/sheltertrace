@@ -915,6 +915,14 @@ html, body {
 
 .dispatch-call-card:hover { background: var(--hover-bg); }
 
+/* Narrative entry edit/delete icons: hover-reveal on desktop, always visible on mobile */
+.narr-entry-actions { opacity: 0; transition: opacity 0.15s; }
+.narr-entry:hover .narr-entry-actions,
+.narr-entry:focus-within .narr-entry-actions { opacity: 1; }
+@media (max-width: 768px) {
+  .narr-entry-actions { opacity: 1; }
+}
+
 .dispatch-call-card-header {
   display: flex;
   align-items: center;

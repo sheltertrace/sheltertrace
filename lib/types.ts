@@ -274,10 +274,19 @@ export interface NarrativeEntry {
   id: string;
   time: string;
   officer: string;
+  author_id?: string;
   text: string;
   edited?: boolean;
   edited_by?: string;
   edited_at?: string;
+  edit_count?: number;
+  edit_history?: NarrativeEditHistoryItem[];
+}
+
+export interface NarrativeEditHistoryItem {
+  text: string;
+  edited_by: string;
+  edited_at: string;
 }
 
 export interface EvidenceItem {
