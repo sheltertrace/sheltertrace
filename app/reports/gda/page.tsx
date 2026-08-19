@@ -168,30 +168,47 @@ function buildCustodyEvents(
   return map;
 }
 
-// mode "start": an intake counts only if strictly before atDate (same-day intakes
-//   are Live Intake for the period, not Beginning population); an outcome on/after
-//   atDate still leaves the animal present at the start-of-day snapshot.
-// mode "end": an intake counts through and including atDate; an outcome strictly
-//   after atDate still leaves the animal present at the end-of-day snapshot.
-// When an animal's current cycle has no recorded outcome event at all, we fall
-// back to isInCareStatus(current status) — this is the one remaining place
-// current status matters, and only when no structured record exists to check
-// instead (e.g. Foster has no dedicated event source here; a currently-fostered
-// animal's presence on a PAST date is approximated from current status).
+// Walks an animal's full event history as a simple present/absent state
+// machine: an event "takes effect" by atDate under the same rule regardless
+// of kind (mode "start" → strictly before atDate, since a same-day intake is
+// Live Intake for the period, not Beginning population, and a same-day
+// outcome still leaves them present at the start-of-day snapshot; mode "end"
+// → on or before atDate, since an outcome exactly on the end date means
+// they'd already left by end of that day). Intake sets present=true, outcome
+// sets present=false; the state after the last event that takes effect is
+// the answer — this naturally handles multi-cycle animals (redeemed, then
+// later re-admitted via a Return-to-Shelter Intake) without special-casing.
+//
+// Verified-against-live-data limitation: several status transitions never
+// log a dated event at all, in either direction —
+//   - a return to care: the pre-existing ReturnAnimalModal (post-adoption
+//     returns) just flips status back to "Available", and staff can edit
+//     status directly from the dropdown on the animal's detail page; neither
+//     creates an animal_intake_history row.
+//   - a move to Foster: there's no "foster placement" event source here at
+//     all (FOSTER_STATUSES is tracked separately from IN_SHELTER_STATUSES).
+// Either way the timeline can end up disagreeing with current status with no
+// way to know exactly when the undocumented change happened. When nothing
+// on file happened after atDate — i.e. we're not looking at a gap mid-
+// history, this genuinely is the animal's latest known state — current
+// status is the freshest fact available and wins over a timeline conclusion
+// it contradicts. This is exactly right for Beginning/Ending as of "now" or
+// later (the case this was reported against); for a historical query landing
+// strictly *before* one of these undocumented transitions it's necessarily
+// an approximation, since the data to do better doesn't exist.
 function isInCareAt(events: CustodyEvent[] | undefined, atDate: string, mode: "start" | "end", fallbackStatus: string): boolean {
   if (!events || events.length === 0) return isInCareStatus(fallbackStatus);
-  const intakeQualifies = (d: string) => (mode === "start" ? d < atDate : d <= atDate);
-  const outcomeStillPresent = (d: string) => (mode === "start" ? d >= atDate : d > atDate);
+  const takesEffectBy = (d: string) => (mode === "start" ? d < atDate : d <= atDate);
 
-  let cycleStart: string | null = null;
-  for (const e of events) {
-    if (e.kind === "intake" && intakeQualifies(e.date)) cycleStart = e.date;
+  let present = false;
+  for (const e of events) { // events are pre-sorted ascending by date
+    if (!takesEffectBy(e.date)) continue;
+    present = e.kind === "intake";
   }
-  if (cycleStart === null) return false; // not yet admitted as of this date
 
-  const outcome = events.find(e => e.kind === "outcome" && e.date >= cycleStart!);
-  if (!outcome) return isInCareStatus(fallbackStatus);
-  return outcomeStillPresent(outcome.date);
+  const hasEventAfter = events.some(e => e.date > atDate);
+  if (!hasEventAfter) return isInCareStatus(fallbackStatus);
+  return present;
 }
 
 async function computeMatrix(startDate: string, endDate: string): Promise<MatrixData> {
@@ -704,7 +721,7 @@ export default function GdaMatrixPage() {
             <br />
             <strong>Ending Count:</strong> every animal in our care as of the end of {fmtDate(matrix.endDate)} — intake on or before that date, with no outcome record dated on or before that date. An outcome recorded exactly on the end date does <em>not</em> count (they had already left by end of day). This is the same day used elsewhere as &quot;in shelter&quot; — the live Current Animals count reflects <em>today</em>, so Ending Count will match it exactly only when the report&apos;s end date is today; for a closed prior period the two are expected to differ.
             <br />
-            Both counts reconstruct each animal&apos;s full intake/outcome history (including Return-to-Shelter re-intakes) rather than relying on today&apos;s status, and use the same in-care status list as the dashboard&apos;s Current Animals figure (see <code>isInCareStatus()</code> in lib/utils.ts) as a fallback only when no outcome record exists for the animal&apos;s current stay. Use &quot;Show Reconciliation&quot; above to see exactly which animals are behind each count.
+            Both counts reconstruct each animal&apos;s full intake/outcome history (including Return-to-Shelter re-intakes) and use the same in-care status list as the dashboard&apos;s Current Animals figure (see <code>isInCareStatus()</code> in lib/utils.ts). Current status is used as a tiebreaker only when nothing is on file after the report date in question — this covers status changes that don&apos;t log a dated event (a post-adoption return via the quick Return Animal action, a foster placement, or a direct status edit), at the cost of being an approximation for a historical query that lands strictly before one of those undocumented changes, since the data to pin down exactly when it happened doesn&apos;t exist. Use &quot;Show Reconciliation&quot; above to see exactly which animals are behind each count.
           </div>
         </div>
       )}
