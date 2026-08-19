@@ -2,15 +2,15 @@
 import { useState, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Link from "next/link";
-import { fetchAnimals, fetchAdoptions, fetchTransfers, fetchDepartureReceipts } from "@/lib/data";
-import type { Animal, AdoptionRecord, Transfer, DepartureReceipt } from "@/lib/types";
+import { fetchAnimals, fetchAdoptions, fetchTransfers, fetchDepartureReceipts, fetchRedemptions, fetchAllIntakeHistory } from "@/lib/data";
+import type { Animal, AdoptionRecord, Transfer, DepartureReceipt, Redemption, AnimalIntakeHistory } from "@/lib/types";
 import { downloadCsv } from "@/lib/reportUtils";
+import { isInCareStatus } from "@/lib/utils";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
 const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const YEARS = Array.from({ length: 8 }, (_, i) => new Date().getFullYear() - i);
-const ACTIVE_STATUSES = ["Available", "Medical Hold", "Quarantine", "Pending", "Foster", "Boarding"];
 
 // ── Species/age column classification ────────────────────────────────────────
 
@@ -109,61 +109,106 @@ interface MatrixData {
   euthShelter: Counts; // P
   euthOwner: Counts;   // Q
   ending: Counts;      // T
+  // Raw animal lists behind A and T, for the diagnostic "Show Reconciliation" view.
+  beginningAnimals: Animal[];
+  endingAnimals: Animal[];
 }
 
 // ── Data computation ─────────────────────────────────────────────────────────
 
-type DepEntry = { date: string; type: string; euthReason?: string; intakeType?: string };
+// ── Custody timeline ─────────────────────────────────────────────────────────
+// "In care on date X" can't be answered from current status alone once an
+// animal can leave and come back (adoption return, redemption, then a later
+// Return-to-Shelter re-intake) — current status only reflects the LATEST
+// cycle, not what was true on some earlier report date. So instead we build,
+// per animal, a full chronological list of every known intake and outcome
+// event and walk it to find which cycle (if any) covers the date in question.
+//
+// Event sources:
+//   intake  — the animal's original intake_date, plus every re-intake row in
+//             animal_intake_history (Return-to-Shelter Intake feature)
+//   outcome — adoption_records, transfers, redemptions (owner reclaim —
+//             NOT recorded on departure_receipts, RedemptionWizard only
+//             writes to the `redemptions` table), departure_receipts
+//             (covers escaped/lost/released/etc.), euthanasia.date, and
+//             death_date for natural "Died in Care" deaths (also never
+//             recorded on a departure_receipts row).
+interface CustodyEvent { date: string; kind: "intake" | "outcome"; label: string }
 
-function buildDepartureMap(
+function buildCustodyEvents(
   animals: Animal[],
   adoptions: AdoptionRecord[],
   transfers: Transfer[],
+  redemptions: Redemption[],
   receipts: DepartureReceipt[],
-): Map<string, DepEntry> {
-  const map = new Map<string, DepEntry>();
-  const setIfEarlier = (id: string, entry: DepEntry) => {
-    const ex = map.get(id);
-    if (!ex || entry.date < ex.date) map.set(id, entry);
+  intakeHistoryAll: AnimalIntakeHistory[],
+): Map<string, CustodyEvent[]> {
+  const map = new Map<string, CustodyEvent[]>();
+  const push = (id: string | undefined, ev: CustodyEvent) => {
+    if (!id) return;
+    if (!map.has(id)) map.set(id, []);
+    map.get(id)!.push(ev);
   };
-  adoptions.forEach(a => setIfEarlier(a.animal_id, { date: a.adoption_date, type: "Adoption" }));
-  receipts.forEach(r => {
-    if (r.animal_id && r.departure_date) setIfEarlier(r.animal_id, { date: r.departure_date, type: r.departure_type });
+
+  animals.forEach(a => {
+    if (a.intake_date) push(a.id, { date: a.intake_date, kind: "intake", label: "Intake" });
+    if (a.status === "Died in Care" && a.death_date) push(a.id, { date: a.death_date, kind: "outcome", label: "Died in Care" });
+    if (a.status === "Euthanized" && a.euthanasia?.date) push(a.id, { date: a.euthanasia.date, kind: "outcome", label: "Euthanasia" });
   });
-  transfers.forEach(t => {
-    (t.animal_ids || []).forEach(id => setIfEarlier(id, { date: t.date, type: "Transfer Out" }));
-  });
-  animals.filter(a => a.status === "Euthanized" && a.euthanasia?.date).forEach(a => {
-    setIfEarlier(a.id, { date: a.euthanasia!.date, type: "Euthanasia", euthReason: a.euthanasia!.reason, intakeType: a.intake_type });
-  });
+  intakeHistoryAll.forEach(h => push(h.animal_id, { date: h.intake_date, kind: "intake", label: `Return-to-Shelter Intake #${h.intake_number}` }));
+  adoptions.forEach(a => push(a.animal_id, { date: a.adoption_date, kind: "outcome", label: "Adoption" }));
+  transfers.forEach(t => (t.animal_ids || []).forEach(id => push(id, { date: t.date, kind: "outcome", label: "Transfer Out" })));
+  redemptions.forEach(r => push(r.animal_id, { date: r.redemption_date, kind: "outcome", label: "Returned to Owner" }));
+  // departure_date is stored as a full ISO timestamp (unlike every other date
+  // field here, which is plain YYYY-MM-DD) — truncate so string comparisons
+  // against startDate/endDate behave correctly.
+  receipts.forEach(r => push(r.animal_id, { date: (r.departure_date || "").slice(0, 10), kind: "outcome", label: r.departure_type }));
+
+  map.forEach(list => list.sort((a, b) => a.date.localeCompare(b.date)));
   return map;
 }
 
-function isInShelterOnDate(animal: Animal, date: string, depMap: Map<string, DepEntry>): boolean {
-  if (!animal.intake_date || animal.intake_date > date) return false;
-  const dep = depMap.get(animal.id);
-  if (dep) return dep.date > date;
-  return ACTIVE_STATUSES.some(s => animal.status.includes(s));
+// mode "start": an intake counts only if strictly before atDate (same-day intakes
+//   are Live Intake for the period, not Beginning population); an outcome on/after
+//   atDate still leaves the animal present at the start-of-day snapshot.
+// mode "end": an intake counts through and including atDate; an outcome strictly
+//   after atDate still leaves the animal present at the end-of-day snapshot.
+// When an animal's current cycle has no recorded outcome event at all, we fall
+// back to isInCareStatus(current status) — this is the one remaining place
+// current status matters, and only when no structured record exists to check
+// instead (e.g. Foster has no dedicated event source here; a currently-fostered
+// animal's presence on a PAST date is approximated from current status).
+function isInCareAt(events: CustodyEvent[] | undefined, atDate: string, mode: "start" | "end", fallbackStatus: string): boolean {
+  if (!events || events.length === 0) return isInCareStatus(fallbackStatus);
+  const intakeQualifies = (d: string) => (mode === "start" ? d < atDate : d <= atDate);
+  const outcomeStillPresent = (d: string) => (mode === "start" ? d >= atDate : d > atDate);
+
+  let cycleStart: string | null = null;
+  for (const e of events) {
+    if (e.kind === "intake" && intakeQualifies(e.date)) cycleStart = e.date;
+  }
+  if (cycleStart === null) return false; // not yet admitted as of this date
+
+  const outcome = events.find(e => e.kind === "outcome" && e.date >= cycleStart!);
+  if (!outcome) return isInCareStatus(fallbackStatus);
+  return outcomeStillPresent(outcome.date);
 }
 
 async function computeMatrix(startDate: string, endDate: string): Promise<MatrixData> {
-  const [animals, adoptions, transfers, receipts] = await Promise.all([
+  const [animals, adoptions, transfers, receipts, redemptions, intakeHistoryAll] = await Promise.all([
     fetchAnimals(),
     fetchAdoptions(),
     fetchTransfers(),
     fetchDepartureReceipts(),
+    fetchRedemptions(),
+    fetchAllIntakeHistory(),
   ]);
 
-  const depMap = buildDepartureMap(animals, adoptions, transfers, receipts);
+  const custodyEvents = buildCustodyEvents(animals, adoptions, transfers, redemptions, receipts, intakeHistoryAll);
   const animalMap = new Map(animals.map(a => [a.id, a]));
 
-  // A: beginning — animals intaken before startDate that haven't left before startDate
-  const beginning = animals.filter(a => {
-    if (!a.intake_date || a.intake_date >= startDate) return false;
-    const dep = depMap.get(a.id);
-    if (dep) return dep.date >= startDate;
-    return ACTIVE_STATUSES.some(s => a.status.includes(s));
-  });
+  // A: beginning — every animal in our care as of the start-of-day snapshot on startDate
+  const beginning = animals.filter(a => isInCareAt(custodyEvents.get(a.id), startDate, "start", a.status));
 
   // B–F: intakes during period
   const periodIntakes = animals.filter(a => a.intake_date >= startDate && a.intake_date <= endDate);
@@ -208,8 +253,8 @@ async function computeMatrix(startDate: string, endDate: string): Promise<Matrix
     .filter(a => a.status === "Euthanized" && a.euthanasia?.date && a.euthanasia.date >= startDate && a.euthanasia.date <= endDate)
     .forEach(a => addOutcome(a.id, "Euthanasia", a.euthanasia!.reason, a.intake_type));
 
-  // T: ending — animals in shelter on last day of period
-  const ending = animals.filter(a => isInShelterOnDate(a, endDate, depMap));
+  // T: ending — every animal in our care as of the end-of-day snapshot on endDate
+  const ending = animals.filter(a => isInCareAt(custodyEvents.get(a.id), endDate, "end", a.status));
 
   // Debug logging
   console.log("[GDA Report] date range:", startDate, endDate);
@@ -239,6 +284,8 @@ async function computeMatrix(startDate: string, endDate: string): Promise<Matrix
     euthShelter: countAnimals(bucketedOutcomes.euthShelter),
     euthOwner:   countAnimals(bucketedOutcomes.euthOwner),
     ending:      countAnimals(ending),
+    beginningAnimals: beginning,
+    endingAnimals: ending,
   };
 }
 
@@ -404,6 +451,7 @@ export default function GdaMatrixPage() {
   const [matrix, setMatrix]     = useState<MatrixData | null>(null);
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState("");
+  const [showReconciliation, setShowReconciliation] = useState(false);
 
   const getDateRange = useCallback((): { start: string; end: string } => {
     if (useCustom && customFrom && customTo) return { start: customFrom, end: customTo };
@@ -524,7 +572,68 @@ export default function GdaMatrixPage() {
             <button className="btn btn-secondary btn-sm" onClick={() => exportCsv(rows, matrix.startDate, matrix.endDate)}>
               📥 Export CSV
             </button>
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowReconciliation(v => !v)}>
+              🔍 {showReconciliation ? "Hide" : "Show"} Reconciliation
+            </button>
           </div>
+
+          {/* Diagnostic: animal IDs behind Beginning/Ending counts */}
+          {showReconciliation && (
+            <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, textTransform: "uppercase", color: "var(--text-secondary)", marginBottom: 10 }}>
+                Reconciliation — animals contributing to each count
+              </div>
+              <div className="grid-2" style={{ gap: 16 }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 6 }}>
+                    Beginning Count ({fmtDate(matrix.startDate)}) — {matrix.beginningAnimals.length} animals
+                  </div>
+                  <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6, background: "#fff" }}>
+                    {matrix.beginningAnimals.length === 0
+                      ? <div style={{ padding: 10, fontSize: 12, color: "var(--text-muted)" }}>None</div>
+                      : matrix.beginningAnimals
+                          .slice()
+                          .sort((a, b) => a.id.localeCompare(b.id))
+                          .map(a => (
+                            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 10px", fontSize: 11, borderBottom: "1px solid #f1f5f9" }}>
+                              <span style={{ fontFamily: "monospace" }}>{a.id}</span>
+                              <span>{a.name}</span>
+                              <span style={{ color: "var(--text-muted)" }}>{a.species}</span>
+                              <span style={{ color: "var(--text-muted)" }}>{a.status}</span>
+                              <span style={{ color: "var(--text-muted)" }}>Intake: {a.intake_date}</span>
+                            </div>
+                          ))
+                    }
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 6 }}>
+                    Ending Count ({fmtDate(matrix.endDate)}) — {matrix.endingAnimals.length} animals
+                  </div>
+                  <div style={{ maxHeight: 260, overflowY: "auto", border: "1px solid var(--border)", borderRadius: 6, background: "#fff" }}>
+                    {matrix.endingAnimals.length === 0
+                      ? <div style={{ padding: 10, fontSize: 12, color: "var(--text-muted)" }}>None</div>
+                      : matrix.endingAnimals
+                          .slice()
+                          .sort((a, b) => a.id.localeCompare(b.id))
+                          .map(a => (
+                            <div key={a.id} style={{ display: "flex", justifyContent: "space-between", gap: 8, padding: "4px 10px", fontSize: 11, borderBottom: "1px solid #f1f5f9" }}>
+                              <span style={{ fontFamily: "monospace" }}>{a.id}</span>
+                              <span>{a.name}</span>
+                              <span style={{ color: "var(--text-muted)" }}>{a.species}</span>
+                              <span style={{ color: "var(--text-muted)" }}>{a.status}</span>
+                              <span style={{ color: "var(--text-muted)" }}>Intake: {a.intake_date}</span>
+                            </div>
+                          ))
+                    }
+                  </div>
+                </div>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 10 }}>
+                Cross-check: any animal you expect to see but don&apos;t — check its intake_date, status, and whether it has an adoption/transfer/redemption/departure-receipt record on file with an unexpected date.
+              </div>
+            </div>
+          )}
 
           {/* Table */}
           <div style={{ overflowX: "auto" }}>
@@ -591,7 +700,11 @@ export default function GdaMatrixPage() {
           <div style={{ marginTop: 14, fontSize: 11, color: "var(--text-secondary)", lineHeight: 1.6, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
             <strong>Species Classification:</strong> Dog/Cat = 6+ months estimated age (or named category Adult/Senior/Young). Puppy/Kitten = under 6 months (or Neonatal/Puppy/Kitten category). Wildlife includes birds, reptiles, rabbits, and wild animals. Other includes horses, goats, livestock, and unclassified species.
             <br />
-            <strong>Beginning/Ending Count:</strong> Animals with an intake date before/within the period that have not received a departure record. Animals with no departure record are counted if their current status is an active shelter status.
+            <strong>Beginning Count:</strong> every animal in our care as of the start of {fmtDate(matrix.startDate)} — intake strictly before that date, with no adoption/transfer/redemption/departure-receipt/euthanasia/death record dated before that date. An outcome recorded on the start date itself still counts (they were present at the start of that day).
+            <br />
+            <strong>Ending Count:</strong> every animal in our care as of the end of {fmtDate(matrix.endDate)} — intake on or before that date, with no outcome record dated on or before that date. An outcome recorded exactly on the end date does <em>not</em> count (they had already left by end of day). This is the same day used elsewhere as &quot;in shelter&quot; — the live Current Animals count reflects <em>today</em>, so Ending Count will match it exactly only when the report&apos;s end date is today; for a closed prior period the two are expected to differ.
+            <br />
+            Both counts reconstruct each animal&apos;s full intake/outcome history (including Return-to-Shelter re-intakes) rather than relying on today&apos;s status, and use the same in-care status list as the dashboard&apos;s Current Animals figure (see <code>isInCareStatus()</code> in lib/utils.ts) as a fallback only when no outcome record exists for the animal&apos;s current stay. Use &quot;Show Reconciliation&quot; above to see exactly which animals are behind each count.
           </div>
         </div>
       )}

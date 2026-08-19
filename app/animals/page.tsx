@@ -10,7 +10,7 @@ import ReturnIntakeForm from "@/components/animals/ReturnIntakeForm";
 import { fetchAnimals, createAnimal, fetchPeople, createPerson, fetchIntakeHistoryCounts } from "@/lib/data";
 import type { Animal, Person } from "@/lib/types";
 import { STATUSES, STATUS_COLORS } from "@/lib/constants";
-import { formatDate, displayAge, isImported, IN_SHELTER_STATUSES } from "@/lib/utils";
+import { formatDate, displayAge, isImported, isInCareStatus } from "@/lib/utils";
 
 type Tab = "current" | "all" | "historical";
 
@@ -55,11 +55,11 @@ export default function AnimalsPage() {
       case "current":
         // All animals with an active in-shelter status, regardless of import source.
         // An imported animal with a kennel and active status is a current animal.
-        return animals.filter((a) => IN_SHELTER_STATUSES.has(a.status));
+        return animals.filter((a) => isInCareStatus(a.status));
       case "historical":
         // Only imported animals that have an outcome status (no longer in shelter).
         // Imported animals that are still active appear under "Current Animals" instead.
-        return animals.filter((a) => isImported(a) && !IN_SHELTER_STATUSES.has(a.status));
+        return animals.filter((a) => isImported(a) && !isInCareStatus(a.status));
       default:
         return animals;
     }
@@ -82,9 +82,9 @@ export default function AnimalsPage() {
   const paged = filtered.slice((page - 1) * perPage, page * perPage);
 
   const counts = useMemo(() => ({
-    current:    animals.filter((a) => IN_SHELTER_STATUSES.has(a.status)).length,
+    current:    animals.filter((a) => isInCareStatus(a.status)).length,
     all:        animals.length,
-    historical: animals.filter((a) => isImported(a) && !IN_SHELTER_STATUSES.has(a.status)).length,
+    historical: animals.filter((a) => isImported(a) && !isInCareStatus(a.status)).length,
   }), [animals]);
 
   const handleIntakeComplete = async (animalData: Partial<Animal>): Promise<Animal> => {
@@ -269,7 +269,7 @@ export default function AnimalsPage() {
                     {a.name}
                     {intakeCounts[a.id] > 1 && (
                       <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, background: "#fef3c7", color: "#92400e", borderRadius: 10, padding: "1px 6px", verticalAlign: "middle" }}>
-                        {IN_SHELTER_STATUSES.has(a.status) ? `Return #${intakeCounts[a.id]} — Current` : `${intakeCounts[a.id] - 1} previous intake${intakeCounts[a.id] - 1 !== 1 ? "s" : ""}`}
+                        {isInCareStatus(a.status) ? `Return #${intakeCounts[a.id]} — Current` : `${intakeCounts[a.id] - 1} previous intake${intakeCounts[a.id] - 1 !== 1 ? "s" : ""}`}
                       </span>
                     )}
                   </td>

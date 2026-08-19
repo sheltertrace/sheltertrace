@@ -12,7 +12,7 @@ import {
 } from "@/lib/constants";
 import StaffSelect from "@/components/ui/StaffSelect";
 import { useKennels } from "@/app/providers";
-import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId, isImported, IN_SHELTER_STATUSES } from "@/lib/utils";
+import { dobToAgeEstimate, displayAge, formatDate, today, nowTime, genId, isImported, isInCareStatus } from "@/lib/utils";
 import { AGENCY_NAME } from "@/lib/shelterInfo";
 import AgeInput from "@/components/ui/AgeInput";
 import {
@@ -825,7 +825,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
             <StatusBadge status={animal.status} />
             {intakeHistory.length > 0 && (
               <span style={{ background: "#fef3c7", color: "#92400e", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 700 }}>
-                {IN_SHELTER_STATUSES.has(animal.status) ? `Return #${intakeHistory[0].intake_number} — Current` : `${intakeHistory.length} previous intake${intakeHistory.length !== 1 ? "s" : ""}`}
+                {isInCareStatus(animal.status) ? `Return #${intakeHistory[0].intake_number} — Current` : `${intakeHistory.length} previous intake${intakeHistory.length !== 1 ? "s" : ""}`}
               </span>
             )}
             {animal.sub_status && <span style={{ background: "#e0f2fe", color: "#0369a1", padding: "2px 8px", borderRadius: 20, fontSize: 11, fontWeight: 600 }}>{animal.sub_status}</span>}

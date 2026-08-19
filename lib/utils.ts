@@ -217,3 +217,12 @@ export function isCurrentlySheltered(animal: {
 }): boolean {
   return !isImported(animal) && IN_SHELTER_STATUSES.has(animal.status);
 }
+
+// Single source of truth for "is this status an in-care population status."
+// Every animal-count surface (dashboard "Current Animals", the Animals page
+// tabs, the GDA report's Beginning/Ending counts, etc.) must call this
+// instead of re-checking IN_SHELTER_STATUSES directly, so they can't drift
+// out of sync with each other again.
+export function isInCareStatus(status: string): boolean {
+  return IN_SHELTER_STATUSES.has(status);
+}

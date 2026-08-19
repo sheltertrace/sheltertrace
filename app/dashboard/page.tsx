@@ -9,7 +9,7 @@ import { fetchTodayOnCall } from "@/lib/schedules";
 import { fetchLostFoundReports } from "@/lib/data";
 import type { Animal, DispatchCall, AdoptionRecord, MedicalRecord, OfficerFieldProfile, FieldStatus, ScheduleOverride } from "@/lib/types";
 import { STATUS_COLORS } from "@/lib/constants";
-import { formatDate, currencyFmt, isImported, IN_SHELTER_STATUSES } from "@/lib/utils";
+import { formatDate, currencyFmt, isImported, isInCareStatus } from "@/lib/utils";
 import Link from "next/link";
 
 function StatCard({ icon, value, label, color }: { icon: string; value: number | string; label: string; color: string }) {
@@ -111,8 +111,8 @@ export default function DashboardPage() {
   // Stats: count all animals with an active in-shelter status (includes any imported
   // animals that still have kennels and active statuses). Historical records are
   // imported animals with outcome statuses — exclude those from all counts.
-  const shelterActive = animals.filter((a) => IN_SHELTER_STATUSES.has(a.status));
-  const historicalCount = animals.filter((a) => isImported(a) && !IN_SHELTER_STATUSES.has(a.status)).length;
+  const shelterActive = animals.filter((a) => isInCareStatus(a.status));
+  const historicalCount = animals.filter((a) => isImported(a) && !isInCareStatus(a.status)).length;
   const available = shelterActive.filter((a) => a.status === "Available").length;
   const adopted = animals.filter((a) => !isImported(a) && a.status === "Adopted").length;
   const medHold = shelterActive.filter((a) => a.status === "Medical Hold").length;
