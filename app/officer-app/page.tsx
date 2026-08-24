@@ -4,8 +4,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { login } from "@/lib/auth";
 // All Supabase writes use supabasePublic — consistent anon key, no fieldOps abstraction.
 import { supabasePublic } from "@/lib/supabase-public";
-import type { StaffAccount, FieldStatus, DispatchCall, AlertAcknowledgment } from "@/lib/types";
+import type { StaffAccount, FieldStatus, DispatchCall, AlertAcknowledgment, Animal } from "@/lib/types";
 import { today } from "@/lib/utils";
+import { CALL_ANIMAL_ROLES } from "@/lib/constants";
 import DangerAlertModal, { type DangerAlertBlock } from "@/components/dispatch/DangerAlertModal";
 
 // ── Officer-safety danger check (address + already-recorded suspect/victim) ──
@@ -267,6 +268,13 @@ export default function OfficerAppPage() {
   const [addNarrativeCall, setAddNarrativeCall] = useState<DispatchCall | null>(null);
   const [narrativeText, setNarrativeText] = useState("");
   const [narrativeSaving, setNarrativeSaving] = useState(false);
+  const [linkAnimalCall, setLinkAnimalCall] = useState<DispatchCall | null>(null);
+  const [linkAnimalQuery, setLinkAnimalQuery] = useState("");
+  const [linkAnimalResults, setLinkAnimalResults] = useState<Animal[]>([]);
+  const [linkAnimalSelected, setLinkAnimalSelected] = useState<Animal | null>(null);
+  const [linkAnimalRole, setLinkAnimalRole] = useState(CALL_ANIMAL_ROLES[0]);
+  const [linkAnimalSaving, setLinkAnimalSaving] = useState(false);
+  const [linkAnimalError, setLinkAnimalError] = useState("");
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [restoringStatus, setRestoringStatus] = useState(false);
@@ -556,6 +564,55 @@ export default function OfficerAppPage() {
     finally { setNarrativeSaving(false); }
   }
 
+  // ── Link Animal (mirrors the desktop dispatch call detail "+ Add Animal" action) ──
+  async function handleSearchLinkAnimal(q: string) {
+    setLinkAnimalQuery(q);
+    if (q.trim().length < 2) { setLinkAnimalResults([]); return; }
+    const { data } = await supabasePublic
+      .from("animals")
+      .select("id,name,species,breed,status,microchip")
+      .or(`name.ilike.%${q}%,id.ilike.%${q}%,microchip.ilike.%${q}%`)
+      .limit(10);
+    setLinkAnimalResults((data as Animal[]) || []);
+  }
+
+  async function handleSaveLinkAnimal() {
+    if (!linkAnimalCall || !linkAnimalSelected) return;
+    setLinkAnimalSaving(true);
+    setLinkAnimalError("");
+    const officerName = officerDisplayName();
+    try {
+      const { error } = await supabasePublic.from("dispatch_call_animals").insert({
+        dispatch_call_id: linkAnimalCall.id,
+        animal_id: linkAnimalSelected.id,
+        role: linkAnimalRole,
+        added_by: officerName,
+      });
+      if (error) {
+        if (error.code === "23505") { setLinkAnimalError("This animal is already linked to this call."); return; }
+        throw error;
+      }
+      const now = new Date();
+      const entry = {
+        id: Math.random().toString(36).slice(2).toUpperCase(),
+        time: now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+        officer: officerName,
+        text: `Animal ${linkAnimalSelected.name} (${linkAnimalSelected.id}) linked to call as ${linkAnimalRole} by ${officerName}.`,
+      };
+      const existing = (linkAnimalCall.narrative ?? []) as typeof entry[];
+      await supabasePublic.from("dispatch_calls").update({ narrative: [...existing, entry] }).eq("id", linkAnimalCall.id);
+      setLinkAnimalCall(null);
+      setLinkAnimalSelected(null);
+      setLinkAnimalQuery("");
+      setLinkAnimalResults([]);
+    } catch (e) {
+      console.error("[link-animal]", e);
+      setLinkAnimalError("Failed to link animal. Please try again.");
+    } finally {
+      setLinkAnimalSaving(false);
+    }
+  }
+
   // ── Follow-Ups ────────────────────────────────────────────────────────────
   function openFollowUpEditor(call: DispatchCall) {
     setEditingFollowUp(call);
@@ -801,6 +858,10 @@ export default function OfficerAppPage() {
                     style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#0f2942", color: "#94a3b8", fontSize: 13, fontWeight: 700, border: "1px solid #334155", cursor: "pointer" }}>
                     📝 Narrative
                   </button>
+                  <button onClick={() => { setLinkAnimalCall(call); setLinkAnimalSelected(null); setLinkAnimalQuery(""); setLinkAnimalResults([]); setLinkAnimalError(""); setLinkAnimalRole(CALL_ANIMAL_ROLES[0]); }}
+                    style={{ flex: 1, padding: "10px 0", borderRadius: 8, background: "#0f2942", color: "#94a3b8", fontSize: 13, fontWeight: 700, border: "1px solid #334155", cursor: "pointer" }}>
+                    🐾 Link Animal
+                  </button>
                 </div>
               </div>
             );
@@ -965,6 +1026,69 @@ export default function OfficerAppPage() {
               <button onClick={handleSaveNarrative} disabled={narrativeSaving || !narrativeText.trim()}
                 style={{ flex: 2, padding: "14px 0", borderRadius: 10, background: narrativeSaving || !narrativeText.trim() ? "#334155" : "#1a8a8a", color: "#fff", border: "none", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
                 {narrativeSaving ? "Saving…" : "Save Entry"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Link Animal Modal ── */}
+      {linkAnimalCall && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "flex-end", zIndex: 300 }} onClick={() => setLinkAnimalCall(null)}>
+          <div style={{ background: "#1a3a5c", borderRadius: "20px 20px 0 0", padding: "20px 20px 32px", width: "100%", maxHeight: "80dvh", overflowY: "auto" }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ width: 36, height: 4, background: "#334155", borderRadius: 2, margin: "0 auto 16px" }} />
+            <div style={{ fontSize: 16, fontWeight: 800, marginBottom: 4 }}>Link Animal to Call</div>
+            <div style={{ fontSize: 12, color: "#7fc6c6", marginBottom: 14 }}>{linkAnimalCall.type} · {linkAnimalCall.address}</div>
+
+            {linkAnimalError && (
+              <div style={{ background: "#450a0a", border: "1px solid #b91c1c", borderRadius: 8, padding: "8px 12px", fontSize: 12, color: "#fca5a5", marginBottom: 12 }}>
+                ⚠️ {linkAnimalError}
+              </div>
+            )}
+
+            {!linkAnimalSelected ? (
+              <>
+                <input
+                  autoFocus
+                  value={linkAnimalQuery}
+                  onChange={(e) => handleSearchLinkAnimal(e.target.value)}
+                  placeholder="Search name, ID, or microchip…"
+                  style={{ width: "100%", background: "#0f2942", border: "1px solid #334155", borderRadius: 10, padding: "12px 14px", color: "#e2e8f0", fontSize: 14, marginBottom: 10 }}
+                />
+                {linkAnimalResults.map((a) => (
+                  <div key={a.id} onClick={() => setLinkAnimalSelected(a)}
+                    style={{ padding: "12px 14px", background: "#0f2942", borderRadius: 8, marginBottom: 8, cursor: "pointer", border: "1px solid #334155" }}>
+                    <div style={{ fontWeight: 700, color: "#e2e8f0" }}>{a.name} <span style={{ fontFamily: "monospace", fontWeight: 400, color: "#94a3b8", fontSize: 12 }}>({a.id})</span></div>
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>{a.species}{a.breed ? ` · ${a.breed}` : ""} · {a.status}</div>
+                  </div>
+                ))}
+              </>
+            ) : (
+              <>
+                <div style={{ padding: "12px 14px", background: "#0f2942", borderRadius: 8, marginBottom: 14, border: "1px solid #1a8a8a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontWeight: 700, color: "#e2e8f0" }}>{linkAnimalSelected.name} <span style={{ fontFamily: "monospace", fontWeight: 400, color: "#94a3b8", fontSize: 12 }}>({linkAnimalSelected.id})</span></div>
+                    <div style={{ fontSize: 12, color: "#94a3b8" }}>{linkAnimalSelected.species} · {linkAnimalSelected.status}</div>
+                  </div>
+                  <button onClick={() => setLinkAnimalSelected(null)} style={{ background: "none", border: "none", color: "#7fc6c6", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>Change</button>
+                </div>
+                <select
+                  value={linkAnimalRole}
+                  onChange={(e) => setLinkAnimalRole(e.target.value)}
+                  style={{ width: "100%", background: "#0f2942", border: "1px solid #334155", borderRadius: 10, padding: "12px 14px", color: "#e2e8f0", fontSize: 14, marginBottom: 14 }}
+                >
+                  {CALL_ANIMAL_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </>
+            )}
+
+            <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
+              <button onClick={() => setLinkAnimalCall(null)} style={{ flex: 1, padding: "14px 0", borderRadius: 10, background: "#0f2942", color: "#94a3b8", border: "1px solid #334155", fontSize: 15, fontWeight: 700, cursor: "pointer" }}>
+                Cancel
+              </button>
+              <button onClick={handleSaveLinkAnimal} disabled={linkAnimalSaving || !linkAnimalSelected}
+                style={{ flex: 2, padding: "14px 0", borderRadius: 10, background: linkAnimalSaving || !linkAnimalSelected ? "#334155" : "#1a8a8a", color: "#fff", border: "none", fontSize: 15, fontWeight: 800, cursor: "pointer" }}>
+                {linkAnimalSaving ? "Saving…" : "Link Animal"}
               </button>
             </div>
           </div>

@@ -283,6 +283,19 @@ export interface NarrativeEntry {
   edit_history?: NarrativeEditHistoryItem[];
 }
 
+export interface DispatchCallAnimal {
+  id: string;
+  dispatch_call_id: string;
+  animal_id: string;
+  role: string;
+  notes?: string;
+  added_by?: string;
+  added_at?: string;
+  // Joined for display — not real columns
+  animal?: Animal;
+  call?: DispatchCall;
+}
+
 export interface NarrativeEditHistoryItem {
   text: string;
   edited_by: string;

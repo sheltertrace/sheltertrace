@@ -1,5 +1,6 @@
 "use client";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { login } from "@/lib/auth";
 import { fetchPeople, fetchCalls } from "@/lib/data";
 import type { StaffAccount, Person, DispatchCall } from "@/lib/types";
@@ -149,13 +150,28 @@ function PersonSearch({ people, selected, onSelect, onClear }: { people: Person[
 }
 
 export default function FieldIntakePage() {
+  return (
+    <Suspense fallback={null}>
+      <FieldIntakePageContent />
+    </Suspense>
+  );
+}
+
+function FieldIntakePageContent() {
   const [officer, setOfficer] = useState<StaffAccount | null>(null);
   const [authChecked, setAuthChecked] = useState(false);
+  const params = useSearchParams();
 
   if (!authChecked || !officer) {
     return <FieldIntakeGate officer={officer} onLogin={setOfficer} onChecked={() => setAuthChecked(true)} />;
   }
-  return <FieldIntakeWizard officer={officer} />;
+  return (
+    <FieldIntakeWizard
+      officer={officer}
+      prefillCallId={params.get("callId") || ""}
+      prefillAddress={params.get("address") || ""}
+    />
+  );
 }
 
 // ── Auth gate ───────────────────────────────────────────────────────────────────
@@ -240,7 +256,7 @@ const CONDITION_OPTIONS = ["Visible Injury", "Signs of Illness", "Parasites Obse
 const BEHAVIOR_OPTIONS = ["Friendly/Approachable", "Fearful/Skittish", "Aggressive", "Feral/Unhandleable"];
 const ALTERATION_OPTIONS = ["Intact", "Spayed", "Neutered", "Unknown"];
 
-function FieldIntakeWizard({ officer }: { officer: StaffAccount }) {
+function FieldIntakeWizard({ officer, prefillCallId, prefillAddress }: { officer: StaffAccount; prefillCallId?: string; prefillAddress?: string }) {
   const officerName = `${officer.first_name ?? officer.firstName ?? ""} ${officer.last_name ?? officer.lastName ?? ""}`.trim() || officer.username;
   const officerInitials = `${(officer.first_name ?? officer.firstName ?? "").slice(0, 1)}${(officer.last_name ?? officer.lastName ?? "").slice(0, 1)}`.toUpperCase() || officer.username.slice(0, 2).toUpperCase();
 
@@ -328,6 +344,11 @@ function FieldIntakeWizard({ officer }: { officer: StaffAccount }) {
       }
     }).catch(() => {});
     fetchCalls().then((calls) => setOpenCalls(calls.filter((c) => !["Resolved", "Cancelled"].includes(c.status || "")))).catch(() => {});
+
+    // Pre-fill from a "Start Field Intake" link on a dispatch call — a draft
+    // in progress (below) takes priority over these if one exists.
+    if (prefillCallId) setLinkedCallId(prefillCallId);
+    if (prefillAddress) setFoundAddress(prefillAddress);
 
     const draft = loadDraft() as unknown as DraftState | null;
     if (draft) {

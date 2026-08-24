@@ -491,6 +491,128 @@ export async function updateCall(id: string, updates: Partial<DispatchCall>): Pr
   return data as DispatchCall;
 }
 
+// ── Dispatch Call ↔ Animal links ───────────────────────────────────────────────
+
+export class DuplicateCallAnimalLinkError extends Error {
+  constructor() {
+    super("This animal is already linked to this call. Update the role instead?");
+    this.name = "DuplicateCallAnimalLinkError";
+  }
+}
+
+function narrativeTimestamp(): string {
+  const now = new Date();
+  return `${(now.getMonth() + 1).toString().padStart(2, "0")}/${now.getDate().toString().padStart(2, "0")}/${now.getFullYear()} ${now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}`;
+}
+
+async function addCallNarrativeNote(callId: string, officer: string, text: string): Promise<void> {
+  try {
+    const call = await fetchCall(callId);
+    if (!call) return;
+    const entry = { id: genId(), time: narrativeTimestamp(), officer: officer || "Staff", text };
+    const updated = [...((call.narrative || []) as import("./types").NarrativeEntry[]), entry];
+    await supabase.from("dispatch_calls").update({ narrative: updated }).eq("id", callId);
+  } catch (e) {
+    console.error("[addCallNarrativeNote] failed:", e);
+  }
+}
+
+export async function fetchAnimalsForCall(callId: string): Promise<import("./types").DispatchCallAnimal[]> {
+  const { data: links } = await supabase
+    .from("dispatch_call_animals")
+    .select("*")
+    .eq("dispatch_call_id", callId)
+    .order("added_at", { ascending: false });
+  const rows = (links as import("./types").DispatchCallAnimal[]) || [];
+  if (rows.length === 0) return [];
+  const animalIds = [...new Set(rows.map((r) => r.animal_id))];
+  const { data: animalRows } = await supabase.from("animals").select("*").in("id", animalIds);
+  const animalMap = new Map((animalRows as Animal[] || []).map((a) => [a.id, a]));
+  return rows.map((r) => ({ ...r, animal: animalMap.get(r.animal_id) }));
+}
+
+export async function fetchCallsForAnimal(animalId: string): Promise<import("./types").DispatchCallAnimal[]> {
+  const { data: links } = await supabase
+    .from("dispatch_call_animals")
+    .select("*")
+    .eq("animal_id", animalId)
+    .order("added_at", { ascending: false });
+  const rows = (links as import("./types").DispatchCallAnimal[]) || [];
+  if (rows.length === 0) return [];
+  const callIds = [...new Set(rows.map((r) => r.dispatch_call_id))];
+  const { data: callRows } = await supabase.from("dispatch_calls").select("*").in("id", callIds);
+  const callMap = new Map((callRows as DispatchCall[] || []).map((c) => [c.id, c]));
+  return rows
+    .map((r) => ({ ...r, call: callMap.get(r.dispatch_call_id) }))
+    .sort((a, b) => (b.call?.date_reported || "").localeCompare(a.call?.date_reported || ""));
+}
+
+export interface LinkAnimalToCallPayload {
+  dispatch_call_id: string;
+  animal_id: string;
+  role?: string;
+  notes?: string;
+  added_by?: string;
+}
+
+// Inserts the link and appends a system narrative note to the call — used by
+// the dispatch call detail modal, the bite report auto-link, and the field
+// intake submission pipeline (online and offline-queue-replayed) alike, so
+// every caller gets the audit trail for free instead of re-implementing it.
+export async function linkAnimalToCall(payload: LinkAnimalToCallPayload): Promise<import("./types").DispatchCallAnimal> {
+  const officer = payload.added_by || getSessionUserName();
+  const { data, error } = await supabase
+    .from("dispatch_call_animals")
+    .insert({
+      dispatch_call_id: payload.dispatch_call_id,
+      animal_id: payload.animal_id,
+      role: payload.role || "Involved",
+      notes: payload.notes || undefined,
+      added_by: officer,
+    })
+    .select()
+    .single();
+  if (error) {
+    if (error.code === "23505") throw new DuplicateCallAnimalLinkError();
+    throw error;
+  }
+  const animal = await fetchAnimal(payload.animal_id);
+  await addCallNarrativeNote(
+    payload.dispatch_call_id,
+    officer,
+    `Animal ${animal ? `${animal.name} (${animal.id})` : payload.animal_id} linked to call as ${payload.role || "Involved"} by ${officer} on ${narrativeTimestamp()}.`
+  );
+  return data as import("./types").DispatchCallAnimal;
+}
+
+export async function updateCallAnimalLink(id: string, updates: { role?: string; notes?: string }, editedBy?: string): Promise<import("./types").DispatchCallAnimal> {
+  const officer = editedBy || getSessionUserName();
+  const { data, error } = await supabase
+    .from("dispatch_call_animals")
+    .update({ ...updates, added_by: officer, added_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as import("./types").DispatchCallAnimal;
+}
+
+export async function unlinkAnimalFromCall(id: string, unlinkedBy?: string): Promise<void> {
+  const { data: existing } = await supabase.from("dispatch_call_animals").select("*").eq("id", id).single();
+  const link = existing as import("./types").DispatchCallAnimal | null;
+  const { error } = await supabase.from("dispatch_call_animals").delete().eq("id", id);
+  if (error) throw error;
+  if (link) {
+    const officer = unlinkedBy || getSessionUserName();
+    const animal = await fetchAnimal(link.animal_id);
+    await addCallNarrativeNote(
+      link.dispatch_call_id,
+      officer,
+      `Animal ${animal ? `${animal.name} (${animal.id})` : link.animal_id} unlinked from call by ${officer} on ${narrativeTimestamp()}.`
+    );
+  }
+}
+
 // ── Pending Follow-Up ─────────────────────────────────────────────────────────
 const DISPATCH_CALL_DATE_FIELDS = ["follow_up_due_date"] as const;
 

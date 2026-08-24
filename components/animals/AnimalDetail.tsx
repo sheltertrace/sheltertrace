@@ -23,9 +23,9 @@ import {
   lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled, toggleAnimalNotePopup,
   logKennelMove, fetchKennelMoves, type KennelMove, type AnimalDocument,
   fetchPeopleForAnimal, unlinkAnimalFromPerson, fetchEuthanasiaLog,
-  fetchIntakeHistory, fetchRedemptions,
+  fetchIntakeHistory, fetchRedemptions, fetchCallsForAnimal,
 } from "@/lib/data";
-import type { AnimalPerson, AnimalIntakeHistory, Redemption } from "@/lib/types";
+import type { AnimalPerson, AnimalIntakeHistory, Redemption, DispatchCallAnimal } from "@/lib/types";
 import { printIntakeForm } from "@/lib/intakeFormPrint";
 import LinkPersonModal from "./LinkPersonModal";
 import { IS_DEMO } from "@/lib/demo";
@@ -184,6 +184,9 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [intakeHistory, setIntakeHistory] = useState<AnimalIntakeHistory[]>([]);
   const [redemptions, setRedemptions] = useState<Redemption[]>([]);
 
+  // Dispatch calls this animal has been linked to
+  const [animalCalls, setAnimalCalls] = useState<DispatchCallAnimal[]>([]);
+
   // People attachment
   const [showAttachPerson, setShowAttachPerson] = useState(false);
   const [personSearch, setPersonSearch] = useState("");
@@ -205,6 +208,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchPeopleForAnimal(animal.id).then(setLinkedPeople).catch(() => {});
     fetchIntakeHistory(animal.id).then(setIntakeHistory).catch(() => {});
     fetchRedemptions(animal.id).then(setRedemptions).catch(() => {});
+    fetchCallsForAnimal(animal.id).then(setAnimalCalls).catch(() => {});
   }, [animal.id]);
 
   // Realtime subscription — auto-refresh medical records when IDEXX updates them
@@ -2050,6 +2054,39 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </CollapsibleSection>
+
+          {/* ── Dispatch Calls ── */}
+          <CollapsibleSection title={`Dispatch Calls (${animalCalls.length})`} color="#0f2942" defaultOpen={false}>
+            {animalCalls.length === 0 ? (
+              <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "8px 0" }}>This animal hasn&apos;t been linked to any dispatch calls.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {animalCalls.map((link) => {
+                  const c = link.call;
+                  const dispositionLine = (c?.response_notes || "").split("\n").find((l) => l.startsWith("Disposition:"));
+                  const disposition = dispositionLine ? dispositionLine.slice(12).trim() : "";
+                  const officerNames = ((c?.assigned_officers || []) as { name: string }[]).map((o) => o.name).join(", ");
+                  return (
+                    <div key={link.id} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                        <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: "var(--teal)" }}>{link.dispatch_call_id}</span>
+                        <span style={{ fontWeight: 700, fontSize: 13 }}>{c?.type || "—"}</span>
+                        <span className="badge" style={{ fontSize: 10, background: "#e0f2fe", color: "#0369a1" }}>{link.role}</span>
+                        {c?.status && <span className="badge" style={{ fontSize: 10 }}>{c.status}</span>}
+                      </div>
+                      <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>
+                        {c?.date_reported ? formatDate(c.date_reported) : "—"} · {[c?.address, c?.city].filter(Boolean).join(", ") || "No address on file"}
+                      </div>
+                      {officerNames && <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Officer(s): {officerNames}</div>}
+                      {disposition && <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>Disposition: {disposition}</div>}
+                      {link.notes && <div style={{ fontSize: 12, fontStyle: "italic", color: "var(--text-secondary)", marginBottom: 4 }}>&ldquo;{link.notes}&rdquo;</div>}
+                      <a href={`/dispatch/${link.dispatch_call_id}`} className="btn btn-ghost btn-sm" style={{ fontSize: 11, marginTop: 4 }}>View Call →</a>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </CollapsibleSection>

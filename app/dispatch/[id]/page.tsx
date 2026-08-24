@@ -2,14 +2,17 @@
 import { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
-import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked, fetchAnimals, findPeopleAtAddress, findPersonMatch, fetchPopupNotesForPeople, fetchAddressIncidentCount, fetchWitnessStatementsByCall } from "@/lib/data";
+import { fetchCall, updateCall, fetchPeople, fetchOfficers, fetchCitations, createPerson, addPersonNote, fetchFormsByLinked, fetchAnimals, findPeopleAtAddress, findPersonMatch, fetchPopupNotesForPeople, fetchAddressIncidentCount, fetchWitnessStatementsByCall, fetchAnimalsForCall, unlinkAnimalFromCall, updateCallAnimalLink } from "@/lib/data";
+import { fetchBiteReports, extractLinkedAnimals } from "@/lib/biteReportData";
+import type { BiteReport } from "@/lib/biteReportTypes";
 import { fetchOfficerFieldStatuses } from "@/lib/fieldOps";
-import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType, OfficerFieldProfile, FieldStatus, AlertAcknowledgment, WitnessStatement } from "@/lib/types";
+import type { DispatchCall, Person, Officer, Animal, InvolvedParty, EvidenceItem, NarrativeEntry, Citation, ShelterForm, FormPreFill, FormType, OfficerFieldProfile, FieldStatus, AlertAcknowledgment, WitnessStatement, DispatchCallAnimal } from "@/lib/types";
 import dynamic from "next/dynamic";
 const QuickIntakeModal = dynamic(() => import("@/components/dispatch/QuickIntakeModal"), { ssr: false });
 const MiniDispatchMap  = dynamic(() => import("@/components/map/MiniDispatchMap"),       { ssr: false });
+const AddAnimalToCallModal = dynamic(() => import("@/components/dispatch/AddAnimalToCallModal"), { ssr: false });
 import DangerAlertModal, { type DangerAlertBlock } from "@/components/dispatch/DangerAlertModal";
-import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS, FOLLOW_UP_ELIGIBLE_STATUSES } from "@/lib/constants";
+import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS, FOLLOW_UP_ELIGIBLE_STATUSES, CALL_ANIMAL_ROLES } from "@/lib/constants";
 import FollowUpModal from "@/components/dispatch/FollowUpModal";
 import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
@@ -206,6 +209,13 @@ function CallDetailPageInner() {
   const [officerStatuses, setOfficerStatuses] = useState<OfficerFieldProfile[]>([]);
   const [dangerBlocks, setDangerBlocks] = useState<DangerAlertBlock[]>([]);
   const [witnessStatements, setWitnessStatements] = useState<WitnessStatement[]>([]);
+  const [callAnimalLinks, setCallAnimalLinks] = useState<DispatchCallAnimal[]>([]);
+  const [callBiteReports, setCallBiteReports] = useState<BiteReport[]>([]);
+  const [showAddAnimalModal, setShowAddAnimalModal] = useState(false);
+  const [editingCallAnimalId, setEditingCallAnimalId] = useState<string | null>(null);
+  const [editCallAnimalRole, setEditCallAnimalRole] = useState("");
+  const [editCallAnimalNotes, setEditCallAnimalNotes] = useState("");
+  const [unlinkCallAnimalConfirmId, setUnlinkCallAnimalConfirmId] = useState<string | null>(null);
   const [expandedStatementId, setExpandedStatementId] = useState<string | null>(null);
 
   // ── Danger alert checks ────────────────────────────────────────────────────
@@ -269,6 +279,12 @@ function CallDetailPageInner() {
     }
   };
 
+  const reloadCallAnimals = useCallback(() => {
+    fetchAnimalsForCall(id).then(setCallAnimalLinks).catch(() => {});
+    fetchBiteReports({ dispatchCallId: id }).then(setCallBiteReports).catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id]);
+
   useEffect(() => {
     fetchOfficerFieldStatuses().then(setOfficerStatuses);
     Promise.all([fetchCall(id), fetchPeople(), fetchOfficers(), fetchCitations(), fetchFormsByLinked({ callId: id })]).then(([c, p, o, cits, forms]) => {
@@ -303,6 +319,7 @@ function CallDetailPageInner() {
       setLoading(false);
     });
     fetchWitnessStatementsByCall(id).then(setWitnessStatements).catch(() => {});
+    reloadCallAnimals();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
@@ -389,6 +406,32 @@ function CallDetailPageInner() {
     }
     setShowIntakeModal(false);
   };
+
+  // ── Animals section (dispatch_call_animals) ───────────────────────────────
+  const handleSaveCallAnimalEdit = async (linkId: string) => {
+    try {
+      await updateCallAnimalLink(linkId, { role: editCallAnimalRole, notes: editCallAnimalNotes.trim() || undefined }, getNarrativeAuthor());
+      setEditingCallAnimalId(null);
+      reloadCallAnimals();
+      showToast("Animal link updated");
+    } catch (e) {
+      console.error("[handleSaveCallAnimalEdit]", e);
+    }
+  };
+
+  const handleUnlinkCallAnimal = async (linkId: string) => {
+    try {
+      await unlinkAnimalFromCall(linkId, getNarrativeAuthor());
+      setUnlinkCallAnimalConfirmId(null);
+      reloadCallAnimals();
+      showToast("Animal unlinked from call");
+    } catch (e) {
+      console.error("[handleUnlinkCallAnimal]", e);
+    }
+  };
+
+  const bitingReportForAnimal = (animalId: string): BiteReport | undefined =>
+    callBiteReports.find((r) => extractLinkedAnimals(r).some((l) => l.animalId === animalId));
 
   // ── Save progress ──────────────────────────────────────────────────────────
   const handleSaveProgress = async () => {
@@ -1385,6 +1428,27 @@ function CallDetailPageInner() {
     const suspectHtml = personSectionHtml("Suspect", parties.find((p) => p.role === "Suspect"), true);
     const victimHtml = personSectionHtml("Victim", parties.find((p) => p.role === "Victim"), false);
 
+    // Animals involved — every animal linked to this call via dispatch_call_animals
+    const animalsHtml = `
+      <section>
+        <div class="section-title">Animals Involved (${callAnimalLinks.length})</div>
+        ${callAnimalLinks.length === 0
+          ? `<div style="color:#94a3b8;font-style:italic;font-size:12px;">No animals linked to this call.</div>`
+          : callAnimalLinks.map((link) => {
+              const a = link.animal;
+              return `
+              <div style="padding:8px 0;border-bottom:1px solid #f1f5f9;font-size:12px;">
+                <div style="font-weight:700;color:#0f2942;">
+                  ${a ? `${a.name} (${a.id})` : link.animal_id}
+                  <span style="font-weight:400;color:#64748b;"> — ${link.role}${a ? ` — ${a.status}` : ""}</span>
+                </div>
+                ${a ? `<div style="color:#475569;margin-top:2px;">${a.species}${a.breed && a.breed !== "Unknown" ? ` / ${a.breed}` : ""} · ${a.sex || "—"} · Age: ${a.age || "—"} · Weight: ${a.weight || "—"}</div>` : ""}
+                ${a ? `<div style="color:#475569;margin-top:2px;">Microchip: ${a.microchip || "—"} · Rabies Tag: ${a.rabies_tag || "—"}</div>` : ""}
+                ${link.notes ? `<div style="color:#1e293b;margin-top:2px;font-style:italic;">${link.notes}</div>` : ""}
+              </div>`;
+            }).join("")}
+      </section>`;
+
     // Witness statements — attached statements printed in their own section
     const witnessHtml = witnessStatements.length === 0 ? "" : `
       <section>
@@ -1454,6 +1518,9 @@ function CallDetailPageInner() {
   <!-- Suspect / Victim -->
   ${suspectHtml}
   ${victimHtml}
+
+  <!-- Animals Involved -->
+  ${animalsHtml}
 
   <!-- Narrative -->
   <section>
@@ -1693,6 +1760,115 @@ function CallDetailPageInner() {
           </div>
         </div>
       </div>
+
+      {/* Animals section */}
+      <div className="card" style={{ marginTop: 20, padding: 0, overflow: "hidden" }}>
+        <div style={{ padding: "10px 16px", background: "var(--surface-alt)", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>🐾 Animals ({callAnimalLinks.length})</span>
+          <button className="btn btn-primary btn-sm" style={{ marginLeft: "auto" }} onClick={() => setShowAddAnimalModal(true)}>
+            + Add Animal
+          </button>
+        </div>
+        {callAnimalLinks.length === 0 ? (
+          <div style={{ padding: "18px 16px", color: "var(--text-muted)", fontSize: 13, textAlign: "center" }}>
+            No animals linked to this call yet.{" "}
+            <button className="btn btn-ghost btn-sm" onClick={() => setShowAddAnimalModal(true)}>+ Add Animal →</button>
+          </div>
+        ) : (
+          <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+            {callAnimalLinks.map((link) => {
+              const a = link.animal;
+              const editing = editingCallAnimalId === link.id;
+              const bite = a ? bitingReportForAnimal(a.id) : undefined;
+              return (
+                <div key={link.id} style={{ display: "flex", gap: 14, border: "1px solid var(--border)", borderRadius: 10, padding: "12px 14px", alignItems: "flex-start" }}>
+                  {a?.photo_url ? (
+                    <img src={a.photo_url} alt="" style={{ width: 56, height: 56, borderRadius: 8, objectFit: "cover", flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 56, height: 56, borderRadius: 8, background: "#f1f5f9", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, flexShrink: 0 }}>
+                      {a?.species === "Dog" ? "🐕" : a?.species === "Cat" ? "🐈" : "🐾"}
+                    </div>
+                  )}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontWeight: 700, fontSize: 14 }}>{a?.name || link.animal_id}</span>
+                      <span style={{ fontFamily: "monospace", fontSize: 11, color: "var(--text-secondary)" }}>{link.animal_id}</span>
+                      <span className="badge" style={{ fontSize: 10, background: "#e0f2fe", color: "#0369a1" }}>{link.role}</span>
+                      {a && <span className="badge" style={{ fontSize: 10 }}>{a.status}</span>}
+                      {bite && (
+                        <a href={`/bite-reports/${bite.id}`} target="_blank" rel="noreferrer" style={{ fontSize: 10, fontWeight: 700, background: "#fee2e2", color: "#dc2626", borderRadius: 8, padding: "2px 8px", textDecoration: "none" }}>
+                          🩸 Bite Report on File
+                        </a>
+                      )}
+                    </div>
+                    {a && <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{a.species}{a.breed && a.breed !== "Unknown" ? ` — ${a.breed}` : ""}</div>}
+                    {link.notes && !editing && <div style={{ fontSize: 12, color: "var(--text-secondary)", fontStyle: "italic", marginBottom: 4 }}>&ldquo;{link.notes}&rdquo;</div>}
+                    <div style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      Added by {link.added_by || "Unknown"} on {link.added_at ? formatDateTime(link.added_at) : "—"}
+                    </div>
+
+                    {editing ? (
+                      <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8, maxWidth: 420 }}>
+                        <select className="form-select" value={editCallAnimalRole} onChange={(e) => setEditCallAnimalRole(e.target.value)}>
+                          {CALL_ANIMAL_ROLES.map((r) => <option key={r}>{r}</option>)}
+                        </select>
+                        <textarea className="form-textarea" rows={2} value={editCallAnimalNotes} onChange={(e) => setEditCallAnimalNotes(e.target.value)} placeholder="Notes…" />
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button className="btn btn-primary btn-sm" onClick={() => handleSaveCallAnimalEdit(link.id)}>Save Changes</button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingCallAnimalId(null)}>Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <a href={`/animals/${link.animal_id}`} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ fontSize: 11 }}>View Animal Record →</a>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 11 }}
+                          onClick={() => { setEditingCallAnimalId(link.id); setEditCallAnimalRole(link.role); setEditCallAnimalNotes(link.notes || ""); }}
+                        >✏️ Edit</button>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          style={{ fontSize: 11, color: "#dc2626" }}
+                          onClick={() => setUnlinkCallAnimalConfirmId(link.id)}
+                        >🗑 Unlink</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Unlink confirmation dialog */}
+      {unlinkCallAnimalConfirmId && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 9000, display: "flex", alignItems: "center", justifyContent: "center" }}
+          onClick={() => setUnlinkCallAnimalConfirmId(null)}>
+          <div style={{ background: "var(--surface)", borderRadius: 10, padding: "24px 28px", maxWidth: 380, boxShadow: "0 8px 32px rgba(0,0,0,.2)" }}
+            onClick={(e) => e.stopPropagation()}>
+            <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 10 }}>Unlink Animal?</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", marginBottom: 20 }}>
+              This removes the animal from this call. The animal record itself is not affected.
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button className="btn btn-secondary btn-sm" onClick={() => setUnlinkCallAnimalConfirmId(null)}>Cancel</button>
+              <button className="btn btn-sm" style={{ background: "#dc2626", color: "#fff", border: "none" }}
+                onClick={() => handleUnlinkCallAnimal(unlinkCallAnimalConfirmId)}>Unlink</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showAddAnimalModal && call && (
+        <AddAnimalToCallModal
+          callId={call.id}
+          callAddress={call.address}
+          existingLinks={callAnimalLinks}
+          onLinked={() => { setShowAddAnimalModal(false); reloadCallAnimals(); showToast("Animal linked to call"); }}
+          onClose={() => setShowAddAnimalModal(false)}
+        />
+      )}
 
       {/* Impounded Animals section */}
       <div className="card" style={{ marginTop: 20, padding: 0, overflow: "hidden" }}>

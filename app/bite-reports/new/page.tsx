@@ -33,6 +33,8 @@ function NewBiteReportContent() {
     prefill.incident_date = params.get("date") || prefill.incident_date;
     prefill.investigating_officer = params.get("officer") || prefill.investigating_officer;
   }
+  const callId = params.get("callId");
+  if (callId) prefill.dispatch_call_id = callId;
 
   const title = type === "animal_human" ? "Animal to Human Bite Report" : "Animal to Animal Bite Report";
 

@@ -3,7 +3,7 @@
 // upload photos, store the intake form as an animal document).
 import { supabase } from "./supabase";
 import { nullifyEmptyDates, nullifyEmptyBooleans } from "./sanitize";
-import { createAnimal, createPerson, linkAnimalToPerson, addAnimalNote, uploadAnimalDocument, fetchCall, updateCall } from "./data";
+import { createAnimal, createPerson, linkAnimalToPerson, addAnimalNote, uploadAnimalDocument, fetchCall, updateCall, linkAnimalToCall, DuplicateCallAnimalLinkError } from "./data";
 import { buildIntakeFormHTML } from "./intakeFormPrint";
 import type { Animal, Person } from "./types";
 
@@ -199,13 +199,30 @@ export async function submitFieldIntake(sub: FieldIntakeSubmission): Promise<Fie
       await updateAnimalPhotos(created.id, uploadedPhotoUrls);
     }
 
-    // 6. Link to an open dispatch call, if selected
+    // 6. Link to an open dispatch call, if selected — both the legacy
+    // animal_ids array (other features still read this) and the richer
+    // dispatch_call_animals link (role/notes/audit note on the narrative).
+    // This runs the same way whether submitted live or replayed later from
+    // the offline queue, since both paths call submitFieldIntake.
     if (sub.linkedCallId) {
       const call = await fetchCall(sub.linkedCallId);
       if (call) {
         const existingIds = (call.animal_ids || []) as string[];
         if (!existingIds.includes(created.id)) {
           await updateCall(call.id, { animal_ids: [...existingIds, created.id] });
+        }
+      }
+      try {
+        await linkAnimalToCall({
+          dispatch_call_id: sub.linkedCallId,
+          animal_id: created.id,
+          role: "Impounded",
+          notes: "Linked via field intake",
+          added_by: sub.officerName,
+        });
+      } catch (e) {
+        if (!(e instanceof DuplicateCallAnimalLinkError)) {
+          console.error("[field-intake] failed to create dispatch_call_animals link:", e);
         }
       }
     }
