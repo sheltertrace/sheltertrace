@@ -1947,14 +1947,40 @@ export async function fetchDepartureReceipts(filters?: {
   dateTo?: string;
   departureType?: string;
   officerName?: string;
+  personId?: string;
 }): Promise<import("./types").DepartureReceipt[]> {
   let q = supabase.from("departure_receipts").select("*").order("created_at", { ascending: false });
   if (filters?.dateFrom) q = q.gte("departure_date", filters.dateFrom);
   if (filters?.dateTo)   q = q.lte("departure_date", filters.dateTo + "T23:59:59");
   if (filters?.departureType && filters.departureType !== "All") q = q.eq("departure_type", filters.departureType);
   if (filters?.officerName && filters.officerName !== "All") q = q.eq("officer_name", filters.officerName);
+  if (filters?.personId) q = q.eq("person_id", filters.personId);
   const { data } = await q;
   return (data as import("./types").DepartureReceipt[]) || [];
+}
+
+// ── Adoption Receipt Reprints ──────────────────────────────────────────────────
+export async function logAdoptionReceiptReprint(payload: {
+  adoptionId: string;
+  animalId?: string;
+  reprintedBy: string;
+  reason?: string;
+}): Promise<void> {
+  await supabase.from("adoption_receipt_reprints").insert({
+    adoption_id: payload.adoptionId,
+    animal_id: payload.animalId,
+    reprinted_by: payload.reprintedBy,
+    reason: payload.reason || undefined,
+  });
+}
+
+export async function fetchReprintsForReceipt(receiptId: string): Promise<import("./types").AdoptionReceiptReprint[]> {
+  const { data } = await supabase
+    .from("adoption_receipt_reprints")
+    .select("*")
+    .eq("adoption_id", receiptId)
+    .order("reprinted_at", { ascending: false });
+  return (data as import("./types").AdoptionReceiptReprint[]) || [];
 }
 
 export async function fetchFormsByLinked(opts: { callId?: string; animalId?: string; personId?: string }): Promise<import("./types").ShelterForm[]> {

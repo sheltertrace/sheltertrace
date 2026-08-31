@@ -1,6 +1,13 @@
 ﻿import type { Animal, DepartureReceipt, Person, MedicalRecord } from "./types";
-import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "./shelterInfo";
+import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE, AGENCY_SEAL_LOGO, TERMS_OF_ADOPTION_TEXT } from "./shelterInfo";
 import { buildTestResultsTableHTML } from "./testResultsPrint";
+import { logAdoptionReceiptReprint } from "./data";
+import { getCurrentUserName } from "./auth";
+
+export interface ReprintInfo {
+  reprintedBy: string;
+  reprintedAt: string;
+}
 
 const MCAS_NAME    = AGENCY_NAME;
 const MCAS_ADDR    = AGENCY_ADDRESS;
@@ -70,7 +77,12 @@ export function buildDepartureReceiptPayload(
   };
 }
 
-export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?: MedicalRecord[]): string {
+// The receipt's inner body markup only (no <html>/<head>/<body> wrapper) —
+// shared by the single-receipt print (buildAdoptionReceiptHTML) and the
+// multi-receipt batch print (buildBatchAdoptionReceiptsHTML), so a batch
+// print is just N of these concatenated inside one document instead of N
+// separate full HTML documents (which wouldn't be valid to merge).
+function buildAdoptionReceiptBodyHTML(receipt: DepartureReceipt, medRecords?: MedicalRecord[], reprintInfo?: ReprintInfo): string {
   const a  = (receipt.animal_info_snapshot || {}) as Record<string, unknown>;
   const p  = (receipt.person_info_snapshot || {}) as Record<string, unknown>;
 
@@ -89,6 +101,10 @@ export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?:
   const adopterPhone   = (p.phone   as string) || "";
   const adopterEmail   = (p.email   as string) || "";
   const adopterAddr    = [p.address, p.city, p.state, p.zip].filter(Boolean).join(", ");
+  const adopterIdType  = (p.id_type as string) || "";
+  const adopterIdNum   = (p.id_number as string) || "";
+  const adopterIdState = (p.id_state as string) || "";
+  const adopterLicense = adopterIdNum ? `${adopterIdNum}${adopterIdState ? ` (${adopterIdState})` : ""}${adopterIdType ? ` — ${adopterIdType}` : ""}` : "";
 
   const depDate = new Date(receipt.departure_date);
   const depStr  = depDate.toLocaleString("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
@@ -106,29 +122,17 @@ export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?:
   const sh = (title: string) =>
     `<div style="background:${MCAS_BLUE};color:#fff;padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px">${title}</div>`;
 
-  return `<!DOCTYPE html><html>
-  <head><title>Adoption Receipt ${receipt.receipt_number}</title>
-  <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
-    body{font-family:Arial,sans-serif;font-size:10.5px;padding:24px;margin:0;line-height:1.55;color:#111}
-    h1{font-size:16px;font-weight:900;color:${MCAS_BLUE};margin:0 0 1px;text-transform:uppercase;letter-spacing:.5px}
-    h2{font-size:11.5px;color:${MCAS_BLUE};margin:0 0 10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
-    .sub{font-size:9.5px;color:#444;margin-bottom:2px}
-    table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:4px;overflow:hidden}
-    .sigline{border-bottom:1.5px solid #000;height:40px;display:block;margin-bottom:4px}
-    .field{display:grid;grid-template-columns:120px 1fr;gap:2px;margin-bottom:4px;font-size:10.5px}
-    .field .lbl{color:#555}
-    .field .val{font-weight:600}
-    @media print{body{padding:16px}}
-  </style></head>
-  <body>
-
+  return `
   <!-- Header -->
   <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:3px solid ${MCAS_BLUE};margin-bottom:14px">
-    <div>
-      <h1>${MCAS_NAME}</h1>
-      <h2>🏡 ADOPTION RECEIPT</h2>
-      <div class="sub">${MCAS_ADDR}</div>
-      <div class="sub">${MCAS_PHONE}</div>
+    <div style="display:flex;gap:12px;align-items:flex-start">
+      <img src="${AGENCY_SEAL_LOGO}" style="width:56px;height:56px;object-fit:contain;flex-shrink:0" />
+      <div>
+        <h1>${MCAS_NAME}</h1>
+        <h2>🏡 ADOPTION RECEIPT</h2>
+        <div class="sub">${MCAS_ADDR}</div>
+        <div class="sub">${MCAS_PHONE}</div>
+      </div>
     </div>
     <div style="text-align:right">
       <div style="font-size:18px;font-weight:900;color:${MCAS_BLUE};font-family:monospace;letter-spacing:1px">${receipt.receipt_number}</div>
@@ -158,6 +162,7 @@ export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?:
       ${adopterPhone ? `<div class="field"><span class="lbl">Phone</span><span class="val">${adopterPhone}</span></div>` : ""}
       ${adopterEmail ? `<div class="field"><span class="lbl">Email</span><span class="val">${adopterEmail}</span></div>` : ""}
       ${adopterAddr  ? `<div class="field"><span class="lbl">Address</span><span class="val">${adopterAddr}</span></div>` : ""}
+      ${adopterLicense ? `<div class="field"><span class="lbl">Driver's License</span><span class="val">${adopterLicense}</span></div>` : ""}
     </div>
   </div>
 
@@ -206,6 +211,10 @@ export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?:
     </div>
   </div>
 
+  <!-- Terms of Adoption -->
+  ${sh("Terms of Adoption")}
+  <div style="font-size:9px;line-height:1.6;color:#374151;text-align:justify">${TERMS_OF_ADOPTION_TEXT}</div>
+
   <!-- Footer -->
   <div style="margin-top:14px;padding:12px 16px;background:${MCAS_BLUE}08;border:1px solid ${MCAS_BLUE}20;border-radius:6px;text-align:center">
     <div style="font-size:13px;font-weight:700;color:${MCAS_BLUE};margin-bottom:4px">🎉 Congratulations on your new family member!</div>
@@ -215,21 +224,110 @@ export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?:
     </div>
   </div>
 
+  ${reprintInfo ? `
+  <!-- Reprint notation — only shown on reprints, never on the original print -->
+  <div style="margin-top:10px;padding:8px 12px;border:1px dashed #94a3b8;border-radius:6px;text-align:center;font-size:8.5px;color:#64748b;font-style:italic">
+    Reprint issued by ${reprintInfo.reprintedBy} on ${new Date(reprintInfo.reprintedAt).toLocaleString("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Original adoption date: ${depStr}
+  </div>` : ""}
+  `;
+}
+
+const ADOPTION_RECEIPT_STYLE = `*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
+    body{font-family:Arial,sans-serif;font-size:10.5px;padding:24px;margin:0;line-height:1.55;color:#111}
+    h1{font-size:16px;font-weight:900;color:${MCAS_BLUE};margin:0 0 1px;text-transform:uppercase;letter-spacing:.5px}
+    h2{font-size:11.5px;color:${MCAS_BLUE};margin:0 0 10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+    .sub{font-size:9.5px;color:#444;margin-bottom:2px}
+    table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:4px;overflow:hidden}
+    .sigline{border-bottom:1.5px solid #000;height:40px;display:block;margin-bottom:4px}
+    .field{display:grid;grid-template-columns:120px 1fr;gap:2px;margin-bottom:4px;font-size:10.5px}
+    .field .lbl{color:#555}
+    .field .val{font-weight:600}
+    .receipt-page{page-break-after:always}
+    .receipt-page:last-child{page-break-after:auto}
+    @media print{body{padding:16px}}`;
+
+export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?: MedicalRecord[], reprintInfo?: ReprintInfo): string {
+  return `<!DOCTYPE html><html>
+  <head><title>Adoption Receipt ${receipt.receipt_number}</title>
+  <style>${ADOPTION_RECEIPT_STYLE}</style></head>
+  <body>
+  ${buildAdoptionReceiptBodyHTML(receipt, medRecords, reprintInfo)}
   </body></html>`;
 }
 
-export function printAdoptionReceipt(receipt: DepartureReceipt, medRecords?: MedicalRecord[]): void {
+// One merged document containing every selected receipt, each starting on
+// its own printed page — since this app's PDFs are all "print to PDF" via
+// the browser rather than a PDF-generation library, a single window with a
+// page-break per receipt IS the merged PDF once the user prints/saves it.
+export function buildBatchAdoptionReceiptsHTML(receipts: DepartureReceipt[], reprintInfo?: ReprintInfo): string {
+  const pages = receipts.map((r) => `<div class="receipt-page">${buildAdoptionReceiptBodyHTML(r, undefined, reprintInfo)}</div>`).join("\n");
+  return `<!DOCTYPE html><html>
+  <head><title>Adoption Receipts — Batch (${receipts.length})</title>
+  <style>${ADOPTION_RECEIPT_STYLE}</style></head>
+  <body>
+  ${pages}
+  </body></html>`;
+}
+
+// Batch reprint: every selected receipt is a reprint (this action only ever
+// runs from the Adoption Receipts list, never at original-issue time), so
+// each gets logged to adoption_receipt_reprints and carries the same reprint
+// notation as a single reprint would.
+export async function reprintBatchAdoptionReceipts(receipts: DepartureReceipt[], opts?: { reason?: string }): Promise<void> {
+  if (receipts.length === 0) return;
+  const reprintedBy = getCurrentUserName();
+  const reprintedAt = new Date().toISOString();
+  await Promise.all(receipts.map((r) =>
+    logAdoptionReceiptReprint({ adoptionId: r.id, animalId: r.animal_id, reprintedBy, reason: opts?.reason })
+      .catch((e) => console.error("[reprintBatchAdoptionReceipts] failed to log reprint for", r.id, e))
+  ));
+  const w = window.open("", "_blank", "width=800,height=1100");
+  if (!w) return;
+  w.document.write(buildBatchAdoptionReceiptsHTML(receipts, { reprintedBy, reprintedAt }));
+  w.document.close();
+  setTimeout(() => w.print(), 500);
+}
+
+export function printAdoptionReceipt(receipt: DepartureReceipt, medRecords?: MedicalRecord[], reprintInfo?: ReprintInfo): void {
   const w = window.open("", "_blank", "width=760,height=1060");
   if (!w) return;
-  w.document.write(buildAdoptionReceiptHTML(receipt, medRecords));
+  w.document.write(buildAdoptionReceiptHTML(receipt, medRecords, reprintInfo));
   w.document.close();
   setTimeout(() => w.print(), 400);
 }
 
+// The very first print happens here, called synchronously from
+// AdoptionFromDetailModal right after the receipt is created — no reprintInfo,
+// so no reprint notation. Every other call site in the app reprints an
+// already-existing receipt and goes through reprintAdoptionReceipt() below
+// instead, which is what actually attaches the notation and logs the reprint.
 export function writeReceiptToWindow(w: Window, receipt: DepartureReceipt, medRecords?: MedicalRecord[]): void {
   w.document.write(buildAdoptionReceiptHTML(receipt, medRecords));
   w.document.close();
   setTimeout(() => w.print(), 400);
+}
+
+// Reprints an already-issued adoption receipt: logs the reprint (audit trail —
+// see adoption_receipt_reprints) and opens the print window with the reprint
+// footer notation attached, using every original value from the stored
+// receipt (issue date, officer, fees, signatures) untouched.
+export async function reprintAdoptionReceipt(
+  receipt: DepartureReceipt,
+  opts?: { medRecords?: MedicalRecord[]; reason?: string },
+): Promise<void> {
+  const reprintedBy = getCurrentUserName();
+  const reprintedAt = new Date().toISOString();
+  try {
+    await logAdoptionReceiptReprint({
+      adoptionId: receipt.id,
+      animalId: receipt.animal_id,
+      reprintedBy,
+      reason: opts?.reason,
+    });
+  } catch (e) {
+    console.error("[reprintAdoptionReceipt] failed to log reprint:", e);
+  }
+  printAdoptionReceipt(receipt, opts?.medRecords, { reprintedBy, reprintedAt });
 }
 
 export function printDepartureReceipt(receipt: DepartureReceipt, medRecords?: MedicalRecord[]): void {

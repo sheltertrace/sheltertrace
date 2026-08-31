@@ -229,6 +229,19 @@ export interface AdoptionRecord {
   created_at?: string;
 }
 
+// Audit trail for adoption_receipt_reprints. adoption_id is the
+// departure_receipts.id of the receipt actually reprinted — adoption_records
+// has no reliable FK to departure_receipts (they're only ever cross-referenced
+// by animal_id + matching date), so the receipt row itself is the identifier.
+export interface AdoptionReceiptReprint {
+  id: string;
+  adoption_id: string;
+  animal_id?: string;
+  reprinted_by: string;
+  reprinted_at?: string;
+  reason?: string;
+}
+
 export interface DispatchCall {
   id: string;
   type: string;

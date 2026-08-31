@@ -13,6 +13,7 @@ import GdaFosterInspectionForm from "./GdaFosterInspectionForm";
 import GdaAnimalInventoryForm from "./GdaAnimalInventoryForm";
 import AdoptionApplicationForm from "./AdoptionApplicationForm";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
+import AdoptionReceiptsList from "@/components/receipts/AdoptionReceiptsList";
 
 const FORM_CARDS: Array<{
   type: FormType;
@@ -232,6 +233,9 @@ export default function FormsPage() {
           </button>
         </div>
       </div>
+
+      {/* Adoption Receipts — searchable list with per-row and bulk reprint */}
+      <AdoptionReceiptsList />
 
       {/* Form type cards */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 16, marginBottom: 28 }}>

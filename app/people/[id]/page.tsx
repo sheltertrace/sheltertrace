@@ -7,14 +7,15 @@ import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import {
   fetchPerson, updatePerson, addPersonNote, fetchPersonNotes, togglePersonNotePopup,
   uploadPersonPhotoId, uploadPersonPhotoIdBack, uploadPersonPhotoIdFromBlob, deletePersonPhotoId, fetchFormsByLinked,
-  fetchAdoptionsByPerson, fetchReceiptsByPerson,
+  fetchAdoptionsByPerson, fetchReceiptsByPerson, fetchDepartureReceipts,
   fetchCallsByPerson, fetchCitationsByPerson, fetchLicensesByPerson,
   fetchAnimalsForPerson, unlinkAnimalFromPerson,
 } from "@/lib/data";
 import dynamic from "next/dynamic";
 const CropIdPhotoModal = dynamic(() => import("@/components/ui/CropIdPhotoModal"), { ssr: false });
 import LinkAnimalModal from "@/components/people/LinkAnimalModal";
-import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation, PetLicense, AnimalPerson } from "@/lib/types";
+import ReprintReceiptButton from "@/components/receipts/ReprintReceiptButton";
+import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation, PetLicense, AnimalPerson, DepartureReceipt } from "@/lib/types";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
@@ -59,6 +60,7 @@ export default function PersonDetailPage() {
   const [saving, setSaving] = useState(false);
 
   const [adoptions, setAdoptions] = useState<AdoptionRecord[]>([]);
+  const [adoptionReceipts, setAdoptionReceipts] = useState<DepartureReceipt[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [calls, setCalls] = useState<DispatchCall[]>([]);
   const [citations, setCitations] = useState<Citation[]>([]);
@@ -86,10 +88,11 @@ export default function PersonDetailPage() {
       if (!p) { router.replace("/people"); return; }
       setPerson(p);
       const fullName = `${p.first_name} ${p.last_name}`;
-      const [n, forms, ads, recs, cls, cits, lics, anims] = await Promise.all([
+      const [n, forms, ads, adoptionRecs, recs, cls, cits, lics, anims] = await Promise.all([
         fetchPersonNotes(id),
         fetchFormsByLinked({ personId: id }),
         fetchAdoptionsByPerson(id),
+        fetchDepartureReceipts({ personId: id, departureType: "Adoption" }),
         fetchReceiptsByPerson(id),
         fetchCallsByPerson(id, fullName),
         fetchCitationsByPerson(p.first_name, p.last_name),
@@ -99,6 +102,7 @@ export default function PersonDetailPage() {
       setNotes(n as typeof notes);
       setPersonForms(forms);
       setAdoptions(ads);
+      setAdoptionReceipts(adoptionRecs);
       setReceipts(recs);
       setCalls(cls);
       setCitations(cits);
@@ -739,16 +743,30 @@ export default function PersonDetailPage() {
                 <div style={{ color: "var(--text-muted)", textAlign: "center", padding: "12px 0" }}>No adoption records for this person.</div>
               ) : (
                 <table className="data-table">
-                  <thead><tr><th>Animal</th><th>Animal ID</th><th>Adoption Date</th><th>Notes</th></tr></thead>
+                  <thead><tr><th>Animal</th><th>Animal ID</th><th>Adoption Date</th><th>Notes</th><th>Receipt</th></tr></thead>
                   <tbody>
-                    {adoptions.map((a) => (
-                      <tr key={a.id} style={{ cursor: "pointer" }} onClick={() => router.push(`/animals/${a.animal_id}`)}>
-                        <td style={{ fontWeight: 600 }}>{a.animal_name}</td>
-                        <td style={{ fontFamily: "monospace", fontSize: 12 }}>{a.animal_id}</td>
-                        <td style={{ fontSize: 12 }}>{a.adoption_date ? formatDate(a.adoption_date) : "—"}</td>
-                        <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{a.notes || "—"}</td>
-                      </tr>
-                    ))}
+                    {adoptions.map((a) => {
+                      const linked = adoptionReceipts.find(
+                        (r) => r.animal_id === a.animal_id &&
+                          r.departure_date && a.adoption_date &&
+                          new Date(r.departure_date).toDateString() === new Date(a.adoption_date).toDateString()
+                      );
+                      return (
+                        <tr key={a.id}>
+                          <td style={{ fontWeight: 600, cursor: "pointer" }} onClick={() => router.push(`/animals/${a.animal_id}`)}>{a.animal_name}</td>
+                          <td style={{ fontFamily: "monospace", fontSize: 12, cursor: "pointer" }} onClick={() => router.push(`/animals/${a.animal_id}`)}>{a.animal_id}</td>
+                          <td style={{ fontSize: 12 }}>{a.adoption_date ? formatDate(a.adoption_date) : "—"}</td>
+                          <td style={{ fontSize: 12, color: "var(--text-secondary)" }}>{a.notes || "—"}</td>
+                          <td onClick={(e) => e.stopPropagation()}>
+                            {linked ? (
+                              <ReprintReceiptButton receipt={linked} className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 10px" }} />
+                            ) : (
+                              <span style={{ fontSize: 11, color: "var(--text-muted)" }}>No receipt</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               )}

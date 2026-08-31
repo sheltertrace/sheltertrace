@@ -1,6 +1,8 @@
 "use client";
-import type { DepartureReceipt } from "@/lib/types";
+import { useState, useEffect } from "react";
+import type { DepartureReceipt, AdoptionReceiptReprint } from "@/lib/types";
 import { printDepartureReceipt } from "@/lib/departureReceipt";
+import { fetchReprintsForReceipt } from "@/lib/data";
 
 const MCAS_BLUE = "#0f2942";
 
@@ -33,6 +35,12 @@ export default function ReceiptPreviewModal({ receipt, onClose, onPrint }: Props
   const p = (receipt.person_info_snapshot || {}) as Record<string, unknown>;
   const fees = (receipt.fees || []) as Array<{ item: string; amount: number }>;
   const isAdoption = receipt.departure_type === "Adoption";
+
+  const [reprints, setReprints] = useState<AdoptionReceiptReprint[]>([]);
+  useEffect(() => {
+    if (!isAdoption) return;
+    fetchReprintsForReceipt(receipt.id).then(setReprints).catch(() => {});
+  }, [receipt.id, isAdoption]);
 
   const depDate = receipt.departure_date ? new Date(receipt.departure_date).toLocaleString("en-US", {
     month: "2-digit", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit",
@@ -151,6 +159,21 @@ export default function ReceiptPreviewModal({ receipt, onClose, onPrint }: Props
           )}
           {receipt.notes && receipt.notes !== receipt.conditions && (
             <div style={{ fontSize: 12, color: "#374151", marginTop: 8 }}>{receipt.notes}</div>
+          )}
+
+          {/* Reprint history */}
+          {isAdoption && reprints.length > 0 && (
+            <>
+              <SectionHead title={`Reprint History (${reprints.length})`} />
+              <div style={{ fontSize: 12 }}>
+                {reprints.map((r) => (
+                  <div key={r.id} style={{ display: "flex", justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid #f1f5f9" }}>
+                    <span>{r.reprinted_by}{r.reason ? ` — ${r.reason}` : ""}</span>
+                    <span style={{ color: "#6b7280" }}>{r.reprinted_at ? new Date(r.reprinted_at).toLocaleString("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</span>
+                  </div>
+                ))}
+              </div>
+            </>
           )}
 
           {/* Proof of ownership for adoptions */}

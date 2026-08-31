@@ -33,7 +33,8 @@ import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult
 import { buildTestResultsSectionHTML, hasPositiveTest } from "@/lib/testResultsPrint";
 import MedicationSearch from "@/components/ui/MedicationSearch";
 import DragDropUpload from "@/components/ui/DragDropUpload";
-import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt } from "@/lib/departureReceipt";
+import { isDepartureStatus, departureTypeLabel, buildDepartureReceiptPayload, printDepartureReceipt, reprintAdoptionReceipt } from "@/lib/departureReceipt";
+import ReprintReceiptButton from "@/components/receipts/ReprintReceiptButton";
 import MicrochipBadge from "@/components/ui/MicrochipBadge";
 import { printTransferReceipt } from "@/components/transfers/TransferWizard";
 import MedicalEditModal from "@/components/medical/MedicalEditModal";
@@ -177,6 +178,11 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
   const [departureReceipts, setDepartureReceipts] = useState<DepartureReceipt[]>([]);
   const [pendingReceipt, setPendingReceipt] = useState<DepartureReceipt | null>(null);
   const [viewingReceipt, setViewingReceipt] = useState<DepartureReceipt | null>(null);
+  // True only when viewingReceipt was opened straight from the "just created"
+  // popup, before it's ever been printed — printing from there is still the
+  // original issuance, not a reprint. Any other entry point (the Receipts &
+  // Departure Records history, the Adoption Records row) is always a reprint.
+  const [viewingReceiptIsFresh, setViewingReceiptIsFresh] = useState(false);
   const [adoptionRecords, setAdoptionRecords] = useState<AdoptionRecord[]>([]);
   const [animalLicenses, setAnimalLicenses]   = useState<import("@/lib/types").PetLicense[]>([]);
 
@@ -1927,7 +1933,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     </thead>
                     <tbody>
                       {departureReceipts.map((r) => (
-                        <tr key={r.id} style={{ cursor: "pointer" }} onClick={() => setViewingReceipt(r)}>
+                        <tr key={r.id} style={{ cursor: "pointer" }} onClick={() => { setViewingReceipt(r); setViewingReceiptIsFresh(false); }}>
                           <td style={{ fontFamily: "monospace", fontSize: 12, fontWeight: 700 }}>{r.receipt_number}</td>
                           <td>
                             <span style={{ fontSize: 11, background: "#ede9fe", color: "#7c3aed", padding: "2px 8px", borderRadius: 10, fontWeight: 600 }}>
@@ -1942,12 +1948,16 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                           <td style={{ fontSize: 12 }}>{r.officer_name || "—"}</td>
                           <td onClick={(e) => e.stopPropagation()}>
                             <div style={{ display: "flex", gap: 6 }}>
-                              <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setViewingReceipt(r)}>
+                              <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => { setViewingReceipt(r); setViewingReceiptIsFresh(false); }}>
                                 👁 View
                               </button>
-                              <button className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 10px", background: "#7c3aed", borderColor: "#7c3aed" }} onClick={() => printDepartureReceipt(r)}>
-                                🖨 Print
-                              </button>
+                              {r.departure_type === "Adoption" ? (
+                                <ReprintReceiptButton receipt={r} className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 10px", background: "#7c3aed", borderColor: "#7c3aed" }} />
+                              ) : (
+                                <button className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 10px", background: "#7c3aed", borderColor: "#7c3aed" }} onClick={() => printDepartureReceipt(r)}>
+                                  🖨 Print
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1986,12 +1996,10 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                               <td onClick={(e) => e.stopPropagation()}>
                                 {linked ? (
                                   <div style={{ display: "flex", gap: 6 }}>
-                                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => setViewingReceipt(linked)}>
+                                    <button className="btn btn-secondary btn-sm" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => { setViewingReceipt(linked); setViewingReceiptIsFresh(false); }}>
                                       👁 View
                                     </button>
-                                    <button className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 10px", background: "#7c3aed", borderColor: "#7c3aed" }} onClick={() => printDepartureReceipt(linked)}>
-                                      🖨 Print
-                                    </button>
+                                    <ReprintReceiptButton receipt={linked} className="btn btn-primary btn-sm" style={{ fontSize: 12, padding: "4px 10px", background: "#7c3aed", borderColor: "#7c3aed" }} />
                                   </div>
                                 ) : (
                                   <span style={{ fontSize: 11, color: "var(--text-muted)" }}>No receipt</span>
@@ -2527,8 +2535,12 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       {viewingReceipt && (
         <ReceiptPreviewModal
           receipt={viewingReceipt}
-          onClose={() => setViewingReceipt(null)}
-          onPrint={() => printDepartureReceipt(viewingReceipt)}
+          onClose={() => { setViewingReceipt(null); setViewingReceiptIsFresh(false); }}
+          onPrint={() => {
+            if (viewingReceiptIsFresh) { printDepartureReceipt(viewingReceipt); setViewingReceiptIsFresh(false); return; }
+            if (viewingReceipt.departure_type === "Adoption") reprintAdoptionReceipt(viewingReceipt);
+            else printDepartureReceipt(viewingReceipt);
+          }}
         />
       )}
 
@@ -2552,7 +2564,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn btn-secondary btn-sm" onClick={() => setPendingReceipt(null)}>Close</button>
                 <button className="btn btn-secondary btn-sm"
-                  onClick={() => { setViewingReceipt(pendingReceipt); setPendingReceipt(null); }}>
+                  onClick={() => { setViewingReceipt(pendingReceipt); setViewingReceiptIsFresh(true); setPendingReceipt(null); }}>
                   👁 View Receipt
                 </button>
                 <button className="btn btn-primary btn-sm" style={{ background: "#7c3aed", borderColor: "#7c3aed" }}

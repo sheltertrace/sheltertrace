@@ -34,6 +34,13 @@ export const STATEMENT_OF_SURRENDER_TEXT =
   `I understand that by signing below I am voluntarily surrendering all ownership rights, interest, and claim to this animal to ${AGENCY_NAME}, and that ${AGENCY_NAME} may, at its sole discretion, offer this animal for adoption, transfer it to another organization, or humanely euthanize it. ` +
   `I release ${AGENCY_NAME}, ${COUNTY_NAME}, its officers, employees, and agents from any and all liability arising from the care, custody, placement, or disposition of this animal after surrender.`;
 
+// Terms of Adoption — printed at the bottom of every adoption receipt.
+export const TERMS_OF_ADOPTION_TEXT =
+  `By signing below, the adopter acknowledges that ${AGENCY_NAME} makes no warranty, express or implied, as to the health, temperament, or behavior of this animal beyond what has been disclosed at the time of adoption. ` +
+  `The adopter agrees to provide proper food, water, shelter, and veterinary care, and to comply with all ${COUNTY_NAME} animal control ordinances, including licensing and rabies vaccination requirements. ` +
+  `If this animal was not already spayed/neutered at adoption, the adopter agrees to have the procedure completed within 30 days and to provide proof to ${AGENCY_NAME}. ` +
+  `Adoption fees are non-refundable. Should the adopter become unable or unwilling to keep this animal at any time, they agree to return it to ${AGENCY_NAME} rather than rehoming, abandoning, or surrendering it elsewhere.`;
+
 // ── Demo ordinances ────────────────────────────────────────────────────────────
 // Generic animal control ordinances used on the demo deployment.
 // Same interface as MorganCountyOrdinance so they're drop-in compatible.
