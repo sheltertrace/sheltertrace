@@ -394,6 +394,12 @@ export interface Citation {
   citation_number: string;
   call_id?: string;
   animal_impound?: string;
+  // The animal this citation is actually about (distinct from animal_impound,
+  // which is the physical impound # written on the paper form). At most one
+  // of these two is set: linked_animal_id for a real ShelterTrace animals.id,
+  // linked_scene_animal_id for an id inside the linked call's scene_animals.
+  linked_animal_id?: string;
+  linked_scene_animal_id?: string;
   violation_type?: string;
   violation_desc?: string;
   violations?: ViolationItem[];

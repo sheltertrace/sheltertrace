@@ -2,14 +2,16 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
-import { fetchCall, fetchPerson, createCitation, uploadCitationPhotoId } from "@/lib/data";
-import type { DispatchCall, Person } from "@/lib/types";
+import { fetchCall, fetchPerson, createCitation, uploadCitationPhotoId, fetchAnimalsForCall, addSceneAnimalToCall, type SceneAnimalPayload } from "@/lib/data";
+import type { DispatchCall, Person, DispatchCallAnimal, SceneAnimal } from "@/lib/types";
 import { today, nowTime, genCitationNumber } from "@/lib/utils";
 import { useAuth } from "@/app/providers";
 import { getCitableOrdinances, getOrdinances, COURT_MAGISTRATE, COURT_MAGISTRATE_ADDR, COURT_STATE, COURT_STATE_ADDR, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
+import { SCENE_ANIMAL_SPECIES } from "@/lib/constants";
 import SignaturePad from "@/components/ui/SignaturePad";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import DateInput from "@/components/ui/DateInput";
+import SceneAnimalFields from "@/components/dispatch/SceneAnimalFields";
 
 const ORDINANCE_ARTICLES = Array.from(new Set(getCitableOrdinances().map((o) => o.article)));
 
@@ -42,6 +44,15 @@ function CitationNewInner() {
   const [saving, setSaving] = useState(false);
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [emailError, setEmailError] = useState("");
+
+  // Animal Involved — links this citation to a real ShelterTrace animal or an
+  // informational scene animal on the linked call.
+  const [callAnimalLinks, setCallAnimalLinks] = useState<DispatchCallAnimal[]>([]);
+  const [animalInvolvedRef, setAnimalInvolvedRef] = useState(""); // "" | `animal:<id>` | `scene:<id>`
+  const [showAddSceneAnimal, setShowAddSceneAnimal] = useState(false);
+  const [newSceneAnimal, setNewSceneAnimal] = useState<SceneAnimalPayload>({ species: SCENE_ANIMAL_SPECIES[0], count: 1 });
+  const [savingSceneAnimal, setSavingSceneAnimal] = useState(false);
+  const [sceneAnimalError, setSceneAnimalError] = useState("");
 
   const [citType, setCitType] = useState<"Digital" | "Physical">("Digital");
   const [citNumber, setCitNumber] = useState(genCitationNumber());
@@ -94,6 +105,7 @@ function CitationNewInner() {
   // Load and pre-fill from dispatch call
   useEffect(() => {
     if (!callId) return;
+    fetchAnimalsForCall(callId).then(setCallAnimalLinks).catch(() => {});
     fetchCall(callId).then((c) => {
       if (!c) { setLoadingCall(false); return; }
       setCall(c);
@@ -181,6 +193,39 @@ function CitationNewInner() {
     violatorFirst + (violatorMiddle ? ` ${violatorMiddle.charAt(0).toUpperCase()}.` : ""),
   ].filter(Boolean).join(", ");
 
+  // Animal Involved — selecting a real or informational animal auto-fills
+  // the Animal Description field ("[Species] · [Breed] · [Color] · [Sex]"),
+  // which is what every citation print path already renders.
+  const handleAnimalInvolvedChange = (val: string) => {
+    if (val === "ADD_NEW") { setShowAddSceneAnimal(true); return; }
+    setAnimalInvolvedRef(val);
+    let a: { species?: string; breed?: string; color?: string; sex?: string } | undefined;
+    if (val.startsWith("animal:")) {
+      a = callAnimalLinks.find((l) => l.animal_id === val.slice(7))?.animal;
+    } else if (val.startsWith("scene:")) {
+      a = ((call?.scene_animals || []) as SceneAnimal[]).find((s) => s.id === val.slice(6));
+    }
+    if (a) setAnimalDesc([a.species, a.breed, a.color, a.sex].filter(Boolean).join(" · "));
+  };
+
+  const handleSaveNewSceneAnimal = async () => {
+    if (!callId) return;
+    setSavingSceneAnimal(true);
+    setSceneAnimalError("");
+    try {
+      const updated = await addSceneAnimalToCall(callId, { ...newSceneAnimal, added_by: issuingOfficer || undefined });
+      setCall(updated);
+      const created = ((updated.scene_animals || []) as SceneAnimal[]).slice(-1)[0];
+      if (created) handleAnimalInvolvedChange(`scene:${created.id}`);
+      setShowAddSceneAnimal(false);
+      setNewSceneAnimal({ species: SCENE_ANIMAL_SPECIES[0], count: 1 });
+    } catch (e) {
+      setSceneAnimalError(e instanceof Error ? e.message : "Failed to save scene animal");
+    } finally {
+      setSavingSceneAnimal(false);
+    }
+  };
+
   const canSave = !!citNumber && (!!violatorFirst || !!violatorLast) && (citType === "Physical" || !!violatorEmail.trim());
 
   const handleSave = async () => {
@@ -195,6 +240,8 @@ function CitationNewInner() {
         citation_number: citNumber,
         physical_cit_number: physCitNumber || undefined,
         animal_impound: animalImpound || undefined,
+        linked_animal_id: animalInvolvedRef.startsWith("animal:") ? animalInvolvedRef.slice(7) : undefined,
+        linked_scene_animal_id: animalInvolvedRef.startsWith("scene:") ? animalInvolvedRef.slice(6) : undefined,
         call_id: callId || undefined,
         violations,
         violator_name: formalName || `${violatorFirst} ${violatorLast}`.trim(),
@@ -301,6 +348,52 @@ function CitationNewInner() {
             <F label="Animal Impound #"><input className="form-input" value={animalImpound} onChange={(e) => setAnimalImpound(e.target.value)} /></F>
             {callId && <F label="Linked Call"><input className="form-input" value={callId} readOnly style={{ background: "#f8fafc", color: "var(--text-muted)" }} /></F>}
           </div>
+
+          {callId && (
+            <div className="form-group">
+              <label className="form-label">Animal Involved</label>
+              <select className="form-select" value={animalInvolvedRef} onChange={(e) => handleAnimalInvolvedChange(e.target.value)}>
+                <option value="">Not applicable / No specific animal</option>
+                {callAnimalLinks.length > 0 && (
+                  <optgroup label="ShelterTrace Animals on This Call">
+                    {callAnimalLinks.map((l) => (
+                      <option key={l.id} value={`animal:${l.animal_id}`}>
+                        {l.animal?.name || l.animal_id} ({l.animal_id}) — {l.role}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {((call?.scene_animals || []) as SceneAnimal[]).length > 0 && (
+                  <optgroup label="Informational Scene Animals on This Call">
+                    {((call?.scene_animals || []) as SceneAnimal[]).map((s) => (
+                      <option key={s.id} value={`scene:${s.id}`}>
+                        {s.count} {s.species}{s.breed ? ` (${s.breed})` : ""} — informational
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <option value="ADD_NEW">+ Add new informational animal…</option>
+              </select>
+
+              {showAddSceneAnimal && (
+                <div style={{ marginTop: 10, padding: "12px 14px", background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8 }}>
+                  <div style={{ fontWeight: 700, fontSize: 12, marginBottom: 10 }}>New Informational Scene Animal</div>
+                  {sceneAnimalError && (
+                    <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 7, padding: "8px 12px", fontSize: 12, color: "#dc2626", marginBottom: 10 }}>
+                      ⚠️ {sceneAnimalError}
+                    </div>
+                  )}
+                  <SceneAnimalFields value={newSceneAnimal} onChange={setNewSceneAnimal} />
+                  <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+                    <button className="btn btn-secondary btn-sm" onClick={() => { setShowAddSceneAnimal(false); setSceneAnimalError(""); }} disabled={savingSceneAnimal}>Cancel</button>
+                    <button className="btn btn-primary btn-sm" onClick={handleSaveNewSceneAnimal} disabled={savingSceneAnimal}>
+                      {savingSceneAnimal ? "Saving…" : "✓ Save & Select"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <SectionHeader title="Violator Information" />
           {linkedPerson?.photo_id_url && (

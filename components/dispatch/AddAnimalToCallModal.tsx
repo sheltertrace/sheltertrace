@@ -3,10 +3,11 @@ import { useState, useEffect } from "react";
 import type { Animal, DispatchCallAnimal } from "@/lib/types";
 import {
   searchAnimalsForReturnIntake, type AnimalSearchMatch, linkAnimalToCall, updateCallAnimalLink, DuplicateCallAnimalLinkError,
-  addSceneAnimalToCall,
+  addSceneAnimalToCall, type SceneAnimalPayload,
 } from "@/lib/data";
-import { CALL_ANIMAL_ROLES, SCENE_ANIMAL_SPECIES, SCENE_ANIMAL_SEX, SCENE_ANIMAL_OWNERS, SCENE_ANIMAL_TEMPERAMENTS } from "@/lib/constants";
+import { CALL_ANIMAL_ROLES, SCENE_ANIMAL_SPECIES } from "@/lib/constants";
 import { getCurrentUserName } from "@/lib/auth";
+import SceneAnimalFields from "./SceneAnimalFields";
 
 interface Props {
   callId: string;
@@ -30,14 +31,7 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
   const [duplicateLink, setDuplicateLink] = useState<DispatchCallAnimal | null>(null);
 
   // Tab C — informational scene-awareness animal
-  const [sceneSpecies, setSceneSpecies] = useState(SCENE_ANIMAL_SPECIES[0]);
-  const [sceneBreed, setSceneBreed] = useState("");
-  const [sceneCount, setSceneCount] = useState(1);
-  const [sceneColor, setSceneColor] = useState("");
-  const [sceneSex, setSceneSex] = useState(SCENE_ANIMAL_SEX[3]);
-  const [sceneOwner, setSceneOwner] = useState(SCENE_ANIMAL_OWNERS[0]);
-  const [sceneTemperament, setSceneTemperament] = useState(SCENE_ANIMAL_TEMPERAMENTS[3]);
-  const [sceneNotes, setSceneNotes] = useState("");
+  const [sceneAnimal, setSceneAnimal] = useState<SceneAnimalPayload>({ species: SCENE_ANIMAL_SPECIES[0], count: 1 });
   const [sceneSaving, setSceneSaving] = useState(false);
   const [sceneError, setSceneError] = useState("");
 
@@ -107,17 +101,7 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
     setSceneSaving(true);
     setSceneError("");
     try {
-      await addSceneAnimalToCall(callId, {
-        species: sceneSpecies,
-        breed: sceneBreed.trim() || undefined,
-        count: sceneCount || 1,
-        color: sceneColor.trim() || undefined,
-        sex: sceneSex,
-        owner: sceneOwner,
-        temperament: sceneTemperament,
-        notes: sceneNotes.trim() || undefined,
-        added_by: getCurrentUserName(),
-      });
+      await addSceneAnimalToCall(callId, { ...sceneAnimal, added_by: getCurrentUserName() });
       onSceneAnimalAdded();
     } catch (e) {
       setSceneError(e instanceof Error ? e.message : "Failed to save scene animal");
@@ -274,48 +258,7 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
                   ⚠️ {sceneError}
                 </div>
               )}
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Species</label>
-                  <select className="form-select" value={sceneSpecies} onChange={(e) => setSceneSpecies(e.target.value)}>
-                    {SCENE_ANIMAL_SPECIES.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Count</label>
-                  <input className="form-input" type="number" min={1} value={sceneCount} onChange={(e) => setSceneCount(Math.max(1, parseInt(e.target.value, 10) || 1))} />
-                </div>
-                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
-                  <label className="form-label">Breed / Description</label>
-                  <input className="form-input" value={sceneBreed} onChange={(e) => setSceneBreed(e.target.value)} placeholder="e.g. Pit Bull, mixed breed…" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Color / Markings</label>
-                  <input className="form-input" value={sceneColor} onChange={(e) => setSceneColor(e.target.value)} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Sex</label>
-                  <select className="form-select" value={sceneSex} onChange={(e) => setSceneSex(e.target.value)}>
-                    {SCENE_ANIMAL_SEX.map((s) => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Owner</label>
-                  <select className="form-select" value={sceneOwner} onChange={(e) => setSceneOwner(e.target.value)}>
-                    {SCENE_ANIMAL_OWNERS.map((o) => <option key={o}>{o}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Temperament Observed</label>
-                  <select className="form-select" value={sceneTemperament} onChange={(e) => setSceneTemperament(e.target.value)}>
-                    {SCENE_ANIMAL_TEMPERAMENTS.map((t) => <option key={t}>{t}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Notes</label>
-                <textarea className="form-textarea" rows={2} value={sceneNotes} onChange={(e) => setSceneNotes(e.target.value)} placeholder="Loose in the yard, no fence, etc…" />
-              </div>
+              <SceneAnimalFields value={sceneAnimal} onChange={setSceneAnimal} />
             </div>
           )}
         </div>

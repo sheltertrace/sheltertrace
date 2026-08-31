@@ -1,7 +1,7 @@
 ﻿"use client";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill, Transfer, RescueGroup, DepartureReceipt, AdoptionRecord } from "@/lib/types";
+import type { Animal, MedicalRecord, Person, DispatchCall, ShelterForm, FormPreFill, Transfer, RescueGroup, DepartureReceipt, AdoptionRecord, Citation } from "@/lib/types";
 import CollapsibleSection from "@/components/ui/CollapsibleSection";
 import StatusBadge from "@/components/ui/StatusBadge";
 import {
@@ -23,7 +23,7 @@ import {
   lookupMicrochip, fetchLicensesByAnimal, fetchIdexxEnabled, toggleAnimalNotePopup,
   logKennelMove, fetchKennelMoves, type KennelMove, type AnimalDocument,
   fetchPeopleForAnimal, unlinkAnimalFromPerson, fetchEuthanasiaLog,
-  fetchIntakeHistory, fetchRedemptions, fetchCallsForAnimal,
+  fetchIntakeHistory, fetchRedemptions, fetchCallsForAnimal, fetchCitationsForAnimal,
 } from "@/lib/data";
 import type { AnimalPerson, AnimalIntakeHistory, Redemption, DispatchCallAnimal } from "@/lib/types";
 import { printIntakeForm } from "@/lib/intakeFormPrint";
@@ -192,6 +192,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
 
   // Dispatch calls this animal has been linked to
   const [animalCalls, setAnimalCalls] = useState<DispatchCallAnimal[]>([]);
+  const [animalCitations, setAnimalCitations] = useState<Citation[]>([]);
 
   // People attachment
   const [showAttachPerson, setShowAttachPerson] = useState(false);
@@ -215,6 +216,7 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     fetchIntakeHistory(animal.id).then(setIntakeHistory).catch(() => {});
     fetchRedemptions(animal.id).then(setRedemptions).catch(() => {});
     fetchCallsForAnimal(animal.id).then(setAnimalCalls).catch(() => {});
+    fetchCitationsForAnimal(animal.id).then(setAnimalCitations).catch(() => {});
   }, [animal.id]);
 
   // Realtime subscription — auto-refresh medical records when IDEXX updates them
@@ -2095,6 +2097,30 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </CollapsibleSection>
+
+          {/* ── Citations ── */}
+          <CollapsibleSection title={`Citations (${animalCitations.length})`} color="#0f2942" defaultOpen={false}>
+            {animalCitations.length === 0 ? (
+              <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "8px 0" }}>This animal hasn&apos;t been named on any citations.</div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {animalCitations.map((c) => (
+                  <div key={c.id} style={{ border: "1px solid var(--border)", borderRadius: 8, padding: "10px 14px" }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                      <span style={{ fontFamily: "monospace", fontWeight: 700, fontSize: 12, color: "var(--teal)" }}>{c.citation_number}</span>
+                      <span className="badge" style={{ fontSize: 10 }}>{c.status || "Issued"}</span>
+                      {c.date && <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{formatDate(c.date)}</span>}
+                    </div>
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>
+                      Violator: {c.violator_name || "—"}{c.violations && c.violations.length > 0 ? ` · ${c.violations.map((v) => v.code).join(", ")}` : ""}
+                    </div>
+                    {c.animal_desc && <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 4 }}>{c.animal_desc}</div>}
+                    <a href={`/citations?id=${c.id}`} className="btn btn-ghost btn-sm" style={{ fontSize: 11, marginTop: 4 }}>View Citation →</a>
+                  </div>
+                ))}
               </div>
             )}
           </CollapsibleSection>

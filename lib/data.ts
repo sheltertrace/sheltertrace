@@ -678,13 +678,14 @@ export interface PriorSceneCall {
   call: DispatchCall;
   sceneAnimals: import("./types").SceneAnimal[];
   animalLinks: import("./types").DispatchCallAnimal[];
+  citations: import("./types").Citation[];
 }
 
 // Every past call at the same street address (normalized exact match, same
 // convention as fetchAddressIncidentCount above) that has any animal
-// information on file — either scene_animals or a dispatch_call_animals
-// link — newest first. Lets an officer see what's likely on scene before
-// they arrive.
+// information on file — scene_animals, a dispatch_call_animals link, or a
+// citation naming either — newest first. Lets an officer see what's likely
+// on scene, and what's already been cited there, before they arrive.
 export async function fetchPriorSceneInfo(address: string, excludeCallId?: string): Promise<PriorSceneCall[]> {
   const norm = address.trim().toLowerCase();
   if (!norm) return [];
@@ -695,8 +696,12 @@ export async function fetchPriorSceneInfo(address: string, excludeCallId?: strin
   if (calls.length === 0) return [];
 
   const callIds = calls.map((c) => c.id);
-  const { data: linkRows } = await supabase.from("dispatch_call_animals").select("*").in("dispatch_call_id", callIds);
+  const [{ data: linkRows }, { data: citRows }] = await Promise.all([
+    supabase.from("dispatch_call_animals").select("*").in("dispatch_call_id", callIds),
+    supabase.from("citations").select("*").in("call_id", callIds),
+  ]);
   const links = (linkRows as import("./types").DispatchCallAnimal[]) || [];
+  const citations = ((citRows as import("./types").Citation[]) || []).filter((c) => c.linked_animal_id || c.linked_scene_animal_id);
   const animalIds = [...new Set(links.map((l) => l.animal_id))];
   const { data: animalRows } = animalIds.length > 0
     ? await supabase.from("animals").select("*").in("id", animalIds)
@@ -708,8 +713,9 @@ export async function fetchPriorSceneInfo(address: string, excludeCallId?: strin
       call,
       sceneAnimals: (call.scene_animals || []) as import("./types").SceneAnimal[],
       animalLinks: links.filter((l) => l.dispatch_call_id === call.id).map((l) => ({ ...l, animal: animalMap.get(l.animal_id) })),
+      citations: citations.filter((c) => c.call_id === call.id),
     }))
-    .filter((entry) => entry.sceneAnimals.length > 0 || entry.animalLinks.length > 0);
+    .filter((entry) => entry.sceneAnimals.length > 0 || entry.animalLinks.length > 0 || entry.citations.length > 0);
 }
 
 // ── Pending Follow-Up ─────────────────────────────────────────────────────────
@@ -1272,6 +1278,11 @@ export async function fetchCitationsByPerson(firstName?: string, lastName?: stri
     const citFull = c.violator_name || [citFirst, citLast].filter(Boolean).join(" ");
     return citFull.toLowerCase() === fullName;
   });
+}
+
+export async function fetchCitationsForAnimal(animalId: string): Promise<import("./types").Citation[]> {
+  const { data } = await supabase.from("citations").select("*").eq("linked_animal_id", animalId).order("date", { ascending: false });
+  return (data as import("./types").Citation[]) || [];
 }
 
 // ── Rescue Groups ─────────────────────────────────────────────────────────────

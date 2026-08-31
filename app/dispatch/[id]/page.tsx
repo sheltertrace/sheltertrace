@@ -1801,7 +1801,7 @@ function CallDetailPageInner() {
         <div className="card" style={{ marginTop: 20, padding: "14px 16px", background: "#fffbeb", border: "1px solid #fde68a" }}>
           <div style={{ fontWeight: 800, fontSize: 13, color: "#92400e", marginBottom: 8 }}>⚠️ Prior calls at this address</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {priorSceneInfo.map(({ call: priorCall, sceneAnimals: priorScene, animalLinks: priorLinks }) => (
+            {priorSceneInfo.map(({ call: priorCall, sceneAnimals: priorScene, animalLinks: priorLinks, citations: priorCitations }) => (
               <div key={priorCall.id} style={{ fontSize: 12, color: "#78350f" }}>
                 <a href={`/dispatch/${priorCall.id}`} style={{ fontWeight: 700, color: "#92400e" }}>{formatDate(priorCall.date_reported || "")}</a>
                 {" — "}
@@ -1809,6 +1809,19 @@ function CallDetailPageInner() {
                   ...priorScene.map((s) => `${s.count} ${s.species}${s.breed ? ` (${s.breed})` : ""}${s.temperament ? ` — ${s.temperament.toLowerCase()}` : ""}`),
                   ...priorLinks.map((l) => `${l.animal?.name || l.animal_id} (${l.role})`),
                 ].join("; ")}
+                {priorCitations.map((c) => {
+                  const scene = c.linked_scene_animal_id ? priorScene.find((s) => s.id === c.linked_scene_animal_id) : undefined;
+                  const linkedAnimalName = c.linked_animal_id ? priorLinks.find((l) => l.animal_id === c.linked_animal_id)?.animal?.name || c.linked_animal_id : undefined;
+                  const animalRef = scene
+                    ? `${scene.count} ${scene.species}${scene.breed ? ` (${scene.breed})` : ""} at large (informational)`
+                    : linkedAnimalName || "animal on this call";
+                  return (
+                    <div key={c.id} style={{ marginTop: 2 }}>
+                      <a href={`/citations?id=${c.id}`} style={{ color: "#92400e", fontWeight: 600 }}>Citation {c.citation_number}</a>
+                      {` issued to ${c.violator_name || "owner"} for ${animalRef}`}
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
