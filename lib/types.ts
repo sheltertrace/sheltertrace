@@ -260,6 +260,7 @@ export interface DispatchCall {
   involved_parties?: InvolvedParty[];
   linked_citations?: string[];
   animal_ids?: string[];
+  scene_animals?: SceneAnimal[];
   date_reported?: string;
   time_reported?: string;
   response_notes?: string;
@@ -307,6 +308,24 @@ export interface DispatchCallAnimal {
   // Joined for display — not real columns
   animal?: Animal;
   call?: DispatchCall;
+}
+
+// An animal noted on scene that MCAS is NOT taking into care — informational
+// only, stored inline on the call (dispatch_calls.scene_animals) rather than
+// as a real animals record. One entry can represent multiple animals of the
+// same description via `count`.
+export interface SceneAnimal {
+  id: string;
+  species: string;
+  breed?: string;
+  count: number;
+  color?: string;
+  sex?: string;
+  owner?: string;
+  temperament?: string;
+  notes?: string;
+  added_by?: string;
+  added_at?: string;
 }
 
 export interface NarrativeEditHistoryItem {

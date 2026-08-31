@@ -171,6 +171,10 @@ export const RETURN_INTAKE_METHODS = ["Field Intake", "Office Intake", "Cage Tra
 export const RETURN_REASONS = ["Found Running At Large", "Post-Adoption Return", "Post-Reclaim Return", "Rescue Group Return", "Repeat Owner Surrender", "Cruelty Seizure", "Other"];
 export const RETURNED_BY_TYPES = ["Owner", "Adopter", "Rescue Group", "Officer", "Public Finder", "Anonymous"];
 export const CALL_ANIMAL_ROLES = ["Involved", "Impounded", "Bit Someone", "Bit Another Animal", "Loose On Arrival", "Returned to Owner On Scene", "Deceased On Scene", "Other"];
+export const SCENE_ANIMAL_SPECIES = ["Dog", "Cat", "Other"];
+export const SCENE_ANIMAL_SEX = ["Male", "Female", "Mixed", "Unknown"];
+export const SCENE_ANIMAL_OWNERS = ["Owner of Residence", "Neighbor", "Unknown", "Other"];
+export const SCENE_ANIMAL_TEMPERAMENTS = ["Friendly", "Fearful", "Aggressive", "Unknown"];
 export const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY"];
 
 export const BEHAVIOR_FLAGS = [

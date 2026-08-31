@@ -613,6 +613,105 @@ export async function unlinkAnimalFromCall(id: string, unlinkedBy?: string): Pro
   }
 }
 
+// ── Scene Animals (informational-only, no animals record) ────────────────────
+// Stored inline as dispatch_calls.scene_animals JSONB — no date/boolean
+// columns on an entry (count is an integer, added_at is DB/client-stamped,
+// never user-edited), so there's nothing for nullifyEmptyDates/Booleans to
+// sanitize on this payload.
+export interface SceneAnimalPayload {
+  species: string;
+  breed?: string;
+  count?: number;
+  color?: string;
+  sex?: string;
+  owner?: string;
+  temperament?: string;
+  notes?: string;
+  added_by?: string;
+}
+
+export async function addSceneAnimalToCall(callId: string, payload: SceneAnimalPayload): Promise<DispatchCall> {
+  const call = await fetchCall(callId);
+  if (!call) throw new Error("Call not found");
+  const officer = payload.added_by || getSessionUserName();
+  const entry: import("./types").SceneAnimal = {
+    id: genId(),
+    species: payload.species,
+    breed: payload.breed || undefined,
+    count: payload.count ?? 1,
+    color: payload.color || undefined,
+    sex: payload.sex || undefined,
+    owner: payload.owner || undefined,
+    temperament: payload.temperament || undefined,
+    notes: payload.notes || undefined,
+    added_by: officer,
+    added_at: new Date().toISOString(),
+  };
+  const updated = [...((call.scene_animals || []) as import("./types").SceneAnimal[]), entry];
+  const saved = await updateCall(callId, { scene_animals: updated });
+  await addCallNarrativeNote(
+    callId,
+    officer,
+    `Scene animal noted (informational only): ${entry.count} ${entry.species}${entry.breed ? ` (${entry.breed})` : ""} by ${officer} on ${narrativeTimestamp()}.`
+  );
+  return saved;
+}
+
+export async function updateSceneAnimalOnCall(callId: string, sceneAnimalId: string, updates: Partial<SceneAnimalPayload>): Promise<DispatchCall> {
+  const call = await fetchCall(callId);
+  if (!call) throw new Error("Call not found");
+  const list = ((call.scene_animals || []) as import("./types").SceneAnimal[]).map((s) =>
+    s.id === sceneAnimalId ? { ...s, ...updates } : s
+  );
+  return updateCall(callId, { scene_animals: list });
+}
+
+export async function removeSceneAnimalFromCall(callId: string, sceneAnimalId: string): Promise<DispatchCall> {
+  const call = await fetchCall(callId);
+  if (!call) throw new Error("Call not found");
+  const list = ((call.scene_animals || []) as import("./types").SceneAnimal[]).filter((s) => s.id !== sceneAnimalId);
+  return updateCall(callId, { scene_animals: list });
+}
+
+// ── Prior Scene Info (address history) ────────────────────────────────────────
+export interface PriorSceneCall {
+  call: DispatchCall;
+  sceneAnimals: import("./types").SceneAnimal[];
+  animalLinks: import("./types").DispatchCallAnimal[];
+}
+
+// Every past call at the same street address (normalized exact match, same
+// convention as fetchAddressIncidentCount above) that has any animal
+// information on file — either scene_animals or a dispatch_call_animals
+// link — newest first. Lets an officer see what's likely on scene before
+// they arrive.
+export async function fetchPriorSceneInfo(address: string, excludeCallId?: string): Promise<PriorSceneCall[]> {
+  const norm = address.trim().toLowerCase();
+  if (!norm) return [];
+  const { data } = await supabase.from("dispatch_calls").select("*");
+  const calls = ((data as DispatchCall[]) || [])
+    .filter((c) => c.id !== excludeCallId && (c.address || "").trim().toLowerCase() === norm)
+    .sort((a, b) => (b.date_reported || "").localeCompare(a.date_reported || ""));
+  if (calls.length === 0) return [];
+
+  const callIds = calls.map((c) => c.id);
+  const { data: linkRows } = await supabase.from("dispatch_call_animals").select("*").in("dispatch_call_id", callIds);
+  const links = (linkRows as import("./types").DispatchCallAnimal[]) || [];
+  const animalIds = [...new Set(links.map((l) => l.animal_id))];
+  const { data: animalRows } = animalIds.length > 0
+    ? await supabase.from("animals").select("*").in("id", animalIds)
+    : { data: [] as Animal[] };
+  const animalMap = new Map((animalRows as Animal[] || []).map((a) => [a.id, a]));
+
+  return calls
+    .map((call) => ({
+      call,
+      sceneAnimals: (call.scene_animals || []) as import("./types").SceneAnimal[],
+      animalLinks: links.filter((l) => l.dispatch_call_id === call.id).map((l) => ({ ...l, animal: animalMap.get(l.animal_id) })),
+    }))
+    .filter((entry) => entry.sceneAnimals.length > 0 || entry.animalLinks.length > 0);
+}
+
 // ── Pending Follow-Up ─────────────────────────────────────────────────────────
 const DISPATCH_CALL_DATE_FIELDS = ["follow_up_due_date"] as const;
 

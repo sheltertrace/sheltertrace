@@ -1,8 +1,11 @@
 "use client";
 import { useState, useEffect } from "react";
 import type { Animal, DispatchCallAnimal } from "@/lib/types";
-import { searchAnimalsForReturnIntake, type AnimalSearchMatch, linkAnimalToCall, updateCallAnimalLink, DuplicateCallAnimalLinkError } from "@/lib/data";
-import { CALL_ANIMAL_ROLES } from "@/lib/constants";
+import {
+  searchAnimalsForReturnIntake, type AnimalSearchMatch, linkAnimalToCall, updateCallAnimalLink, DuplicateCallAnimalLinkError,
+  addSceneAnimalToCall,
+} from "@/lib/data";
+import { CALL_ANIMAL_ROLES, SCENE_ANIMAL_SPECIES, SCENE_ANIMAL_SEX, SCENE_ANIMAL_OWNERS, SCENE_ANIMAL_TEMPERAMENTS } from "@/lib/constants";
 import { getCurrentUserName } from "@/lib/auth";
 
 interface Props {
@@ -10,11 +13,12 @@ interface Props {
   callAddress?: string;
   existingLinks: DispatchCallAnimal[];
   onLinked: () => void;
+  onSceneAnimalAdded: () => void;
   onClose: () => void;
 }
 
-export default function AddAnimalToCallModal({ callId, callAddress, existingLinks, onLinked, onClose }: Props) {
-  const [tab, setTab] = useState<"link" | "intake">("link");
+export default function AddAnimalToCallModal({ callId, callAddress, existingLinks, onLinked, onSceneAnimalAdded, onClose }: Props) {
+  const [tab, setTab] = useState<"link" | "intake" | "scene">("link");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AnimalSearchMatch[]>([]);
   const [searching, setSearching] = useState(false);
@@ -24,6 +28,18 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [duplicateLink, setDuplicateLink] = useState<DispatchCallAnimal | null>(null);
+
+  // Tab C — informational scene-awareness animal
+  const [sceneSpecies, setSceneSpecies] = useState(SCENE_ANIMAL_SPECIES[0]);
+  const [sceneBreed, setSceneBreed] = useState("");
+  const [sceneCount, setSceneCount] = useState(1);
+  const [sceneColor, setSceneColor] = useState("");
+  const [sceneSex, setSceneSex] = useState(SCENE_ANIMAL_SEX[3]);
+  const [sceneOwner, setSceneOwner] = useState(SCENE_ANIMAL_OWNERS[0]);
+  const [sceneTemperament, setSceneTemperament] = useState(SCENE_ANIMAL_TEMPERAMENTS[3]);
+  const [sceneNotes, setSceneNotes] = useState("");
+  const [sceneSaving, setSceneSaving] = useState(false);
+  const [sceneError, setSceneError] = useState("");
 
   useEffect(() => {
     if (query.trim().length < 2) { setResults([]); return; }
@@ -87,6 +103,29 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
     onClose();
   };
 
+  const handleSaveSceneAnimal = async () => {
+    setSceneSaving(true);
+    setSceneError("");
+    try {
+      await addSceneAnimalToCall(callId, {
+        species: sceneSpecies,
+        breed: sceneBreed.trim() || undefined,
+        count: sceneCount || 1,
+        color: sceneColor.trim() || undefined,
+        sex: sceneSex,
+        owner: sceneOwner,
+        temperament: sceneTemperament,
+        notes: sceneNotes.trim() || undefined,
+        added_by: getCurrentUserName(),
+      });
+      onSceneAnimalAdded();
+    } catch (e) {
+      setSceneError(e instanceof Error ? e.message : "Failed to save scene animal");
+    } finally {
+      setSceneSaving(false);
+    }
+  };
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
@@ -100,13 +139,17 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
         </div>
 
         <div style={{ display: "flex", borderBottom: "1px solid var(--border)", background: "var(--bg-alt)" }}>
-          {[{ key: "link", label: "🔗 Link Existing Animal" }, { key: "intake", label: "📋 Intake New Animal" }].map(({ key, label }) => (
+          {[
+            { key: "link", label: "🔗 Link Existing ShelterTrace Animal" },
+            { key: "intake", label: "📋 Intake New Animal" },
+            { key: "scene", label: "👁 Informational / Scene-Aware" },
+          ].map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setTab(key as "link" | "intake")}
+              onClick={() => setTab(key as "link" | "intake" | "scene")}
               style={{
-                flex: 1, padding: "10px 14px", border: "none", background: "transparent", cursor: "pointer",
-                fontSize: 13, fontWeight: 600,
+                flex: 1, padding: "10px 10px", border: "none", background: "transparent", cursor: "pointer",
+                fontSize: 12, fontWeight: 600,
                 color: tab === key ? "var(--teal)" : "var(--text-secondary)",
                 borderBottom: tab === key ? "2px solid var(--teal)" : "2px solid transparent",
               }}
@@ -220,6 +263,61 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
               <button className="btn btn-primary" onClick={startFieldIntake}>🚀 Start Field Intake</button>
             </div>
           )}
+
+          {tab === "scene" && (
+            <div>
+              <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 7, padding: "9px 13px", fontSize: 12, color: "var(--text-secondary)", marginBottom: 14, lineHeight: 1.5 }}>
+                For animals on scene that MCAS is <strong>not</strong> taking into care — e.g. &quot;3 pit bulls owned by resident, loose in yard.&quot; This does not create an animal record; it&apos;s informational only, saved on the call.
+              </div>
+              {sceneError && (
+                <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 7, padding: "9px 13px", fontSize: 12, color: "#dc2626", marginBottom: 14 }}>
+                  ⚠️ {sceneError}
+                </div>
+              )}
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div className="form-group">
+                  <label className="form-label">Species</label>
+                  <select className="form-select" value={sceneSpecies} onChange={(e) => setSceneSpecies(e.target.value)}>
+                    {SCENE_ANIMAL_SPECIES.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Count</label>
+                  <input className="form-input" type="number" min={1} value={sceneCount} onChange={(e) => setSceneCount(Math.max(1, parseInt(e.target.value, 10) || 1))} />
+                </div>
+                <div className="form-group" style={{ gridColumn: "1 / -1" }}>
+                  <label className="form-label">Breed / Description</label>
+                  <input className="form-input" value={sceneBreed} onChange={(e) => setSceneBreed(e.target.value)} placeholder="e.g. Pit Bull, mixed breed…" />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Color / Markings</label>
+                  <input className="form-input" value={sceneColor} onChange={(e) => setSceneColor(e.target.value)} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Sex</label>
+                  <select className="form-select" value={sceneSex} onChange={(e) => setSceneSex(e.target.value)}>
+                    {SCENE_ANIMAL_SEX.map((s) => <option key={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Owner</label>
+                  <select className="form-select" value={sceneOwner} onChange={(e) => setSceneOwner(e.target.value)}>
+                    {SCENE_ANIMAL_OWNERS.map((o) => <option key={o}>{o}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Temperament Observed</label>
+                  <select className="form-select" value={sceneTemperament} onChange={(e) => setSceneTemperament(e.target.value)}>
+                    {SCENE_ANIMAL_TEMPERAMENTS.map((t) => <option key={t}>{t}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="form-group">
+                <label className="form-label">Notes</label>
+                <textarea className="form-textarea" rows={2} value={sceneNotes} onChange={(e) => setSceneNotes(e.target.value)} placeholder="Loose in the yard, no fence, etc…" />
+              </div>
+            </div>
+          )}
         </div>
 
         {tab === "link" && selected && (
@@ -227,6 +325,15 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
             <button className="btn btn-secondary" onClick={onClose} disabled={saving}>Cancel</button>
             <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : duplicateLink ? "✓ Update Link" : "✓ Link Animal"}
+            </button>
+          </div>
+        )}
+
+        {tab === "scene" && (
+          <div className="modal-footer">
+            <button className="btn btn-secondary" onClick={onClose} disabled={sceneSaving}>Cancel</button>
+            <button className="btn btn-primary" onClick={handleSaveSceneAnimal} disabled={sceneSaving}>
+              {sceneSaving ? "Saving…" : "✓ Save Scene Animal"}
             </button>
           </div>
         )}
