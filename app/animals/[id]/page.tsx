@@ -19,8 +19,12 @@ export default function AnimalDetailPage() {
   const [notFound, setNotFound] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [loadError, setLoadError] = useState("");
+
+  console.log("[AnimalDetail] session:", user?.id, "route param:", id);
 
   const load = useCallback(async () => {
+    setLoadError("");
     try {
       const [a, m, p, c] = await Promise.all([
         fetchAnimal(id),
@@ -33,7 +37,9 @@ export default function AnimalDetailPage() {
       setMedical(m);
       setPeople(p);
       setCalls(c);
-    } catch { setNotFound(true); } finally { setLoading(false); }
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Could not load this animal record.");
+    } finally { setLoading(false); }
   }, [id]);
 
   useEffect(() => { load(); }, [load]);
@@ -56,6 +62,14 @@ export default function AnimalDetailPage() {
   console.log("[AnimalDetailPage] user role:", user?.role, "| permissions:", user?.permissions, "| isAdmin:", isAdmin);
 
   if (loading) return <AppShell title="Animal Detail"><div style={{ textAlign: "center", color: "var(--text-muted)", padding: 40 }}>Loading…</div></AppShell>;
+  if (loadError) return (
+    <AppShell title="Animal Detail">
+      <div style={{ textAlign: "center", padding: 40 }}>
+        <div style={{ fontSize: 16, color: "#dc2626", marginBottom: 12 }}>⚠️ Could not load this animal record. {loadError}</div>
+        <button className="btn btn-secondary" onClick={() => load()}>↻ Try Again</button>
+      </div>
+    </AppShell>
+  );
   if (notFound || !animal) return <AppShell title="Animal Not Found"><div style={{ textAlign: "center", color: "var(--text-muted)", padding: 40 }}>Animal not found.</div></AppShell>;
 
   return (

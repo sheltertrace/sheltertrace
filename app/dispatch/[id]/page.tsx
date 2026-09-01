@@ -1865,7 +1865,7 @@ function CallDetailPageInner() {
                         <span className="badge" style={{ fontSize: 10, background: "#0f2942", color: "#fff" }}>{link.role}</span>
                         {a && <span className="badge" style={{ fontSize: 10 }}>{a.status}</span>}
                         {bite && (
-                          <a href={`/bite-reports/${bite.id}`} target="_blank" rel="noreferrer" style={{ fontSize: 10, fontWeight: 700, background: "#fee2e2", color: "#dc2626", borderRadius: 8, padding: "2px 8px", textDecoration: "none" }}>
+                          <a href={`/bite-reports/${bite.id}`} onClick={(e) => { e.preventDefault(); router.push(`/bite-reports/${bite.id}`); }} style={{ fontSize: 10, fontWeight: 700, background: "#fee2e2", color: "#dc2626", borderRadius: 8, padding: "2px 8px", textDecoration: "none" }}>
                             🩸 Bite Report on File
                           </a>
                         )}
@@ -1889,7 +1889,7 @@ function CallDetailPageInner() {
                         </div>
                       ) : (
                         <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                          <a href={`/animals/${link.animal_id}`} target="_blank" rel="noreferrer" className="btn btn-secondary btn-sm" style={{ fontSize: 11 }}>View Animal Record →</a>
+                          <a href={`/animals/${link.animal_id}`} onClick={(e) => { e.preventDefault(); router.push(`/animals/${link.animal_id}`); }} className="btn btn-secondary btn-sm" style={{ fontSize: 11 }}>View Animal Record →</a>
                           <button
                             className="btn btn-ghost btn-sm"
                             style={{ fontSize: 11 }}
