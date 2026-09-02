@@ -310,6 +310,37 @@ export interface DispatchCallAnimal {
   call?: DispatchCall;
 }
 
+// A person (Suspect/Victim/Witness/Complainant/Owner/Other) attached to a
+// dispatch call. Supports multiple people per role per call. Either linked to
+// a real people record (person_id set) or captured inline as a snapshot at
+// time of call — the inline fields double as the source of truth when
+// person_id is null. skipped=true is a sentinel row ("this role was
+// explicitly addressed and no one applies"), carrying no name.
+export interface DispatchCallPerson {
+  id: string;
+  dispatch_call_id: string;
+  person_id?: string | null;
+  role: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  dob?: string;
+  drivers_license?: string;
+  physical_description?: string;
+  notes?: string;
+  skipped?: boolean;
+  added_by?: string;
+  added_at?: string;
+  // Joined for display — not a real column
+  person?: Person;
+  call?: DispatchCall;
+}
+
 // An animal noted on scene that MCAS is NOT taking into care — informational
 // only, stored inline on the call (dispatch_calls.scene_animals) rather than
 // as a real animals record. One entry can represent multiple animals of the

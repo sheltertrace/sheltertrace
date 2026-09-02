@@ -29,6 +29,8 @@ const FOSTER_DATE_FIELDS = ["start_date", "expected_return_date", "actual_return
 const LICENSE_DATE_FIELDS = ["issue_date", "expiration_date", "rabies_expiration_date"] as const;
 const VOLUNTEER_APP_DATE_FIELDS = ["dob"] as const;
 const VOLUNTEER_APP_BOOL_FIELDS = ["has_animals", "agree_to_terms", "agree_to_conduct"] as const;
+const DISPATCH_CALL_PERSON_DATE_FIELDS = ["dob"] as const;
+const DISPATCH_CALL_PERSON_BOOL_FIELDS = ["skipped"] as const;
 
 // Helper: in demo mode, return { demo_session_id } so that newly-created
 // records are tagged with the current session and can be cleaned up on reset.
@@ -610,6 +612,128 @@ export async function unlinkAnimalFromCall(id: string, unlinkedBy?: string): Pro
       officer,
       `Animal ${animal ? `${animal.name} (${animal.id})` : link.animal_id} unlinked from call by ${officer} on ${narrativeTimestamp()}.`
     );
+  }
+}
+
+// ── Dispatch Call ↔ People links (Suspect/Victim/Witness/Complainant/Owner) ──
+// Mirrors the dispatch_call_animals pattern above: a junction table so a call
+// can have any number of people per role. A row with skipped=true is a
+// sentinel meaning "this role was explicitly addressed and no one applies" —
+// it carries no name, just who made that call and when.
+
+export async function fetchPeopleForCall(callId: string): Promise<import("./types").DispatchCallPerson[]> {
+  const { data: links } = await supabase
+    .from("dispatch_call_people")
+    .select("*")
+    .eq("dispatch_call_id", callId)
+    .order("added_at", { ascending: false });
+  const rows = (links as import("./types").DispatchCallPerson[]) || [];
+  const personIds = [...new Set(rows.map((r) => r.person_id).filter(Boolean))] as string[];
+  if (personIds.length === 0) return rows;
+  const { data: peopleRows } = await supabase.from("people").select("*").in("id", personIds);
+  const peopleMap = new Map((peopleRows as Person[] || []).map((p) => [p.id, p]));
+  return rows.map((r) => ({ ...r, person: r.person_id ? peopleMap.get(r.person_id) : undefined }));
+}
+
+export async function fetchCallsForPerson(personId: string): Promise<import("./types").DispatchCallPerson[]> {
+  const { data: links } = await supabase
+    .from("dispatch_call_people")
+    .select("*")
+    .eq("person_id", personId)
+    .order("added_at", { ascending: false });
+  const rows = (links as import("./types").DispatchCallPerson[]) || [];
+  if (rows.length === 0) return [];
+  const callIds = [...new Set(rows.map((r) => r.dispatch_call_id))];
+  const { data: callRows } = await supabase.from("dispatch_calls").select("*").in("id", callIds);
+  const callMap = new Map((callRows as DispatchCall[] || []).map((c) => [c.id, c]));
+  return rows
+    .map((r) => ({ ...r, call: callMap.get(r.dispatch_call_id) }))
+    .sort((a, b) => (b.call?.date_reported || "").localeCompare(a.call?.date_reported || ""));
+}
+
+// Soft duplicate check (not a DB constraint — a person can legitimately show
+// up more than once on a call, e.g. a witness who's also the complainant, so
+// this only warns, it never blocks): matches on phone, or on name+address.
+export function findDuplicateCallPerson(
+  existing: import("./types").DispatchCallPerson[],
+  candidate: { first_name?: string; last_name?: string; phone?: string; address?: string }
+): import("./types").DispatchCallPerson | undefined {
+  const normPhone = (candidate.phone || "").replace(/\D/g, "");
+  const name = [candidate.first_name, candidate.last_name].map((s) => (s || "").trim()).filter(Boolean).join(" ").toLowerCase();
+  const normAddress = (candidate.address || "").trim().toLowerCase();
+  return existing.find((e) => {
+    if (e.skipped) return false;
+    if (normPhone && (e.phone || "").replace(/\D/g, "") === normPhone) return true;
+    if (name && normAddress) {
+      const eName = [e.first_name, e.last_name].filter(Boolean).join(" ").trim().toLowerCase();
+      if (eName === name && (e.address || "").trim().toLowerCase() === normAddress) return true;
+    }
+    return false;
+  });
+}
+
+export interface LinkPersonToCallPayload {
+  dispatch_call_id: string;
+  person_id?: string | null;
+  role: string;
+  first_name?: string;
+  last_name?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  dob?: string;
+  drivers_license?: string;
+  physical_description?: string;
+  notes?: string;
+  skipped?: boolean;
+  added_by?: string;
+}
+
+export async function linkPersonToCall(payload: LinkPersonToCallPayload): Promise<import("./types").DispatchCallPerson> {
+  const officer = payload.added_by || getSessionUserName();
+  const clean = nullifyEmptyBooleans(nullifyEmptyDates({ ...payload, added_by: officer }, DISPATCH_CALL_PERSON_DATE_FIELDS), DISPATCH_CALL_PERSON_BOOL_FIELDS);
+  const { data, error } = await supabase
+    .from("dispatch_call_people")
+    .insert(clean)
+    .select()
+    .single();
+  if (error) throw error;
+  const name = [payload.first_name, payload.last_name].filter(Boolean).join(" ");
+  await addCallNarrativeNote(
+    payload.dispatch_call_id,
+    officer,
+    payload.skipped
+      ? `No ${payload.role.toLowerCase()} identified — skipped by ${officer} on ${narrativeTimestamp()}.`
+      : `${payload.role} added to call: ${name || "Unnamed person"} by ${officer} on ${narrativeTimestamp()}.`
+  );
+  return data as import("./types").DispatchCallPerson;
+}
+
+export async function updateCallPersonLink(id: string, updates: Partial<LinkPersonToCallPayload>, editedBy?: string): Promise<import("./types").DispatchCallPerson> {
+  const officer = editedBy || getSessionUserName();
+  const clean = nullifyEmptyBooleans(nullifyEmptyDates(updates, DISPATCH_CALL_PERSON_DATE_FIELDS), DISPATCH_CALL_PERSON_BOOL_FIELDS);
+  const { data, error } = await supabase
+    .from("dispatch_call_people")
+    .update({ ...clean, added_by: officer, added_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data as import("./types").DispatchCallPerson;
+}
+
+export async function removeCallPerson(id: string, removedBy?: string): Promise<void> {
+  const { data: existing } = await supabase.from("dispatch_call_people").select("*").eq("id", id).single();
+  const row = existing as import("./types").DispatchCallPerson | null;
+  const { error } = await supabase.from("dispatch_call_people").delete().eq("id", id);
+  if (error) throw error;
+  if (row) {
+    const officer = removedBy || getSessionUserName();
+    const name = [row.first_name, row.last_name].filter(Boolean).join(" ") || row.role;
+    await addCallNarrativeNote(row.dispatch_call_id, officer, `${row.role} removed from call: ${name} by ${officer} on ${narrativeTimestamp()}.`);
   }
 }
 

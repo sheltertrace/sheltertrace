@@ -8,14 +8,14 @@ import {
   fetchPerson, updatePerson, addPersonNote, fetchPersonNotes, togglePersonNotePopup,
   uploadPersonPhotoId, uploadPersonPhotoIdBack, uploadPersonPhotoIdFromBlob, deletePersonPhotoId, fetchFormsByLinked,
   fetchAdoptionsByPerson, fetchReceiptsByPerson, fetchDepartureReceipts,
-  fetchCallsByPerson, fetchCitationsByPerson, fetchLicensesByPerson,
+  fetchCallsForPerson, fetchCitationsByPerson, fetchLicensesByPerson,
   fetchAnimalsForPerson, unlinkAnimalFromPerson,
 } from "@/lib/data";
 import dynamic from "next/dynamic";
 const CropIdPhotoModal = dynamic(() => import("@/components/ui/CropIdPhotoModal"), { ssr: false });
 import LinkAnimalModal from "@/components/people/LinkAnimalModal";
 import ReprintReceiptButton from "@/components/receipts/ReprintReceiptButton";
-import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, DispatchCall, Citation, PetLicense, AnimalPerson, DepartureReceipt } from "@/lib/types";
+import type { Person, ShelterForm, FormPreFill, AdoptionRecord, Receipt, Citation, PetLicense, AnimalPerson, DepartureReceipt, DispatchCallPerson } from "@/lib/types";
 import GenerateFormButton from "@/components/forms/GenerateFormButton";
 import ReprintFormButton from "@/components/forms/ReprintFormButton";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
@@ -62,7 +62,7 @@ export default function PersonDetailPage() {
   const [adoptions, setAdoptions] = useState<AdoptionRecord[]>([]);
   const [adoptionReceipts, setAdoptionReceipts] = useState<DepartureReceipt[]>([]);
   const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [calls, setCalls] = useState<DispatchCall[]>([]);
+  const [calls, setCalls] = useState<DispatchCallPerson[]>([]);
   const [citations, setCitations] = useState<Citation[]>([]);
   const [personLicenses, setPersonLicenses] = useState<PetLicense[]>([]);
   const [personForms, setPersonForms] = useState<ShelterForm[]>([]);
@@ -87,14 +87,13 @@ export default function PersonDetailPage() {
       const p = await fetchPerson(id);
       if (!p) { router.replace("/people"); return; }
       setPerson(p);
-      const fullName = `${p.first_name} ${p.last_name}`;
       const [n, forms, ads, adoptionRecs, recs, cls, cits, lics, anims] = await Promise.all([
         fetchPersonNotes(id),
         fetchFormsByLinked({ personId: id }),
         fetchAdoptionsByPerson(id),
         fetchDepartureReceipts({ personId: id, departureType: "Adoption" }),
         fetchReceiptsByPerson(id),
-        fetchCallsByPerson(id, fullName),
+        fetchCallsForPerson(id),
         fetchCitationsByPerson(p.first_name, p.last_name),
         fetchLicensesByPerson(id),
         fetchAnimalsForPerson(id),
@@ -656,15 +655,16 @@ export default function PersonDetailPage() {
                 <table className="data-table">
                   <thead><tr><th>Call #</th><th>Date</th><th>Type</th><th>Address</th><th>Role</th></tr></thead>
                   <tbody>
-                    {calls.map((c) => {
-                      const party = c.involved_parties?.find((p) => p.id === person.id || p.name?.toLowerCase() === fullName.toLowerCase());
+                    {calls.map((pc) => {
+                      const c = pc.call;
+                      if (!c) return null;
                       return (
-                        <tr key={c.id} style={{ cursor: "pointer" }} onClick={() => router.push(`/dispatch/${c.id}`)}>
+                        <tr key={pc.id} style={{ cursor: "pointer" }} onClick={() => router.push(`/dispatch/${c.id}`)}>
                           <td style={{ fontFamily: "monospace", fontSize: 12 }}>{c.id}</td>
                           <td style={{ fontSize: 12 }}>{c.date_reported ? formatDate(c.date_reported) : "—"}</td>
                           <td><span className="badge" style={{ background: "#fff7ed", color: "#ea580c" }}>{c.type}</span></td>
                           <td style={{ fontSize: 12 }}>{[c.address, c.city].filter(Boolean).join(", ") || "—"}</td>
-                          <td style={{ fontSize: 12 }}>{party?.role || "—"}</td>
+                          <td style={{ fontSize: 12 }}>{pc.role}</td>
                         </tr>
                       );
                     })}
