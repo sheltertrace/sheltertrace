@@ -4,13 +4,17 @@ import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import StatusBadge from "@/components/ui/StatusBadge";
 import Pagination from "@/components/ui/Pagination";
-import { fetchAnimals, fetchPeople, fetchAdoptions, createAdoption, createPerson, updateAnimal, fetchAdoptionApplications, updateAdoptionApplication, genNextPid } from "@/lib/data";
+import { fetchAnimals, fetchPeople, fetchAdoptions, createAdoption, createPerson, updateAnimal, fetchAdoptionApplications, updateAdoptionApplication, genNextPid, linkAnimalToPerson, createDepartureReceipt } from "@/lib/data";
 import type { Animal, Person, AdoptionRecord, AdoptionApplication } from "@/lib/types";
 import { printCompletedAdoptionForm } from "@/lib/adoptionPrint";
+import { buildDepartureReceiptPayload, writeReceiptToWindow } from "@/lib/departureReceipt";
 import ReturnAnimalModal from "@/components/animals/ReturnAnimalModal";
 import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 import { formatDate, today, genId, genReceiptId } from "@/lib/utils";
+import { getCurrentUser, getCurrentUserName } from "@/lib/auth";
 import DateInput from "@/components/ui/DateInput";
+import { isDeparturePersonComplete } from "@/lib/personValidation";
+import PersonRequiredSelector from "@/components/people/PersonRequiredSelector";
 
 export default function AdoptionsPage() {
   const router = useRouter();
@@ -39,16 +43,9 @@ export default function AdoptionsPage() {
 
   // Process adoption form
   const [selectedAnimalId, setSelectedAnimalId] = useState("");
-  const [adopterSearch, setAdopterSearch] = useState("");
   const [selectedAdopter, setSelectedAdopter] = useState<Person | null>(null);
   const [adoptionDate, setAdoptionDate] = useState(today());
   const [adoptionNotes, setAdoptionNotes] = useState("");
-  const [showNewAdopter, setShowNewAdopter] = useState(false);
-  const [naFirst, setNaFirst] = useState("");
-  const [naMid, setNaMid] = useState("");
-  const [naLast, setNaLast] = useState("");
-  const [naPhone, setNaPhone] = useState("");
-  const [naEmail, setNaEmail] = useState("");
   const [saving, setSaving] = useState(false);
   const [returnTarget, setReturnTarget] = useState<{ animal: Animal; adopterName: string } | null>(null);
 
@@ -75,44 +72,51 @@ export default function AdoptionsPage() {
     return list.filter((a) => a.name.toLowerCase().includes(q) || a.breed.toLowerCase().includes(q) || a.species.toLowerCase().includes(q));
   }, [tab, available, pending, adopted, search]);
 
-  const adopterMatches = adopterSearch
-    ? people.filter((p) => `${p.first_name} ${p.last_name}`.toLowerCase().includes(adopterSearch.toLowerCase())).slice(0, 8)
-    : [];
-
-  const handleCreateAdopter = async () => {
-    if (!naFirst.trim() || !naLast.trim()) return;
-    const p = await createPerson({ first_name: naFirst.trim(), middle_name: naMid.trim() || undefined, last_name: naLast.trim(), role: "Adopter", phone: naPhone, email: naEmail, date_added: today() });
-    setPeople((prev) => [...prev, p]);
-    setSelectedAdopter(p);
-    setAdopterSearch(`${p.first_name} ${p.last_name}`);
-    setShowNewAdopter(false);
-    setNaFirst(""); setNaMid(""); setNaLast(""); setNaPhone(""); setNaEmail("");
-  };
-
   const handleProcessAdoption = async () => {
-    if (!selectedAnimalId || !selectedAdopter) return;
+    if (!selectedAnimalId || !selectedAdopter || !isDeparturePersonComplete(selectedAdopter)) return;
     setSaving(true);
+    // Open print window NOW — must be synchronous inside the click handler
+    // so popup blockers allow it.
+    const printWin = window.open("", "_blank", "width=760,height=1060");
     try {
       const animal = animals.find((a) => a.id === selectedAnimalId);
       if (!animal) return;
       const receiptId = genReceiptId();
+      const adopterName = `${selectedAdopter.first_name} ${selectedAdopter.last_name}`.trim();
       const rec = await createAdoption({
         animal_id: selectedAnimalId,
         animal_name: animal.name,
         adopter_id: selectedAdopter.id,
-        adopter_name: `${selectedAdopter.first_name} ${selectedAdopter.last_name}`,
+        adopter_name: adopterName,
         adoption_date: adoptionDate,
         notes: adoptionNotes,
         receipt_id: receiptId,
       });
-      await updateAnimal(selectedAnimalId, { status: "Adopted" });
-      setAnimals((prev) => prev.map((a) => a.id === selectedAnimalId ? { ...a, status: "Adopted" } : a));
+      await linkAnimalToPerson(selectedAnimalId, selectedAdopter.id, "Adopter");
+      const updated = await updateAnimal(selectedAnimalId, { status: "Adopted" });
+
+      const cu = getCurrentUser();
+      const payload = buildDepartureReceiptPayload(updated, {
+        departureType: "Adoption",
+        person: selectedAdopter,
+        personName: adopterName,
+        notes: adoptionNotes,
+        officerName: getCurrentUserName(),
+        officerId: cu?.id,
+      });
+      const receipt = await createDepartureReceipt(payload);
+      if (printWin) writeReceiptToWindow(printWin, receipt);
+
+      setAnimals((prev) => prev.map((a) => a.id === selectedAnimalId ? updated : a));
       setAdoptions((prev) => [rec, ...prev]);
       setShowProcess(false);
       setStep(1);
-      setSelectedAnimalId(""); setSelectedAdopter(null); setAdopterSearch(""); setAdoptionNotes("");
+      setSelectedAnimalId(""); setSelectedAdopter(null); setAdoptionNotes("");
       setTab("records");
-    } catch { } finally { setSaving(false); }
+    } catch (e) {
+      printWin?.close();
+      alert(`Adoption failed: ${e instanceof Error ? e.message : "Unknown error"}`);
+    } finally { setSaving(false); }
   };
 
   const thisMonthAdopted = useMemo(() => {
@@ -249,7 +253,7 @@ export default function AdoptionsPage() {
 
         function openReview(app: AdoptionApplication) {
           setReviewingApp(app);
-          setOffProcessedBy(app.processed_by || "");
+          setOffProcessedBy(app.processed_by || getCurrentUserName());
           setOffDateEntered(app.date_entered || "");
           setOffRabiesTag(app.rabies_tag || "");
           setOffLicenseNum(app.license_number || "");
@@ -339,7 +343,7 @@ export default function AdoptionsPage() {
           try {
             await saveOffice();
 
-            let personId: string | undefined;
+            let newAdopter: Person | null = null;
             if (action === "approved") {
               const pid = await genNextPid();
               const [first, ...rest] = (app.adopter_name || "").trim().split(" ");
@@ -355,7 +359,7 @@ export default function AdoptionsPage() {
                 pid,
               });
               setPeople((prev) => [...prev, np]);
-              personId = np.id;
+              newAdopter = np;
             }
 
             const updated = await updateAdoptionApplication(app.id, {
@@ -367,16 +371,14 @@ export default function AdoptionsPage() {
 
             if (action === "approved") {
               setReviewingApp(null);
-              // Pre-fill adoption wizard with person just created
-              if (personId) {
-                const newPerson = people.find((p) => p.id === personId) ||
-                  (await (async () => { const p2 = people.find((p) => p.id === personId); return p2 ?? null; })());
-                if (newPerson) {
-                  setSelectedAdopter(newPerson);
-                  setAdopterSearch(`${newPerson.first_name} ${newPerson.last_name}`);
-                  setStep(1);
-                  setShowProcess(true);
-                }
+              // Pre-fill adoption wizard with the person just created — the
+              // application rarely has every required field (no photo ID,
+              // often no DL#), so PersonRequiredSelector on Step 1 will show
+              // it as incomplete and prompt staff to finish it inline.
+              if (newAdopter) {
+                setSelectedAdopter(newAdopter);
+                setStep(1);
+                setShowProcess(true);
               }
             } else {
               setReviewingApp(updated);
@@ -554,8 +556,16 @@ export default function AdoptionsPage() {
               <button className="btn btn-ghost btn-sm" onClick={() => setShowProcess(false)}>✕</button>
             </div>
             <div className="modal-body">
-              {/* Step 1: Select Animal */}
+              {/* Step 1: Who is adopting? */}
               {step === 1 && (
+                <div>
+                  <h3 style={{ fontWeight: 700, marginBottom: 12 }}>Who Is Adopting?</h3>
+                  <PersonRequiredSelector people={people} selected={selectedAdopter} onChange={setSelectedAdopter} roleForNew="Adopter" label="Adopter" />
+                </div>
+              )}
+
+              {/* Step 2: Select Animal */}
+              {step === 2 && (
                 <div>
                   <h3 style={{ fontWeight: 700, marginBottom: 12 }}>Select Animal</h3>
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
@@ -569,50 +579,6 @@ export default function AdoptionsPage() {
                     ))}
                   </div>
                   {available.length === 0 && <div style={{ textAlign: "center", color: "var(--text-muted)", padding: "20px 0" }}>No available animals</div>}
-                </div>
-              )}
-
-              {/* Step 2: Select Adopter */}
-              {step === 2 && (
-                <div>
-                  <h3 style={{ fontWeight: 700, marginBottom: 12 }}>Select Adopter</h3>
-                  <input className="form-input" value={adopterSearch} onChange={(e) => setAdopterSearch(e.target.value)} placeholder="Search contacts by name…" style={{ marginBottom: 8 }} />
-                  {adopterMatches.length > 0 && (
-                    <div style={{ border: "1px solid var(--border)", borderRadius: 7, marginBottom: 10, overflow: "hidden" }}>
-                      {adopterMatches.map((p) => (
-                        <div key={p.id} onClick={() => { setSelectedAdopter(p); setAdopterSearch(`${p.first_name} ${p.last_name}`); }} style={{ padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid var(--border-light)", fontSize: 13, background: selectedAdopter?.id === p.id ? "#f0fdfa" : "#fff", display: "flex", alignItems: "center", gap: 10 }}>
-                          <div style={{ flex: 1 }}>
-                            <span style={{ fontWeight: 600 }}>{p.first_name} {p.last_name}</span>
-                            <span style={{ color: "var(--text-secondary)", marginLeft: 8 }}>{p.role} · {p.phone || "No phone"}</span>
-                          </div>
-                          {p.photo_id_url && <PhotoIdThumb url={p.photo_id_url} name={`${p.first_name} ${p.last_name}`} size={32} />}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {selectedAdopter?.photo_id_url && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "#eff6ff", border: "1px solid #bfdbfe", borderRadius: 7, marginBottom: 10, fontSize: 13 }}>
-                      <PhotoIdThumb url={selectedAdopter.photo_id_url} name={`${selectedAdopter.first_name} ${selectedAdopter.last_name}`} size={44} />
-                      <div>
-                        <div style={{ fontWeight: 600, color: "#1d4ed8" }}>Photo ID on file</div>
-                        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>Click thumbnail to view</div>
-                      </div>
-                    </div>
-                  )}
-                  {!showNewAdopter ? (
-                    <button className="btn btn-secondary btn-sm" onClick={() => setShowNewAdopter(true)}>+ New Adopter</button>
-                  ) : (
-                    <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: 14 }}>
-                      <div className="grid-2">
-                        <div className="form-group"><label className="form-label">First Name *</label><input className="form-input" value={naFirst} onChange={(e) => setNaFirst(e.target.value)} /></div>
-                        <div className="form-group"><label className="form-label">Middle Name</label><input className="form-input" value={naMid} onChange={(e) => setNaMid(e.target.value)} /></div>
-                        <div className="form-group"><label className="form-label">Last Name *</label><input className="form-input" value={naLast} onChange={(e) => setNaLast(e.target.value)} /></div>
-                        <div className="form-group"><label className="form-label">Phone</label><input className="form-input" value={naPhone} onChange={(e) => setNaPhone(e.target.value)} /></div>
-                        <div className="form-group"><label className="form-label">Email</label><input className="form-input" value={naEmail} onChange={(e) => setNaEmail(e.target.value)} /></div>
-                      </div>
-                      <button className="btn btn-primary btn-sm" onClick={handleCreateAdopter}>Save</button>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -645,11 +611,11 @@ export default function AdoptionsPage() {
                 {step > 1 ? "← Back" : "Cancel"}
               </button>
               {step < 3 ? (
-                <button className="btn btn-primary" onClick={() => setStep(step + 1)} disabled={step === 1 && !selectedAnimalId || step === 2 && !selectedAdopter}>
+                <button className="btn btn-primary" onClick={() => setStep(step + 1)} disabled={(step === 1 && !isDeparturePersonComplete(selectedAdopter)) || (step === 2 && !selectedAnimalId)}>
                   Next →
                 </button>
               ) : (
-                <button className="btn btn-primary" onClick={handleProcessAdoption} disabled={saving || !selectedAnimalId || !selectedAdopter}>
+                <button className="btn btn-primary" onClick={handleProcessAdoption} disabled={saving || !selectedAnimalId || !isDeparturePersonComplete(selectedAdopter)}>
                   {saving ? "Processing…" : "✓ Complete Adoption"}
                 </button>
               )}

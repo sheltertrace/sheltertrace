@@ -172,6 +172,7 @@ export const RETURN_REASONS = ["Found Running At Large", "Post-Adoption Return",
 export const RETURNED_BY_TYPES = ["Owner", "Adopter", "Rescue Group", "Officer", "Public Finder", "Anonymous"];
 export const CALL_ANIMAL_ROLES = ["Involved", "Impounded", "Bit Someone", "Bit Another Animal", "Loose On Arrival", "Returned to Owner On Scene", "Deceased On Scene", "Other"];
 export const CALL_PERSON_ROLES = ["Suspect", "Victim", "Witness", "Complainant", "Owner", "Other"];
+export const ID_TYPES = ["", "Driver's License", "State ID", "Passport", "Military ID", "Other"];
 export const SCENE_ANIMAL_SPECIES = ["Dog", "Cat", "Other"];
 export const SCENE_ANIMAL_SEX = ["Male", "Female", "Mixed", "Unknown"];
 export const SCENE_ANIMAL_OWNERS = ["Owner of Residence", "Neighbor", "Unknown", "Other"];

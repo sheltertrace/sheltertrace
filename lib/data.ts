@@ -1037,11 +1037,16 @@ export async function fetchAdoptionsByAnimal(animalId: string): Promise<Adoption
   return (data as AdoptionRecord[]) || [];
 }
 
+const ADOPTION_DATE_FIELDS = ["adoption_date"] as const;
+
 export async function createAdoption(record: Partial<AdoptionRecord>): Promise<AdoptionRecord> {
+  if (!record.adopter_id) {
+    throw new Error("An adopter must be attached to complete this adoption.");
+  }
   const id = `ADO-${genId()}`;
   const { data, error } = await supabase
     .from("adoption_records")
-    .insert({ ...record, id })
+    .insert({ ...nullifyEmptyDates(record, ADOPTION_DATE_FIELDS), id })
     .select()
     .single();
   if (error) throw error;
@@ -1947,8 +1952,13 @@ export async function searchAnimals(q: string): Promise<Animal[]> {
 }
 
 // ── Redemptions ───────────────────────────────────────────────────────────────
+const REDEMPTION_DATE_FIELDS = ["redemption_date"] as const;
+
 export async function createRedemption(data: Omit<import("./types").Redemption, "id" | "created_at">): Promise<import("./types").Redemption> {
-  const { data: row, error } = await supabase.from("redemptions").insert(data).select().single();
+  if (!data.person_id) {
+    throw new Error("An owner must be attached to complete this redemption.");
+  }
+  const { data: row, error } = await supabase.from("redemptions").insert(nullifyEmptyDates(data, REDEMPTION_DATE_FIELDS)).select().single();
   if (error) {
     console.error("[createRedemption] Supabase error:", error.message, error.hint);
     throw error;
@@ -2001,16 +2011,18 @@ export async function fetchAnimalsForPerson(personId: string): Promise<import(".
 
 // ── Duplicate detection ──────────────────────────────────────────────────────
 
-export async function findDuplicatePerson(phone?: string, email?: string): Promise<Person | null> {
+export async function findDuplicatePerson(phone?: string, email?: string, idNumber?: string): Promise<Person | null> {
   const cleanPhone = (phone || "").replace(/\D/g, "");
   const cleanEmail = (email || "").trim().toLowerCase();
-  if (!cleanPhone && !cleanEmail) return null;
+  const cleanId = (idNumber || "").trim().toUpperCase();
+  if (!cleanPhone && !cleanEmail && !cleanId) return null;
   const { data } = await supabase.from("people").select("*").limit(500);
   const rows = (data as Person[]) || [];
   const match = rows.find((p) => {
     const pPhone = (p.phone || "").replace(/\D/g, "");
     const pEmail = (p.email || "").trim().toLowerCase();
-    return (cleanPhone && pPhone && pPhone === cleanPhone) || (cleanEmail && pEmail && pEmail === cleanEmail);
+    const pId = (p.id_number || "").trim().toUpperCase();
+    return (cleanPhone && pPhone && pPhone === cleanPhone) || (cleanEmail && pEmail && pEmail === cleanEmail) || (cleanId && pId && pId === cleanId);
   });
   return match || null;
 }

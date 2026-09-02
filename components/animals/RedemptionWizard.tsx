@@ -1,12 +1,14 @@
 ﻿"use client";
 import { useState, useEffect } from "react";
-import { fetchPeople, createPerson, createRedemption, linkAnimalToPerson, updateAnimal } from "@/lib/data";
+import { fetchPeople, createRedemption, linkAnimalToPerson, updateAnimal } from "@/lib/data";
 import type { Animal, Person } from "@/lib/types";
 import { today } from "@/lib/utils";
+import { getCurrentUserName } from "@/lib/auth";
 import StaffSelect from "@/components/ui/StaffSelect";
-import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import DateInput from "@/components/ui/DateInput";
 import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "@/lib/shelterInfo";
+import { isDeparturePersonComplete } from "@/lib/personValidation";
+import PersonRequiredSelector from "@/components/people/PersonRequiredSelector";
 
 export interface RedemptionReceiptInfo {
   ownerName: string;
@@ -191,19 +193,7 @@ export default function RedemptionWizard({ animal, onComplete, onClose }: Props)
 
   // Step 1 — Owner identification
   const [people, setPeople] = useState<Person[]>([]);
-  const [peopleLoading, setPeopleLoading] = useState(true);
-  const [personSearch, setPersonSearch] = useState("");
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
-  const [showNewPerson, setShowNewPerson] = useState(false);
-  const [newFirst, setNewFirst] = useState("");
-  const [newLast, setNewLast] = useState("");
-  const [newPhone, setNewPhone] = useState("");
-  const [newAddress, setNewAddress] = useState("");
-  const [newCity, setNewCity] = useState("");
-  const [newState, setNewState] = useState("GA");
-  const [newZip, setNewZip] = useState("");
-  const [newIdType, setNewIdType] = useState("Driver's License");
-  const [newIdNumber, setNewIdNumber] = useState("");
 
   // Step 2 — Fees
   const [fees, setFees] = useState<FeeState>({
@@ -230,52 +220,17 @@ export default function RedemptionWizard({ animal, onComplete, onClose }: Props)
   const [conditionsNotes, setConditionsNotes] = useState("");
   const [citationIssued, setCitationIssued] = useState(false);
   const [citationNumber, setCitationNumber] = useState("");
-  const [officer, setOfficer] = useState("");
+  const [officer, setOfficer] = useState(getCurrentUserName());
   const [redemptionDate, setRedemptionDate] = useState(today());
 
   useEffect(() => {
-    fetchPeople().then((p) => { setPeople(p); setPeopleLoading(false); }).catch(() => setPeopleLoading(false));
+    fetchPeople().then(setPeople).catch(() => {});
   }, []);
-
-  const filteredPeople = people.filter((p) => {
-    if (!personSearch.trim()) return false;
-    const q = personSearch.toLowerCase();
-    return `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) ||
-      (p.pid || "").toLowerCase().includes(q) ||
-      (p.phone || "").includes(q);
-  });
 
   const total = calcTotal(fees);
 
-  const handleSaveNewPerson = async () => {
-    if (!newFirst.trim() || !newLast.trim()) { setErrMsg("First and last name required."); return; }
-    setSaving(true);
-    setErrMsg("");
-    try {
-      const person = await createPerson({
-        first_name: newFirst.trim(),
-        last_name: newLast.trim(),
-        phone: newPhone || undefined,
-        address: newAddress || undefined,
-        city: newCity || undefined,
-        state: newState || undefined,
-        zip: newZip || undefined,
-        id_type: newIdType || undefined,
-        id_number: newIdNumber || undefined,
-        role: "Previous Owner",
-      });
-      setSelectedPerson(person);
-      setShowNewPerson(false);
-      setPeople((prev) => [person, ...prev]);
-    } catch (e: unknown) {
-      setErrMsg((e as { message?: string }).message || "Failed to create person");
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const handleComplete = async () => {
-    if (!selectedPerson) return;
+    if (!selectedPerson || !isDeparturePersonComplete(selectedPerson)) return;
     setSaving(true);
     setErrMsg("");
     try {
@@ -365,94 +320,8 @@ export default function RedemptionWizard({ animal, onComplete, onClose }: Props)
           {/* ── Step 1: Owner Identification ── */}
           {step === 1 && (
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Search for the owner in the system:</div>
-              <input
-                className="form-input"
-                placeholder="Search by name, PID, or phone…"
-                value={personSearch}
-                onChange={(e) => setPersonSearch(e.target.value)}
-                autoFocus
-              />
-              {selectedPerson && (
-                <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 8, padding: "10px 14px", marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontWeight: 700 }}>{selectedPerson.first_name} {selectedPerson.last_name}</div>
-                    <div style={{ fontSize: 11, color: "#555" }}>{selectedPerson.pid || selectedPerson.id} · {selectedPerson.phone || "No phone"} · {selectedPerson.address || "No address"}</div>
-                  </div>
-                  <button className="btn btn-ghost btn-sm" onClick={() => setSelectedPerson(null)}>✕ Clear</button>
-                </div>
-              )}
-              {!selectedPerson && personSearch.trim() && (
-                <div style={{ border: "1px solid var(--border)", borderRadius: 8, marginTop: 6, maxHeight: 200, overflowY: "auto" }}>
-                  {peopleLoading ? (
-                    <div style={{ padding: 12, color: "var(--text-muted)", fontSize: 12 }}>Loading…</div>
-                  ) : filteredPeople.length === 0 ? (
-                    <div style={{ padding: 12, color: "var(--text-muted)", fontSize: 12 }}>No results — <button className="btn btn-ghost btn-sm" onClick={() => setShowNewPerson(true)}>+ Create New Person</button></div>
-                  ) : (
-                    filteredPeople.map((p) => (
-                      <div
-                        key={p.id}
-                        style={{ padding: "8px 14px", borderBottom: "1px solid var(--border-light)", cursor: "pointer", fontSize: 13 }}
-                        onClick={() => { setSelectedPerson(p); setPersonSearch(""); }}
-                      >
-                        <span style={{ fontWeight: 600 }}>{p.first_name} {p.last_name}</span>
-                        <span style={{ color: "var(--text-secondary)", marginLeft: 10 }}>{p.pid || p.id} · {p.phone || "—"}</span>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              <div style={{ marginTop: 12 }}>
-                <button className="btn btn-secondary btn-sm" onClick={() => setShowNewPerson(!showNewPerson)}>
-                  {showNewPerson ? "▲ Cancel New Person" : "+ Create New Person"}
-                </button>
-              </div>
-
-              {showNewPerson && (
-                <div style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginTop: 10 }}>
-                  <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 10, display: "flex", alignItems: "center", gap: 10 }}>
-                    New Person
-                    <ScanLicenseButton
-                      label="📷 Scan License"
-                      onScan={(d) => {
-                        if (d.firstName)     setNewFirst(d.firstName);
-                        if (d.lastName)      setNewLast(d.lastName);
-                        if (d.address)       setNewAddress(d.address);
-                        if (d.city)          setNewCity(d.city);
-                        if (d.state)         setNewState(d.state);
-                        if (d.zip)           setNewZip(d.zip);
-                        if (d.licenseNumber) setNewIdNumber(d.licenseNumber);
-                        setNewIdType("Driver's License");
-                      }}
-                    />
-                  </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-                    <div><label className="form-label">First Name *</label><input className="form-input" value={newFirst} onChange={(e) => setNewFirst(e.target.value)} /></div>
-                    <div><label className="form-label">Last Name *</label><input className="form-input" value={newLast} onChange={(e) => setNewLast(e.target.value)} /></div>
-                    <div><label className="form-label">Phone</label><input className="form-input" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} /></div>
-                    <div><label className="form-label">ID Type</label>
-                      <select className="form-select" value={newIdType} onChange={(e) => setNewIdType(e.target.value)}>
-                        {["Driver's License","State ID","Passport","Military ID","Other"].map((t) => <option key={t}>{t}</option>)}
-                      </select>
-                    </div>
-                    <div><label className="form-label">ID Number</label><input className="form-input" value={newIdNumber} onChange={(e) => setNewIdNumber(e.target.value)} /></div>
-                    <div><label className="form-label">Address</label><input className="form-input" value={newAddress} onChange={(e) => setNewAddress(e.target.value)} /></div>
-                    <div><label className="form-label">City</label><input className="form-input" value={newCity} onChange={(e) => setNewCity(e.target.value)} /></div>
-                    <div><label className="form-label">State / Zip</label>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        <input className="form-input" value={newState} onChange={(e) => setNewState(e.target.value)} style={{ width: 60 }} />
-                        <input className="form-input" value={newZip} onChange={(e) => setNewZip(e.target.value)} placeholder="Zip" />
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ marginTop: 10 }}>
-                    <button className="btn btn-primary btn-sm" onClick={handleSaveNewPerson} disabled={saving}>
-                      {saving ? "Saving…" : "Save Person"}
-                    </button>
-                  </div>
-                </div>
-              )}
+              <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>Who is picking up this animal?</div>
+              <PersonRequiredSelector people={people} selected={selectedPerson} onChange={setSelectedPerson} roleForNew="Previous Owner" label="Owner" />
             </div>
           )}
 
@@ -696,13 +565,13 @@ export default function RedemptionWizard({ animal, onComplete, onClose }: Props)
           {step < 4 ? (
             <button
               className="btn btn-primary"
-              disabled={step === 1 && !selectedPerson}
+              disabled={step === 1 && !isDeparturePersonComplete(selectedPerson)}
               onClick={() => { setErrMsg(""); setStep(step + 1); }}
             >
               Next →
             </button>
           ) : (
-            <button className="btn btn-primary" onClick={handleComplete} disabled={saving || !selectedPerson}>
+            <button className="btn btn-primary" onClick={handleComplete} disabled={saving || !isDeparturePersonComplete(selectedPerson)}>
               {saving ? "Processing…" : "✓ Complete Redemption"}
             </button>
           )}

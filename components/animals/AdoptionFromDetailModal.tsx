@@ -1,12 +1,13 @@
 ﻿"use client";
 import { useState, useMemo } from "react";
 import type { Animal, Person, DepartureReceipt } from "@/lib/types";
-import { createAdoption, createPerson, updateAnimal, createDepartureReceipt } from "@/lib/data";
+import { createAdoption, updateAnimal, createDepartureReceipt, linkAnimalToPerson } from "@/lib/data";
 import { buildDepartureReceiptPayload, writeReceiptToWindow } from "@/lib/departureReceipt";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getCurrentUserName } from "@/lib/auth";
 import { today, genReceiptId } from "@/lib/utils";
-import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
 import DateInput from "@/components/ui/DateInput";
+import { isDeparturePersonComplete } from "@/lib/personValidation";
+import PersonRequiredSelector from "@/components/people/PersonRequiredSelector";
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="form-group"><label className="form-label">{label}</label>{children}</div>;
@@ -46,23 +47,10 @@ const DEFAULT_FEES = {
 
 export default function AdoptionFromDetailModal({ animal, people, onSuccess, onClose }: Props) {
   const [step, setStep] = useState<1 | 2>(1);
-  const [adopterSearch, setAdopterSearch] = useState("");
   const [selectedAdopter, setSelectedAdopter] = useState<Person | null>(null);
   const [adoptionDate, setAdoptionDate] = useState(today());
   const [adoptionNotes, setAdoptionNotes] = useState("");
   const [saving, setSaving] = useState(false);
-
-  // New adopter inline creation
-  const [showNewAdopter, setShowNewAdopter] = useState(false);
-  const [naFirst, setNaFirst] = useState("");
-  const [naLast, setNaLast] = useState("");
-  const [naPhone, setNaPhone] = useState("");
-  const [naEmail, setNaEmail] = useState("");
-  const [naAddress, setNaAddress] = useState("");
-  const [naCity, setNaCity] = useState("");
-  const [naState, setNaState] = useState("GA");
-  const [naZip, setNaZip] = useState("");
-  const [creatingAdopter, setCreatingAdopter] = useState(false);
 
   // Fees
   const [includeAdoptionFee, setIncludeAdoptionFee]       = useState(true);
@@ -95,31 +83,8 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
 
   const totalFees = useMemo(() => feeItems.reduce((s, f) => s + f.amount, 0), [feeItems]);
 
-  const matches = useMemo(() => {
-    if (!adopterSearch.trim()) return [];
-    const q = adopterSearch.toLowerCase();
-    return people.filter((p) => `${p.first_name} ${p.last_name}`.toLowerCase().includes(q) || (p.phone || "").includes(q)).slice(0, 8);
-  }, [people, adopterSearch]);
-
-  const handleCreateAdopter = async () => {
-    if (!naFirst.trim() || !naLast.trim()) return;
-    setCreatingAdopter(true);
-    try {
-      const p = await createPerson({
-        first_name: naFirst.trim(), last_name: naLast.trim(), role: "Adopter",
-        phone: naPhone, email: naEmail, address: naAddress, city: naCity,
-        state: naState, zip: naZip, date_added: today(),
-      });
-      setSelectedAdopter(p);
-      setAdopterSearch(`${p.first_name} ${p.last_name}`);
-      setShowNewAdopter(false);
-      setNaFirst(""); setNaLast(""); setNaPhone(""); setNaEmail("");
-      setNaAddress(""); setNaCity(""); setNaState("GA"); setNaZip("");
-    } finally { setCreatingAdopter(false); }
-  };
-
   const handleProcess = async () => {
-    if (!selectedAdopter) return;
+    if (!selectedAdopter || !isDeparturePersonComplete(selectedAdopter)) return;
     setSaving(true);
 
     // Open print window NOW — must be synchronous inside the click handler
@@ -141,13 +106,13 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
         receipt_id: receiptId,
       });
 
+      await linkAnimalToPerson(animal.id, selectedAdopter.id, "Adopter");
+
       const updated = await updateAnimal(animal.id, { status: "Adopted", kennel: undefined });
 
       console.log("[adoption] adoption saved, generating receipt...");
       const cu = getCurrentUser();
-      const officerName = cu
-        ? `${cu.firstName || cu.first_name || ""} ${cu.lastName || cu.last_name || ""}`.trim() || cu.username
-        : "";
+      const officerName = getCurrentUserName();
 
       const payload = buildDepartureReceiptPayload(updated, {
         departureType: "Adoption",
@@ -248,75 +213,9 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
                 <div><b>Fixed:</b> {animal.fixed ? "✓ Yes" : "✗ No"}</div>
               </div>
 
-              <F label="Adopter *">
-                <div style={{ position: "relative" }}>
-                  <input
-                    className="form-input"
-                    placeholder="Search by name or phone…"
-                    value={adopterSearch}
-                    onChange={(e) => { setAdopterSearch(e.target.value); setSelectedAdopter(null); }}
-                  />
-                  {matches.length > 0 && !selectedAdopter && (
-                    <div style={{ position: "absolute", top: "100%", left: 0, right: 0, background: "#fff", border: "1px solid var(--border)", borderRadius: "0 0 6px 6px", boxShadow: "0 4px 12px rgba(0,0,0,0.1)", zIndex: 50, maxHeight: 200, overflowY: "auto" }}>
-                      {matches.map((p) => (
-                        <div key={p.id} style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderBottom: "1px solid var(--border-light)" }}
-                          onClick={() => { setSelectedAdopter(p); setAdopterSearch(`${p.first_name} ${p.last_name}`); }}>
-                          <span style={{ fontWeight: 600 }}>{p.first_name} {p.last_name}</span>
-                          <span style={{ color: "var(--text-secondary)", marginLeft: 8 }}>{p.phone || ""}</span>
-                          <span style={{ color: "var(--text-muted)", marginLeft: 8, fontSize: 11 }}>{p.pid}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </F>
+              <PersonRequiredSelector people={people} selected={selectedAdopter} onChange={setSelectedAdopter} roleForNew="Adopter" label="Adopter" />
 
-              {selectedAdopter && (
-                <div style={{ background: "#f0fdf4", border: "1px solid #86efac", borderRadius: 6, padding: "8px 12px", fontSize: 13, marginBottom: 4 }}>
-                  ✓ <b>{selectedAdopter.first_name} {selectedAdopter.last_name}</b>
-                  {selectedAdopter.phone && <span> · {selectedAdopter.phone}</span>}
-                  {selectedAdopter.address && <span> · {selectedAdopter.address}{selectedAdopter.city ? `, ${selectedAdopter.city}` : ""}</span>}
-                  <span style={{ marginLeft: 8, color: "var(--text-muted)", fontSize: 11 }}>{selectedAdopter.pid}</span>
-                </div>
-              )}
-
-              <button className="btn btn-ghost btn-sm" style={{ marginBottom: 16, fontSize: 12 }} onClick={() => setShowNewAdopter(!showNewAdopter)}>
-                {showNewAdopter ? "▲ Cancel new adopter" : "＋ Create new adopter"}
-              </button>
-
-              {showNewAdopter && (
-                <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 16 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 10, display: "flex", alignItems: "center", gap: 12 }}>
-                    New Adopter
-                    <ScanLicenseButton
-                      label="📷 Scan License"
-                      onScan={(d) => {
-                        if (d.firstName) setNaFirst(d.firstName);
-                        if (d.lastName)  setNaLast(d.lastName);
-                        if (d.address)   setNaAddress(d.address);
-                        if (d.city)      setNaCity(d.city);
-                        if (d.state)     setNaState(d.state);
-                        if (d.zip)       setNaZip(d.zip);
-                      }}
-                    />
-                  </div>
-                  <div className="grid-2">
-                    <F label="First Name *"><input className="form-input" value={naFirst} onChange={(e) => setNaFirst(e.target.value)} /></F>
-                    <F label="Last Name *"><input className="form-input" value={naLast} onChange={(e) => setNaLast(e.target.value)} /></F>
-                    <F label="Phone"><input className="form-input" value={naPhone} onChange={(e) => setNaPhone(e.target.value)} /></F>
-                    <F label="Email"><input className="form-input" value={naEmail} onChange={(e) => setNaEmail(e.target.value)} /></F>
-                    <F label="Address"><input className="form-input" value={naAddress} onChange={(e) => setNaAddress(e.target.value)} /></F>
-                    <F label="City"><input className="form-input" value={naCity} onChange={(e) => setNaCity(e.target.value)} /></F>
-                    <F label="State"><input className="form-input" value={naState} onChange={(e) => setNaState(e.target.value)} /></F>
-                    <F label="ZIP"><input className="form-input" value={naZip} onChange={(e) => setNaZip(e.target.value)} /></F>
-                  </div>
-                  <button className="btn btn-primary btn-sm" onClick={handleCreateAdopter} disabled={creatingAdopter || !naFirst.trim() || !naLast.trim()}>
-                    {creatingAdopter ? "Creating…" : "Create & Select"}
-                  </button>
-                </div>
-              )}
-
-              <div className="grid-2">
+              <div className="grid-2" style={{ marginTop: 16 }}>
                 <F label="Adoption Date *"><DateInput className="form-input" value={adoptionDate} onChange={(e) => setAdoptionDate(e.target.value)} /></F>
               </div>
             </>
@@ -421,7 +320,7 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
             <button
               className="btn btn-primary"
               onClick={() => setStep(2)}
-              disabled={!selectedAdopter || !adoptionDate}
+              disabled={!isDeparturePersonComplete(selectedAdopter) || !adoptionDate}
             >
               Next: Fees →
             </button>
@@ -433,7 +332,7 @@ export default function AdoptionFromDetailModal({ animal, people, onSuccess, onC
                 className="btn btn-primary"
                 style={{ background: "#16a34a", borderColor: "#16a34a" }}
                 onClick={handleProcess}
-                disabled={saving}
+                disabled={saving || !isDeparturePersonComplete(selectedAdopter)}
               >
                 {saving ? "Processing…" : "✓ Complete Adoption"}
               </button>
