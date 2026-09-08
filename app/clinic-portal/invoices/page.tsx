@@ -46,13 +46,13 @@ function InvoicesContent() {
   });
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     Promise.all([
-      fetchClinicInvoices(user.id, selectedClientId || undefined),
-      fetchClinicSettings(user.id),
+      fetchClinicInvoices(user.platform_customer_id, selectedClientId || undefined),
+      fetchClinicSettings(user.platform_customer_id),
     ]).then(([inv, s]) => { setInvoices(inv); setSettings(s); }).finally(() => setLoading(false));
-  }, [user?.id, selectedClientId]);
+  }, [user?.platform_customer_id, selectedClientId]);
 
   const filtered = useMemo(() => {
     let list = invoices;
@@ -90,11 +90,11 @@ function InvoicesContent() {
   };
 
   const handleSave = async (status = "Draft") => {
-    if (!form.client_id || !user?.id) return;
+    if (!form.client_id || !user?.platform_customer_id) return;
     setSaving(true);
     try {
-      const invNumber = form.invoice_number || await generateInvoiceNumber(user.id);
-      const created = await createClinicInvoice({ ...form, clinic_account_id: user.id, invoice_number: invNumber, status } as Omit<ClinicInvoice, "id" | "created_at">);
+      const invNumber = form.invoice_number || await generateInvoiceNumber(user.platform_customer_id);
+      const created = await createClinicInvoice({ ...form, clinic_account_id: user.platform_customer_id, invoice_number: invNumber, status } as Omit<ClinicInvoice, "id" | "created_at">);
       setInvoices((prev) => [created, ...prev]);
       setShowForm(false);
     } catch (e: unknown) { alert(`Failed: ${(e as { message?: string }).message}`); }

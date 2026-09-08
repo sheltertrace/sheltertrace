@@ -38,13 +38,13 @@ export default function AppointmentsPage() {
   const todayStr = today();
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     Promise.all([
-      fetchClinicAppointments(user.id, selectedClientId || undefined),
-      fetchClinicAnimals(user.id, selectedClientId || undefined),
+      fetchClinicAppointments(user.platform_customer_id, selectedClientId || undefined),
+      fetchClinicAnimals(user.platform_customer_id, selectedClientId || undefined),
     ]).then(([a, an]) => { setAppts(a); setAnimals(an); }).finally(() => setLoading(false));
-  }, [user?.id, selectedClientId]);
+  }, [user?.platform_customer_id, selectedClientId]);
 
   const filtered = useMemo(() => {
     let list = appts;
@@ -57,18 +57,18 @@ export default function AppointmentsPage() {
   const upcoming = filtered.filter((a) => (a.appointment_date || "") >= todayStr && a.status !== "Cancelled");
   const past     = filtered.filter((a) => (a.appointment_date || "") < todayStr || a.status === "Completed");
 
-  const openAdd = () => { setEditing(null); setForm({ appointment_date: todayStr, status: "Scheduled", appointment_type: "Wellness Exam", clinic_account_id: user!.id, client_id: selectedClientId || undefined }); setShowForm(true); };
+  const openAdd = () => { setEditing(null); setForm({ appointment_date: todayStr, status: "Scheduled", appointment_type: "Wellness Exam", clinic_account_id: user!.platform_customer_id, client_id: selectedClientId || undefined }); setShowForm(true); };
   const openEdit = (a: ClinicAppointment) => { setEditing(a); setForm({ ...a }); setShowForm(true); };
 
   const handleSave = async () => {
-    if (!form.appointment_date || !form.client_id || !user?.id) return;
+    if (!form.appointment_date || !form.client_id || !user?.platform_customer_id) return;
     setSaving(true);
     try {
       if (editing) {
         const u = await updateClinicAppointment(editing.id, form);
         setAppts((prev) => prev.map((a) => a.id === u.id ? u : a));
       } else {
-        const c = await createClinicAppointment({ ...form, clinic_account_id: user.id } as Omit<ClinicAppointment, "id" | "created_at">);
+        const c = await createClinicAppointment({ ...form, clinic_account_id: user.platform_customer_id } as Omit<ClinicAppointment, "id" | "created_at">);
         setAppts((prev) => [c, ...prev]);
       }
       setShowForm(false);
@@ -170,7 +170,7 @@ export default function AppointmentsPage() {
               const isT = ds === todayStr;
               return (
                 <div key={day} style={{ minHeight: 56, border: `1px solid ${isT ? "var(--teal)" : "var(--border)"}`, borderRadius: 3, padding: 3, background: isT ? "#f0fdfa" : "#fff", cursor: "pointer" }}
-                  onClick={() => { setForm({ appointment_date: ds, status: "Scheduled", appointment_type: "Wellness Exam", clinic_account_id: user!.id, client_id: selectedClientId || undefined }); setEditing(null); setShowForm(true); }}>
+                  onClick={() => { setForm({ appointment_date: ds, status: "Scheduled", appointment_type: "Wellness Exam", clinic_account_id: user!.platform_customer_id, client_id: selectedClientId || undefined }); setEditing(null); setShowForm(true); }}>
                   <div style={{ fontSize: 10, fontWeight: isT ? 800 : 400, color: isT ? "var(--teal)" : "var(--text-muted)" }}>{day}</div>
                   {da.slice(0, 2).map((a) => { const sc = STATUS_COLORS[a.status] || STATUS_COLORS.Scheduled; return <div key={a.id} style={{ fontSize: 9, background: sc.bg, color: sc.color, borderRadius: 2, padding: "1px 3px", marginTop: 1, overflow: "hidden", whiteSpace: "nowrap", textOverflow: "ellipsis" }} onClick={(e) => { e.stopPropagation(); openEdit(a); }}>{a.animal_name}</div>; })}
                   {da.length > 2 && <div style={{ fontSize: 9, color: "var(--text-muted)" }}>+{da.length - 2}</div>}

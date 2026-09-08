@@ -56,16 +56,19 @@ export default function ClinicShell({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const loadClients = useCallback(async () => {
-    if (!user?.id) return;
-    const c = await fetchClinicClients(user.id);
+    if (!user?.platform_customer_id) return;
+    const c = await fetchClinicClients(user.platform_customer_id);
     setClients(c);
-    if (user.platform_customer_id) {
-      const links = await fetchLinksForClinic(user.platform_customer_id);
-      setShelterLinks(links);
-    }
-  }, [user?.id, user?.platform_customer_id]);
+    const links = await fetchLinksForClinic(user.platform_customer_id);
+    setShelterLinks(links);
+  }, [user?.platform_customer_id]);
 
-  useEffect(() => { loadClients(); }, [loadClients]);
+  useEffect(() => {
+    if (user) {
+      console.log("[clinic] scope:", user.platform_customer_id, "user:", user.id);
+    }
+    loadClients();
+  }, [user, loadClients]);
 
   const selectedClient = selectedClientId ? clients.find((c) => c.id === selectedClientId) || null : null;
   const activeShelterLink = selectedClientId ? shelterLinks.find((l) => l.id === selectedClientId) || null : null;
@@ -75,6 +78,26 @@ export default function ClinicShell({ children }: { children: React.ReactNode })
   if (!user) {
     router.replace("/login");
     return null;
+  }
+
+  // Every clinic_* query/write is scoped by platform_customer_id, shared by
+  // everyone at the clinic — an account without one would otherwise be
+  // siloed from (or invisible to) the rest of its clinic. Block instead of
+  // silently falling back to the per-user id, which is exactly the bug this
+  // scoping model exists to prevent.
+  if (!user.platform_customer_id) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh", background: "#f8fafc", padding: 24 }}>
+        <div style={{ textAlign: "center", maxWidth: 420 }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>⚠️</div>
+          <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 8 }}>Account Not Linked to a Clinic</div>
+          <div style={{ fontSize: 13, color: "#64748b", marginBottom: 16 }}>
+            Your account (<strong>{user.username}</strong>) isn&apos;t linked to a clinic yet, so no clinic records can be shown. Contact an administrator to set your Platform Customer in Super Admin.
+          </div>
+          <button className="btn btn-secondary btn-sm" onClick={logout}>Log Out</button>
+        </div>
+      </div>
+    );
   }
 
   return (

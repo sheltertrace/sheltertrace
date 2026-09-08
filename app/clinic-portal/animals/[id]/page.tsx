@@ -55,7 +55,7 @@ export default function ClinicAnimalDetailPage() {
   const clientName = clients.find((c) => c.id === clientId)?.county_name || (isShelterAnimal ? "Linked Shelter" : "—");
 
   const load = useCallback(async () => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     setLoadError("");
     try {
@@ -63,7 +63,7 @@ export default function ClinicAnimalDetailPage() {
         const [a, med, s] = await Promise.all([
           fetchShelterAnimal(realId),
           fetchShelterAnimalMedical(realId),
-          fetchClinicSettings(user.id),
+          fetchClinicSettings(user.platform_customer_id),
         ]);
         if (!a) { router.replace("/clinic-portal/animals"); return; }
         setAnimal(a);
@@ -71,11 +71,11 @@ export default function ClinicAnimalDetailPage() {
         setSettings(s);
       } else {
         const [animals, med, procs, appts, s] = await Promise.all([
-          fetchClinicAnimals(user.id),
-          fetchClinicMedical(user.id, undefined, realId),
-          fetchClinicProcedures(user.id, undefined, realId),
-          fetchClinicAppointments(user.id),
-          fetchClinicSettings(user.id),
+          fetchClinicAnimals(user.platform_customer_id),
+          fetchClinicMedical(user.platform_customer_id, undefined, realId),
+          fetchClinicProcedures(user.platform_customer_id, undefined, realId),
+          fetchClinicAppointments(user.platform_customer_id),
+          fetchClinicSettings(user.platform_customer_id),
         ]);
         const found = animals.find((a) => a.id === realId);
         if (!found) { router.replace("/clinic-portal/animals"); return; }
@@ -88,14 +88,14 @@ export default function ClinicAnimalDetailPage() {
     } catch (e: unknown) {
       setLoadError((e as { message?: string }).message || "Could not load this animal's record. Please try again.");
     } finally { setLoading(false); }
-  }, [user?.id, realId, isShelterAnimal, router]);
+  }, [user?.platform_customer_id, realId, isShelterAnimal, router]);
 
   useEffect(() => { load(); }, [load]);
 
   const allMed = [...shelterMed, ...clinicMed].sort((a, b) => (b.date || "") < (a.date || "") ? -1 : 1);
 
   const handleAddMed = async () => {
-    if (!animal || !medForm.type || !user?.id) return;
+    if (!animal || !medForm.type || !user?.platform_customer_id) return;
     setMedSaving(true);
     try {
       if (isShelterAnimal) {
@@ -110,7 +110,7 @@ export default function ClinicAnimalDetailPage() {
         setShelterMed((prev) => [saved, ...prev]);
       } else {
         const saved = await createClinicMedical({
-          ...medForm, clinic_account_id: user.id,
+          ...medForm, clinic_account_id: user.platform_customer_id,
           animal_id: realId, animal_name: animal.name || "",
           client_id: clientId,
         } as Omit<ClinicMedicalRecord, "id" | "created_at">);

@@ -30,10 +30,10 @@ export default function ClinicCustomersPage() {
   const [detailLoading, setDetailLoading] = useState(false);
 
   useEffect(() => {
-    if (!user?.id || isShelterMode) { setLoading(false); return; }
+    if (!user?.platform_customer_id || isShelterMode) { setLoading(false); return; }
     setLoading(true);
-    fetchClinicPeople(user.id, selectedClientId || undefined).then(setPeople).finally(() => setLoading(false));
-  }, [user?.id, selectedClientId, isShelterMode]);
+    fetchClinicPeople(user.platform_customer_id, selectedClientId || undefined).then(setPeople).finally(() => setLoading(false));
+  }, [user?.platform_customer_id, selectedClientId, isShelterMode]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return people;
@@ -44,12 +44,12 @@ export default function ClinicCustomersPage() {
   const openAdd = () => { setForm({ ...EMPTY }); setDupWarning(null); setShowAdd(true); };
 
   const handleSave = async () => {
-    if (!form.first_name?.trim() || !form.last_name?.trim() || !user?.id) return;
+    if (!form.first_name?.trim() || !form.last_name?.trim() || !user?.platform_customer_id) return;
     setSaving(true);
     try {
-      const dup = await findDuplicateClinicPerson(user.id, form.phone, form.email);
+      const dup = await findDuplicateClinicPerson(user.platform_customer_id, form.phone, form.email);
       if (dup) { setDupWarning(dup); setSaving(false); return; }
-      const created = await createClinicPerson({ ...form, clinic_account_id: user.id, client_id: selectedClientId || undefined } as Omit<ClinicPerson, "id" | "created_at">);
+      const created = await createClinicPerson({ ...form, clinic_account_id: user.platform_customer_id, client_id: selectedClientId || undefined } as Omit<ClinicPerson, "id" | "created_at">);
       setPeople((prev) => [...prev, created].sort((a, b) => (a.last_name || "").localeCompare(b.last_name || "")));
       setShowAdd(false);
     } catch (err: unknown) { alert(`Failed: ${(err as { message?: string }).message}`); }

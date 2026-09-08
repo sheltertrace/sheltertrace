@@ -32,22 +32,22 @@ export default function EmailPage() {
   const [selectedClientId, setSelectedClientId] = useState("");
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     Promise.all([
-      fetchClinicEmails(user.id),
-      fetchClinicSettings(user.id),
+      fetchClinicEmails(user.platform_customer_id),
+      fetchClinicSettings(user.platform_customer_id),
     ]).then(([e, s]) => { setEmails(e); setSettings(s); }).finally(() => setLoading(false));
-  }, [user?.id]);
+  }, [user?.platform_customer_id]);
 
   const handleTemplate = (t: typeof TEMPLATES[0]) => { setSubject(t.subject); setBody(t.body); };
 
   const handleSend = async () => {
-    if (!to.trim() || !subject.trim() || !user?.id) return;
+    if (!to.trim() || !subject.trim() || !user?.platform_customer_id) return;
     setSending(true);
     try {
       const email = await createClinicEmail({
-        clinic_account_id: user.id,
+        clinic_account_id: user.platform_customer_id,
         client_id: selectedClientId || undefined,
         to_email: to.trim(),
         subject: subject.trim(),
@@ -65,8 +65,8 @@ export default function EmailPage() {
   };
 
   const handleSaveDraft = async () => {
-    if (!user?.id) return;
-    const email = await createClinicEmail({ clinic_account_id: user.id, client_id: selectedClientId || undefined, to_email: to, subject, body, status: "Draft" });
+    if (!user?.platform_customer_id) return;
+    const email = await createClinicEmail({ clinic_account_id: user.platform_customer_id, client_id: selectedClientId || undefined, to_email: to, subject, body, status: "Draft" });
     setEmails((prev) => [email, ...prev]);
     alert("Draft saved");
   };

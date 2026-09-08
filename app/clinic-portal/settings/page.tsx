@@ -31,16 +31,16 @@ export default function ClinicSettingsPage() {
   const lastPos = useRef<{ x: number; y: number } | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
-    fetchClinicSettings(user.id).then(setSettings);
-    fetchVetSignature(user.id).then(setSignature);
-  }, [user?.id]);
+    if (!user?.platform_customer_id) return;
+    fetchClinicSettings(user.platform_customer_id).then(setSettings);
+    if (user.id) fetchVetSignature(user.id).then(setSignature);
+  }, [user?.platform_customer_id, user?.id]);
 
   const handleSave = async () => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setSaving(true);
     try {
-      await saveClinicSettings(user.id, settings);
+      await saveClinicSettings(user.platform_customer_id, settings);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e: unknown) {

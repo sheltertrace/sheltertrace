@@ -47,13 +47,13 @@ function MedPageContent() {
   });
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     Promise.all([
-      fetchClinicMedical(user.id, selectedClientId || undefined),
-      fetchClinicAnimals(user.id, selectedClientId || undefined),
+      fetchClinicMedical(user.platform_customer_id, selectedClientId || undefined),
+      fetchClinicAnimals(user.platform_customer_id, selectedClientId || undefined),
     ]).then(([r, a]) => { setRecords(r); setAnimals(a); }).finally(() => setLoading(false));
-  }, [user?.id, selectedClientId]);
+  }, [user?.platform_customer_id, selectedClientId]);
 
   const filtered = useMemo(() => {
     let list = records;
@@ -63,10 +63,10 @@ function MedPageContent() {
   }, [records, filterClient, search]);
 
   const handleSave = async () => {
-    if (!form.animal_name || !form.date || !form.client_id || !user?.id) return;
+    if (!form.animal_name || !form.date || !form.client_id || !user?.platform_customer_id) return;
     setSaving(true);
     try {
-      const created = await createClinicMedical({ ...form, clinic_account_id: user.id } as Omit<ClinicMedicalRecord, "id" | "created_at">);
+      const created = await createClinicMedical({ ...form, clinic_account_id: user.platform_customer_id } as Omit<ClinicMedicalRecord, "id" | "created_at">);
       setRecords((prev) => [created, ...prev]);
       setShowForm(false);
       setForm({ date: today(), type: "Rabies Vaccine", status: "Administered", administered_by: getCurrentUserName() });

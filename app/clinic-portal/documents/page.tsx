@@ -17,13 +17,13 @@ export default function ClinicDocumentsPage() {
   const [voidReason, setVoidReason] = useState("");
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     Promise.all([
-      fetchRabiesCertificates(user.id, selectedClientId || undefined),
-      fetchClinicSettings(user.id),
+      fetchRabiesCertificates(user.platform_customer_id, selectedClientId || undefined),
+      fetchClinicSettings(user.platform_customer_id),
     ]).then(([c, s]) => { setCerts(c); setSettings(s); }).finally(() => setLoading(false));
-  }, [user?.id, selectedClientId]);
+  }, [user?.platform_customer_id, selectedClientId]);
 
   const handleVoid = async () => {
     if (!voidId || !voidReason.trim()) return;

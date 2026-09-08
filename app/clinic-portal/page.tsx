@@ -14,17 +14,17 @@ export default function ClinicDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     Promise.all([
-      fetchClinicDashboardStats(user.id, selectedClientId || undefined),
-      fetchClinicAppointments(user.id, selectedClientId || undefined),
+      fetchClinicDashboardStats(user.platform_customer_id, selectedClientId || undefined),
+      fetchClinicAppointments(user.platform_customer_id, selectedClientId || undefined),
     ]).then(([s, a]) => {
       setStats(s);
       const today = new Date().toISOString().split("T")[0];
       setUpcomingAppts(a.filter((ap) => ap.appointment_date && ap.appointment_date >= today && ap.status !== "Cancelled").slice(0, 8));
     }).finally(() => setLoading(false));
-  }, [user?.id, selectedClientId]);
+  }, [user?.platform_customer_id, selectedClientId]);
 
   const cards = [
     { label: "Animals Seen This Month", value: stats.animalsThisMonth, icon: "🐾", color: "#1a8a8a", bg: "#f0fdfa" },

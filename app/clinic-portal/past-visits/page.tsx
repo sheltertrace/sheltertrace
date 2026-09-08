@@ -39,21 +39,21 @@ export default function PastVisitsPage() {
   const [detail, setDetail] = useState<ClinicAppointment | null>(null);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     const cid = selectedClientId && !shelterLinks.find((l) => l.id === selectedClientId) ? selectedClientId : undefined;
     Promise.all([
-      fetchClinicAppointments(user.id, cid),
-      fetchClinicMedical(user.id, cid),
-      fetchClinicProcedures(user.id, cid),
-      fetchClinicSettings(user.id),
+      fetchClinicAppointments(user.platform_customer_id, cid),
+      fetchClinicMedical(user.platform_customer_id, cid),
+      fetchClinicProcedures(user.platform_customer_id, cid),
+      fetchClinicSettings(user.platform_customer_id),
     ]).then(([a, m, p, s]) => {
       setAppts(a.filter((x) => x.status === "Completed"));
       setMedRecords(m);
       setProcedures(p);
       setSettings(s);
     }).finally(() => setLoading(false));
-  }, [user?.id, selectedClientId, shelterLinks]);
+  }, [user?.platform_customer_id, selectedClientId, shelterLinks]);
 
   const clientMap = useMemo(() => {
     const m = new Map<string, string>();

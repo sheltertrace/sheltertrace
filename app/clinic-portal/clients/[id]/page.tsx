@@ -21,10 +21,10 @@ export default function ClientDetailPage() {
   const client = clients.find((c) => c.id === id);
 
   useEffect(() => {
-    if (!user?.id || !id) return;
+    if (!user?.platform_customer_id || !id) return;
     setLoading(true);
-    fetchClinicAnimals(user.id, id).then(setAnimals).finally(() => setLoading(false));
-  }, [user?.id, id]);
+    fetchClinicAnimals(user.platform_customer_id, id).then(setAnimals).finally(() => setLoading(false));
+  }, [user?.platform_customer_id, id]);
 
   if (clients.length > 0 && !client) {
     return (
@@ -170,7 +170,7 @@ export default function ClientDetailPage() {
           onClose={() => setShowAdd(false)}
           onSaved={(animal) => setAnimals((prev) => [animal, ...prev])}
           prefillClientId={id}
-          clinicAccountId={user.id}
+          clinicAccountId={user.platform_customer_id!}
           clients={clients}
           shelterLinks={shelterLinks}
         />

@@ -22,14 +22,14 @@ export default function ClinicAnimalsPage() {
   const [showAdd, setShowAdd] = useState(false);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     if (isShelterMode) {
       fetchShelterAnimals().then((a) => setAnimals(a.map((x) => ({ ...x, _source: "shelter" as const })))).finally(() => setLoading(false));
     } else {
-      fetchClinicAnimals(user.id, selectedClientId || undefined).then((a) => setAnimals(a.map((x) => ({ ...x, _source: "clinic" as const })))).finally(() => setLoading(false));
+      fetchClinicAnimals(user.platform_customer_id, selectedClientId || undefined).then((a) => setAnimals(a.map((x) => ({ ...x, _source: "clinic" as const })))).finally(() => setLoading(false));
     }
-  }, [user?.id, selectedClientId, isShelterMode]);
+  }, [user?.platform_customer_id, selectedClientId, isShelterMode]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return animals;
@@ -120,7 +120,7 @@ export default function ClinicAnimalsPage() {
           isOpen={showAdd}
           onClose={() => setShowAdd(false)}
           onSaved={(animal) => setAnimals((prev) => [{ ...animal, _source: "clinic" as const }, ...prev])}
-          clinicAccountId={user.id}
+          clinicAccountId={user.platform_customer_id!}
           clients={clients}
           shelterLinks={shelterLinks}
           prefillClientId={selectedClientId || undefined}

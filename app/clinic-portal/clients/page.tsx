@@ -31,13 +31,13 @@ export default function ClinicClientsPage() {
   const openEdit = (c: ClinicClient) => { setEditing(c); setForm({ ...c }); setShowModal(true); };
 
   const handleSave = async () => {
-    if (!form.county_name?.trim() || !user?.id) return;
+    if (!form.county_name?.trim() || !user?.platform_customer_id) return;
     setSaving(true);
     try {
       if (editing) {
         await updateClinicClient(editing.id, form);
       } else {
-        await createClinicClient({ ...form, clinic_account_id: user.id, active: true } as Omit<ClinicClient, "id" | "created_at">);
+        await createClinicClient({ ...form, clinic_account_id: user.platform_customer_id, active: true } as Omit<ClinicClient, "id" | "created_at">);
       }
       await refreshClients();
       setShowModal(false);

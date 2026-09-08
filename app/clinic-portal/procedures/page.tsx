@@ -37,13 +37,13 @@ function ProcPageContent() {
   });
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.platform_customer_id) return;
     setLoading(true);
     Promise.all([
-      fetchClinicProcedures(user.id, selectedClientId || undefined),
-      fetchClinicAnimals(user.id, selectedClientId || undefined),
+      fetchClinicProcedures(user.platform_customer_id, selectedClientId || undefined),
+      fetchClinicAnimals(user.platform_customer_id, selectedClientId || undefined),
     ]).then(([p, a]) => { setProcs(p); setAnimals(a); }).finally(() => setLoading(false));
-  }, [user?.id, selectedClientId]);
+  }, [user?.platform_customer_id, selectedClientId]);
 
   const filtered = useMemo(() => {
     let list = procs;
@@ -52,10 +52,10 @@ function ProcPageContent() {
   }, [procs, search]);
 
   const handleSave = async () => {
-    if (!form.animal_name || !form.procedure_date || !form.client_id || !user?.id) return;
+    if (!form.animal_name || !form.procedure_date || !form.client_id || !user?.platform_customer_id) return;
     setSaving(true);
     try {
-      const created = await createClinicProcedure({ ...form, clinic_account_id: user.id } as Omit<ClinicProcedure, "id" | "created_at">);
+      const created = await createClinicProcedure({ ...form, clinic_account_id: user.platform_customer_id } as Omit<ClinicProcedure, "id" | "created_at">);
       // Auto-update animal fixed status for spay/neuter
       if (form.procedure_type === "Spay (OHE)" || form.procedure_type === "Neuter (Castration)") {
         const linkedAnimal = animals.find((a) => a.name === form.animal_name && a.client_id === form.client_id);
