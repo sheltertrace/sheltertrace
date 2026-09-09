@@ -1,10 +1,10 @@
 "use client";
 import { supabase } from "./supabase";
-import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation, PersonNote, WitnessStatement, NarrativeEntry } from "./types";
+import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation, PersonNote, WitnessStatement, NarrativeEntry, StaffAccount } from "./types";
 import type { IdexxConfig } from "./idexx";
 import { genId, genReceiptId, today, nowTime } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
-import { CURRENT_USER_KEY } from "./auth";
+import { CURRENT_USER_KEY, getCurrentUser } from "./auth";
 import { nullifyEmptyDates, nullifyEmptyBooleans } from "./sanitize";
 
 // Optional DATE columns per table — empty strings must become null for Postgres.
@@ -1053,29 +1053,67 @@ export async function createAdoption(record: Partial<AdoptionRecord>): Promise<A
   return data as AdoptionRecord;
 }
 
+// ── Staff Scope ──────────────────────────────────────────────────────────────
+// The single source of truth for "which staff_accounts rows belong to this
+// customer." Every officer/staff list on the shelter or clinic side must
+// route through one of these two — never query staff_accounts directly for
+// a list of people — so a clinic account (or a different shelter, once
+// there's more than one) can never leak into another customer's staff
+// pickers again. customerId defaults to the current session's own
+// platform_customer_id when omitted. Pass activeOnly: false for a staff
+// MANAGEMENT list (admin/team pages) that also needs to show and re-enable
+// disabled accounts — every assignable-officer/dropdown use should leave it
+// at the default (true).
+export async function getShelterStaff(customerId?: string, opts?: { activeOnly?: boolean }): Promise<StaffAccount[]> {
+  const scopeId = customerId ?? getCurrentUser()?.platform_customer_id;
+  const activeOnly = opts?.activeOnly ?? true;
+  let q = supabase.from("staff_accounts").select("*").eq("account_type", "shelter");
+  if (activeOnly) q = q.eq("active", true);
+  if (scopeId) {
+    // Rows that predate the platform_customer_id backfill are treated as
+    // belonging to the (today, only) shelter customer rather than excluded.
+    q = q.or(`platform_customer_id.is.null,platform_customer_id.eq.${scopeId}`);
+  }
+  const { data, error } = await q.order("last_name").order("first_name");
+  if (error) { console.error("[getShelterStaff]", error.message); return []; }
+  return (data as StaffAccount[]) || [];
+}
+
+export async function getClinicStaff(customerId?: string, opts?: { activeOnly?: boolean }): Promise<StaffAccount[]> {
+  const scopeId = customerId ?? getCurrentUser()?.platform_customer_id;
+  if (!scopeId) return [];
+  const activeOnly = opts?.activeOnly ?? true;
+  let q = supabase.from("staff_accounts").select("*").eq("account_type", "clinic").eq("platform_customer_id", scopeId);
+  if (activeOnly) q = q.eq("active", true);
+  const { data, error } = await q
+    .order("first_name")
+    .order("last_name");
+  if (error) { console.error("[getClinicStaff]", error.message); return []; }
+  return (data as StaffAccount[]) || [];
+}
+
 // ── Officers ──────────────────────────────────────────────────────────────────
 const OFFICER_ROLES = ["Officer", "Field Officer", "Dispatcher", "Shelter Manager", "Administrator", "Animal Control Officer"];
 
 export async function fetchOfficers(): Promise<Officer[]> {
-  const [officersRes, staffRes] = await Promise.all([
+  const [officersRes, staffRows] = await Promise.all([
     supabase.from("officers").select("*").order("name"),
-    supabase.from("staff_accounts").select("*").eq("active", true).order("last_name"),
+    getShelterStaff(),
   ]);
 
   const officerRows = (officersRes.data as Officer[]) || [];
 
   // Map active staff into Officer shape — exclude Volunteers
-  const staffRows = (staffRes.data as Array<Record<string, unknown>>) || [];
   const staffOfficers: Officer[] = staffRows
-    .filter((s) => (s.role as string || "").toLowerCase() !== "volunteer")
+    .filter((s) => (s.role || "").toLowerCase() !== "volunteer")
     .map((s) => ({
-      id: `staff-${s.id as string}`,
+      id: `staff-${s.id}`,
       name: `${s.first_name || ""} ${s.last_name || ""}`.trim(),
-      badge: (s.badge as string) || "",
+      badge: s.badge || "",
       status: "Available",
       vehicle: "",
       zone: "",
-      phone: (s.phone as string) || "",
+      phone: s.phone || "",
       shift: "",
     }));
 
@@ -1258,20 +1296,15 @@ export async function deleteAnimalDocument(doc: AnimalDocument): Promise<void> {
 }
 
 // ── Staff Options ──────────────────────────────────────────────────────────────
-// Returns a sorted "First Last" list for vet/staff dropdowns.
-// Source: staff_accounts only — active accounts that are not Volunteers.
+// Returns a sorted "First Last" list for vet/staff dropdowns (StaffSelect),
+// scoped to the current logged-in user's own portal — shelter staff for a
+// shelter session, clinic staff for a clinic session — active accounts that
+// are not Volunteers.
 export async function fetchStaffOptions(): Promise<string[]> {
   try {
-    type NameRow = { first_name?: string | null; last_name?: string | null; role?: string | null };
-
-    const { data } = await supabase
-      .from("staff_accounts")
-      .select("first_name, last_name, role")
-      .eq("active", true)
-      .order("last_name")
-      .order("first_name");
-
-    return ((data as NameRow[] | null) ?? [])
+    const cu = getCurrentUser();
+    const rows = cu?.account_type === "clinic" ? await getClinicStaff() : await getShelterStaff();
+    return rows
       .filter((p) => (p.role || "").toLowerCase() !== "volunteer")
       .map((p) => [p.first_name, p.last_name].filter(Boolean).join(" ").trim())
       .filter(Boolean)

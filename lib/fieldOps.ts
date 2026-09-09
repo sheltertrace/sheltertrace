@@ -1,35 +1,23 @@
 "use client";
 
 import { supabase } from "./supabase";
+import { getShelterStaff } from "./data";
 import type { FieldActivity, FieldStatus, LocationHistory, OfficerFieldProfile } from "./types";
 
 export async function fetchOfficerFieldStatuses(): Promise<OfficerFieldProfile[]> {
   console.log("[field-ops] fetching officers from staff_accounts...");
-  const { data, error } = await supabase
-    .from("staff_accounts")
-    .select("*")
-    .eq("active", true)
-    .neq("role", "Volunteer")
-    .order("last_name")
-    .order("first_name");
+  const staff = await getShelterStaff();
+  const officers = staff.filter((s) => (s.role || "").toLowerCase() !== "volunteer") as unknown as OfficerFieldProfile[];
 
-  console.log("[field-ops] officers result:", data, "error:", error);
-  if (data) {
-    console.log("[field-ops] officers with status:", (data as OfficerFieldProfile[]).map((o) => ({
-      name: `${o.first_name} ${o.last_name}`,
-      status: o.current_field_status,
-      lat: o.last_location_lat,
-      lng: o.last_location_lng,
-      tracking: o.tracking_active,
-    })));
-  }
+  console.log("[field-ops] officers with status:", officers.map((o) => ({
+    name: `${o.first_name} ${o.last_name}`,
+    status: o.current_field_status,
+    lat: o.last_location_lat,
+    lng: o.last_location_lng,
+    tracking: o.tracking_active,
+  })));
 
-  if (error) {
-    console.error("[field-ops] Supabase error:", error.message, error.details, error.hint);
-    return [];
-  }
-
-  return ((data as OfficerFieldProfile[] | null) ?? []).map((p) => ({
+  return officers.map((p) => ({
     ...p,
     current_field_status: (p.current_field_status as FieldStatus) || "Off Duty",
   }));

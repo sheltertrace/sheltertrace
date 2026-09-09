@@ -6,6 +6,7 @@ import type {
   ClinicRabiesCertificate, ClinicSettings, ClinicPerson, ClinicAnimalPerson,
 } from "./clinicTypes";
 import type { StaffAccount } from "./types";
+import { getClinicStaff } from "./data";
 
 // ── Clients ──────────────────────────────────────────────────────────────────
 
@@ -275,8 +276,8 @@ export async function changePassword(userId: string, currentPassword: string, ne
 // ── Clinic Employee Management ───────────────────────────────────────────────
 
 export async function fetchClinicEmployees(platformCustomerId: string): Promise<StaffAccount[]> {
-  const { data } = await supabase.from("staff_accounts").select("*").eq("platform_customer_id", platformCustomerId).order("first_name");
-  return (data || []) as StaffAccount[];
+  // Team management needs to see (and re-enable) disabled employees too.
+  return getClinicStaff(platformCustomerId, { activeOnly: false });
 }
 
 export async function createClinicEmployee(employee: Record<string, unknown>): Promise<StaffAccount> {

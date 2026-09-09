@@ -4,6 +4,7 @@
 type Row = Record<string, any>;
 
 import { supabase } from "./supabase";
+import { getShelterStaff } from "./data";
 import type { Conversation, Message } from "./types";
 
 // ── Conversations ──────────────────────────────────────────────────────────────
@@ -204,17 +205,14 @@ export interface StaffPickerEntry {
 }
 
 export async function fetchStaffForMessaging(): Promise<StaffPickerEntry[]> {
-  const { data } = await supabase
-    .from("staff_accounts")
-    .select("id, first_name, last_name, username, role, badge")
-    .eq("active", true)
-    .neq("role", "Volunteer")
-    .order("last_name");
+  const staff = await getShelterStaff();
 
-  return ((data as Row[]) ?? []).map((s) => ({
-    id:          s.id          as string,
-    displayName: (`${s.first_name ?? ""} ${s.last_name ?? ""}`).trim() || (s.username as string),
-    role:        s.role        as string,
-    badge:       s.badge       as string | undefined,
-  }));
+  return staff
+    .filter((s) => (s.role || "").toLowerCase() !== "volunteer")
+    .map((s) => ({
+      id:          s.id,
+      displayName: (`${s.first_name ?? ""} ${s.last_name ?? ""}`).trim() || s.username,
+      role:        s.role,
+      badge:       s.badge,
+    }));
 }

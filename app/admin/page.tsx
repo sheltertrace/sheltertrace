@@ -4,7 +4,7 @@ import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/lib/supabase";
 import type { StaffAccount, CourtSettings, ShelterSettings } from "@/lib/types";
 import { genId, today } from "@/lib/utils";
-import { fetchAnimals, fetchCalls, fetchPeople, fetchCourtSettings, saveCourtSettings, fetchShelterSettings, saveShelterSettings, fetchIdexxConfig, saveIdexxConfig, fetchIdexxOrders } from "@/lib/data";
+import { fetchAnimals, fetchCalls, fetchPeople, fetchCourtSettings, saveCourtSettings, fetchShelterSettings, saveShelterSettings, fetchIdexxConfig, saveIdexxConfig, fetchIdexxOrders, getShelterStaff } from "@/lib/data";
 import type { Animal, DispatchCall, Person, MedicalRecord } from "@/lib/types";
 import type { IdexxConfig } from "@/lib/idexx";
 import { IDEXX_TEST_CODES } from "@/lib/idexx";
@@ -141,14 +141,14 @@ export default function AdminPage() {
   const load = useCallback(async () => {
     try {
       const [staffResult, cs, ss, idexx] = await Promise.allSettled([
-        supabase.from("staff_accounts").select("*").order("created_at"),
+        getShelterStaff(undefined, { activeOnly: false }),
         fetchCourtSettings(),
         fetchShelterSettings(),
         fetchIdexxConfig(),
       ]);
       if (staffResult.status === "fulfilled") {
-        const { data } = staffResult.value as { data: StaffAccount[] | null };
-        setStaff(((data as StaffAccount[]) || []).map((s) => ({
+        const data = staffResult.value as StaffAccount[];
+        setStaff((data || []).map((s) => ({
           ...s,
           firstName: s.first_name || s.firstName,
           lastName: s.last_name || s.lastName,
@@ -300,6 +300,7 @@ export default function AdminPage() {
         badge: newData.badge.trim() || null,
         permissions: permsForRole(newData.role) ?? newData.permissions,
         active: true,
+        account_type: "shelter",
       };
       const { error } = await (supabase as any).from("staff_accounts").insert([rec]);
       if (error) throw error;

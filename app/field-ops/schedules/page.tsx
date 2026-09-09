@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { getShelterStaff } from "@/lib/data";
 import {
   fetchSchedules,
   fetchOverrides,
@@ -273,15 +273,13 @@ export default function SchedulesPage() {
   }, []);
 
   const load = useCallback(async () => {
-    const [staffResult, sched, ovr] = await Promise.all([
-      supabase.from("staff_accounts").select("*").eq("active", true).neq("role", "Volunteer").order("last_name"),
+    const [staffData, sched, ovr] = await Promise.all([
+      getShelterStaff(),
       fetchSchedules(),
       fetchOverrides({ from: todayStr }),
     ]);
-    const { data: staffData, error: staffErr } = staffResult;
-    console.log("[on-call] staff query result:", staffData, staffErr);
-    if (staffErr) console.error("[schedules load] staff error:", staffErr.message, staffErr.details);
-    const staff = (staffData as StaffRow[] | null) ?? [];
+    console.log("[on-call] staff query result:", staffData);
+    const staff = staffData.filter((s) => (s.role || "").toLowerCase() !== "volunteer") as unknown as StaffRow[];
     setOfficers(staff);
     setSchedules(sched);
     setOverrides(ovr);
