@@ -524,7 +524,7 @@ export default function FieldIntakeWizard({ officer, prefillCallId, prefillAddre
   // ── Confirmation screen ────────────────────────────────────────────────────────
   if (submitted) {
     return (
-      <div style={{ minHeight: onClose ? undefined : "100dvh", background: "#0f2942", color: "#e2e8f0", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", borderRadius: onClose ? 14 : undefined, maxHeight: onClose ? "90vh" : undefined, overflowY: onClose ? "auto" : undefined }}>
+      <div style={{ minHeight: onClose ? undefined : "100dvh", background: "#0f2942", color: "#e2e8f0", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", maxHeight: onClose ? "90vh" : undefined, overflowY: onClose ? "auto" : undefined }}>
         <Screen>
           <div style={{ textAlign: "center", paddingTop: 30 }}>
             <div style={{ fontSize: 56, marginBottom: 16 }}>{submitted.queued ? "📶" : "✅"}</div>
@@ -576,11 +576,11 @@ export default function FieldIntakeWizard({ officer, prefillCallId, prefillAddre
 
   // ── Main wizard ─────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: onClose ? undefined : "100dvh", maxHeight: onClose ? "90vh" : undefined, overflowY: onClose ? "auto" : undefined, background: "#0f2942", color: "#e2e8f0", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", borderRadius: onClose ? 14 : undefined }}>
+    <div style={{ minHeight: onClose ? undefined : "100dvh", maxHeight: onClose ? "90vh" : undefined, overflowY: onClose ? "auto" : undefined, background: "#0f2942", color: "#e2e8f0", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif" }}>
       <style>{`* { box-sizing: border-box; } input, select, textarea { font-family: inherit; }`}</style>
 
       {/* Top bar */}
-      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "#071e33", padding: "12px 16px", borderBottom: "1px solid #1a3a5c", display: "flex", alignItems: "center", gap: 10, borderRadius: onClose ? "14px 14px 0 0" : undefined }}>
+      <div style={{ position: "sticky", top: 0, zIndex: 50, background: "#071e33", padding: "12px 16px", borderBottom: "1px solid #1a3a5c", display: "flex", alignItems: "center", gap: 10 }}>
         {onClose ? (
           <button onClick={onClose} style={{ background: "none", border: "none", color: "#7fc6c6", fontSize: 20, cursor: "pointer", padding: 0 }}>✕</button>
         ) : (
