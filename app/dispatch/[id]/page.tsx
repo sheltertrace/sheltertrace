@@ -10,6 +10,7 @@ import type { DispatchCall, Person, Officer, InvolvedParty, EvidenceItem, Narrat
 import dynamic from "next/dynamic";
 const MiniDispatchMap  = dynamic(() => import("@/components/map/MiniDispatchMap"),       { ssr: false });
 const AddAnimalToCallModal = dynamic(() => import("@/components/dispatch/AddAnimalToCallModal"), { ssr: false });
+const FieldIntakeModal = dynamic(() => import("@/components/dispatch/FieldIntakeModal"), { ssr: false });
 import DangerAlertModal, { type DangerAlertBlock } from "@/components/dispatch/DangerAlertModal";
 import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS, FOLLOW_UP_ELIGIBLE_STATUSES, CALL_ANIMAL_ROLES, SCENE_ANIMAL_SPECIES, SCENE_ANIMAL_SEX, SCENE_ANIMAL_OWNERS, SCENE_ANIMAL_TEMPERAMENTS, CALL_PERSON_ROLES } from "@/lib/constants";
 import FollowUpModal from "@/components/dispatch/FollowUpModal";
@@ -135,6 +136,7 @@ function CallDetailPageInner() {
   const [callAnimalLinks, setCallAnimalLinks] = useState<DispatchCallAnimal[]>([]);
   const [callBiteReports, setCallBiteReports] = useState<BiteReport[]>([]);
   const [showAddAnimalModal, setShowAddAnimalModal] = useState(false);
+  const [showFieldIntakeModal, setShowFieldIntakeModal] = useState(false);
   const [editingCallAnimalId, setEditingCallAnimalId] = useState<string | null>(null);
   const [editCallAnimalRole, setEditCallAnimalRole] = useState("");
   const [editCallAnimalNotes, setEditCallAnimalNotes] = useState("");
@@ -1956,11 +1958,20 @@ function CallDetailPageInner() {
       {showAddAnimalModal && call && (
         <AddAnimalToCallModal
           callId={call.id}
-          callAddress={call.address}
           existingLinks={callAnimalLinks}
           onLinked={() => { setShowAddAnimalModal(false); reloadCallAnimals(); showToast("Animal linked to call"); }}
           onSceneAnimalAdded={() => { setShowAddAnimalModal(false); reloadCallAnimals(); showToast("Scene animal added"); }}
+          onStartFieldIntake={() => { setShowAddAnimalModal(false); setShowFieldIntakeModal(true); }}
           onClose={() => setShowAddAnimalModal(false)}
+        />
+      )}
+
+      {showFieldIntakeModal && call && (
+        <FieldIntakeModal
+          callId={call.id}
+          callAddress={call.address}
+          onIntakeComplete={() => { reloadCallAnimals(); showToast("Animal intake complete and linked to call"); }}
+          onClose={() => setShowFieldIntakeModal(false)}
         />
       )}
 

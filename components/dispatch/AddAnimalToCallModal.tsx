@@ -11,14 +11,14 @@ import SceneAnimalFields from "./SceneAnimalFields";
 
 interface Props {
   callId: string;
-  callAddress?: string;
   existingLinks: DispatchCallAnimal[];
   onLinked: () => void;
   onSceneAnimalAdded: () => void;
+  onStartFieldIntake: () => void;
   onClose: () => void;
 }
 
-export default function AddAnimalToCallModal({ callId, callAddress, existingLinks, onLinked, onSceneAnimalAdded, onClose }: Props) {
+export default function AddAnimalToCallModal({ callId, existingLinks, onLinked, onSceneAnimalAdded, onStartFieldIntake, onClose }: Props) {
   const [tab, setTab] = useState<"link" | "intake" | "scene">("link");
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<AnimalSearchMatch[]>([]);
@@ -85,16 +85,6 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
     } finally {
       setSaving(false);
     }
-  };
-
-  const startFieldIntake = () => {
-    const params = new URLSearchParams({
-      callId,
-      address: callAddress || "",
-      officer: getCurrentUserName(),
-    });
-    window.open(`/officer/field-intake?${params.toString()}`, "_blank");
-    onClose();
   };
 
   const handleSaveSceneAnimal = async () => {
@@ -244,7 +234,7 @@ export default function AddAnimalToCallModal({ callId, callAddress, existingLink
                 Opens the field intake wizard pre-filled with this call&apos;s location and your officer info.
                 When the intake is saved, the new animal record is automatically linked back to this call.
               </div>
-              <button className="btn btn-primary" onClick={startFieldIntake}>🚀 Start Field Intake</button>
+              <button className="btn btn-primary" onClick={onStartFieldIntake}>🚀 Start Field Intake</button>
             </div>
           )}
 
