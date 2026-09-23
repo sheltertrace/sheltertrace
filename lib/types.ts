@@ -375,6 +375,10 @@ export interface EvidenceItem {
   file_type?: string;
   notes?: string;
   date: string;
+  // Recorded from now on so a Court Packet can caption who added a file and
+  // when; older items only have `date`.
+  uploaded_by?: string;
+  uploaded_at?: string;
 }
 
 export interface InvolvedParty {

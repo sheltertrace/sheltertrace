@@ -2861,3 +2861,19 @@ export async function fetchIdexxOrders(): Promise<MedicalRecord[]> {
   } catch { return []; }
 }
 
+
+// ── Court packet audit log ────────────────────────────────────────────────────
+// One row per generated packet (chain of custody): who, when, which sections,
+// how many pages, and why. Never per-shelter feature data in platform_audit_log.
+export interface CourtPacketLogEntry {
+  dispatch_call_id: string;
+  generated_by: string;
+  sections_included: Array<{ id: string; label: string; startPage: number; pages: number }>;
+  page_count: number;
+  reason?: string;
+}
+
+export async function logCourtPacket(entry: CourtPacketLogEntry): Promise<void> {
+  const { error } = await supabase.from("court_packet_log").insert({ ...entry, reason: entry.reason || null });
+  if (error) throw error;
+}

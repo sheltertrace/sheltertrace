@@ -11,12 +11,14 @@ import dynamic from "next/dynamic";
 const MiniDispatchMap  = dynamic(() => import("@/components/map/MiniDispatchMap"),       { ssr: false });
 const AddAnimalToCallModal = dynamic(() => import("@/components/dispatch/AddAnimalToCallModal"), { ssr: false });
 const FieldIntakeModal = dynamic(() => import("@/components/dispatch/FieldIntakeModal"), { ssr: false });
+const CourtPacketDialog = dynamic(() => import("@/components/dispatch/CourtPacketDialog"), { ssr: false });
 import DangerAlertModal, { type DangerAlertBlock } from "@/components/dispatch/DangerAlertModal";
 import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS, FOLLOW_UP_ELIGIBLE_STATUSES, CALL_ANIMAL_ROLES, SCENE_ANIMAL_SPECIES, SCENE_ANIMAL_SEX, SCENE_ANIMAL_OWNERS, SCENE_ANIMAL_TEMPERAMENTS, CALL_PERSON_ROLES } from "@/lib/constants";
 import FollowUpModal from "@/components/dispatch/FollowUpModal";
 import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/app/providers";
+import { canGenerateCourtPacket } from "@/lib/permissions";
 import DragDropUpload from "@/components/ui/DragDropUpload";
 import PersonSearchRow from "@/components/dispatch/PersonSearchRow";
 const AddPersonToCallModal = dynamic(() => import("@/components/dispatch/AddPersonToCallModal"), { ssr: false });
@@ -137,6 +139,7 @@ function CallDetailPageInner() {
   const [callBiteReports, setCallBiteReports] = useState<BiteReport[]>([]);
   const [showAddAnimalModal, setShowAddAnimalModal] = useState(false);
   const [showFieldIntakeModal, setShowFieldIntakeModal] = useState(false);
+  const [showCourtPacket, setShowCourtPacket] = useState(false);
   const [editingCallAnimalId, setEditingCallAnimalId] = useState<string | null>(null);
   const [editCallAnimalRole, setEditCallAnimalRole] = useState("");
   const [editCallAnimalNotes, setEditCallAnimalNotes] = useState("");
@@ -524,7 +527,7 @@ function CallDetailPageInner() {
       if (!storageError) {
         const { data: urlData } = supabase.storage.from("evidence").getPublicUrl(path);
         console.log("[evidence upload] public URL:", urlData.publicUrl);
-        uploaded.push({ id: genId(), file_name: item.file.name, file_url: urlData.publicUrl, file_type: item.file.type, notes: item.notes, type: item.file.type.startsWith("image") ? "Photo" : "Document", description: item.notes || item.file.name, date: today(), url: urlData.publicUrl });
+        uploaded.push({ id: genId(), file_name: item.file.name, file_url: urlData.publicUrl, file_type: item.file.type, notes: item.notes, type: item.file.type.startsWith("image") ? "Photo" : "Document", description: item.notes || item.file.name, date: today(), url: urlData.publicUrl, uploaded_by: getNarrativeAuthor(), uploaded_at: new Date().toISOString() });
       }
     }));
     return uploaded;
@@ -1259,10 +1262,8 @@ function CallDetailPageInner() {
   };
 
   // ── Print Call Review ─────────────────────────────────────────────────────
-  const printCallReview = () => {
-    if (!call) return;
-    const w = window.open("", "_blank", "width=860,height=1100");
-    if (!w) return;
+  const buildCallReviewHtml = (): string => {
+    if (!call) return "";
 
     const fld = (label: string, val?: string | null) =>
       val ? `<div style="display:flex;gap:12px;padding:5px 0;border-bottom:1px solid #f1f5f9;font-size:12px;"><span style="width:140px;flex-shrink:0;color:#64748b;font-weight:600;">${label}</span><span style="color:#0f172a;">${val}</span></div>` : "";
@@ -1387,7 +1388,7 @@ function CallDetailPageInner() {
           </div>`).join("")}
       </section>`;
 
-    w.document.write(`<!DOCTYPE html><html><head>
+    return `<!DOCTYPE html><html><head>
 <title>Call Review — ${call.id}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
@@ -1493,17 +1494,23 @@ function CallDetailPageInner() {
     </div>
   </div>
 
-</body></html>`);
+</body></html>`;
+  };
+
+  const printCallReview = () => {
+    const html = buildCallReviewHtml();
+    if (!html) return;
+    const w = window.open("", "_blank", "width=860,height=1100");
+    if (!w) return;
+    w.document.write(html);
     w.document.close();
   };
 
   // Full narrative audit trail (every prior version of every edited entry) —
   // a separate print, kept off the standard Call Review, for cases like court
   // discovery where the full edit history needs to be produced.
-  const printNarrativeEditHistory = () => {
-    if (!call) return;
-    const w = window.open("", "_blank", "width=860,height=1100");
-    if (!w) return;
+  const buildNarrativeHistoryHtml = (): string => {
+    if (!call) return "";
 
     const editedEntries = liveNarrative.filter((n) => n.edited);
 
@@ -1523,7 +1530,7 @@ function CallDetailPageInner() {
         </section>`;
       }).join("");
 
-    w.document.write(`<!DOCTYPE html><html><head>
+    return `<!DOCTYPE html><html><head>
 <title>Narrative Edit History — ${call.id}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
@@ -1557,7 +1564,15 @@ function CallDetailPageInner() {
 
   ${entryHtml}
 
-</body></html>`);
+</body></html>`;
+  };
+
+  const printNarrativeEditHistory = () => {
+    const html = buildNarrativeHistoryHtml();
+    if (!html) return;
+    const w = window.open("", "_blank", "width=860,height=1100");
+    if (!w) return;
+    w.document.write(html);
     w.document.close();
   };
 
@@ -1614,6 +1629,11 @@ function CallDetailPageInner() {
           <button className="btn btn-secondary btn-sm" onClick={printNarrativeEditHistory} title="Print the full narrative edit audit trail (e.g. for court)">
             🖨 Print Narrative Edit History
           </button>
+          {canGenerateCourtPacket(user, call) && (
+            <button className="btn btn-secondary btn-sm" onClick={() => setShowCourtPacket(true)} title="Compile every record on this call into one court-ready PDF">
+              📁 Print Court Packet
+            </button>
+          )}
           <button className="btn btn-secondary btn-sm" onClick={handleSaveProgress} disabled={saveState === "saving"}>
             💾 Save
           </button>
@@ -1963,6 +1983,20 @@ function CallDetailPageInner() {
           onSceneAnimalAdded={() => { setShowAddAnimalModal(false); reloadCallAnimals(); showToast("Scene animal added"); }}
           onStartFieldIntake={() => { setShowAddAnimalModal(false); setShowFieldIntakeModal(true); }}
           onClose={() => setShowAddAnimalModal(false)}
+        />
+      )}
+
+      {showCourtPacket && call && user && (
+        <CourtPacketDialog
+          inputs={{
+            call, callNumber: call.id, status: data.status, people: callPeopleLinks, animalLinks: callAnimalLinks,
+            citations: callCitations, biteReports: callBiteReports, witnessStatements, forms: callForms, narrative: liveNarrative,
+            buildCallReviewHtml, buildNarrativeHistoryHtml,
+          }}
+          user={user}
+          // Only the evidence list changes — never applyFreshCall here, which would overwrite unsaved wizard edits.
+          onSaved={() => { fetchCall(id).then((c) => { if (c) setCall((prev) => (prev ? { ...prev, evidence: c.evidence } : prev)); }).catch(() => {}); }}
+          onClose={() => setShowCourtPacket(false)}
         />
       )}
 
