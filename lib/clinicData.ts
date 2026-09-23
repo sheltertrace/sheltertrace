@@ -7,6 +7,17 @@ import type {
 } from "./clinicTypes";
 import type { StaffAccount } from "./types";
 import { getClinicStaff } from "./data";
+import { getCurrentUser } from "./auth";
+
+// The one place a clinic record's clinic_account_id comes from: the logged-in
+// user's clinic (platform_customer_id), shared by everyone at the clinic —
+// never their individual staff_accounts.id. Every createClinic* below stamps
+// this itself, so a call site can't write the wrong scope even by accident.
+export function getClinicScopeId(): string {
+  const id = getCurrentUser()?.platform_customer_id;
+  if (!id) throw new Error("Your account isn't linked to a clinic — contact an administrator.");
+  return id;
+}
 
 // ── Clients ──────────────────────────────────────────────────────────────────
 
@@ -15,15 +26,41 @@ export async function fetchClinicClients(accountId: string): Promise<ClinicClien
   return (data || []) as ClinicClient[];
 }
 
+export class DuplicateClinicClientError extends Error {
+  constructor(public countyName: string) {
+    super(`${countyName} already exists for your clinic`);
+    this.name = "DuplicateClinicClientError";
+  }
+}
+
+// Case-insensitive, matching the uq_clinic_client_name index
+// (clinic_account_id, lower(county_name)). Includes inactive clients — the
+// index does too.
+export async function findClinicClientByName(countyName: string, excludeId?: string): Promise<ClinicClient | null> {
+  const name = countyName.trim().toLowerCase();
+  if (!name) return null;
+  const { data } = await supabase.from("clinic_clients").select("*").eq("clinic_account_id", getClinicScopeId());
+  return ((data || []) as ClinicClient[]).find((c) => c.id !== excludeId && (c.county_name || "").trim().toLowerCase() === name) || null;
+}
+
 export async function createClinicClient(client: Omit<ClinicClient, "id" | "created_at">): Promise<ClinicClient> {
-  const { data, error } = await supabase.from("clinic_clients").insert(client).select().single();
-  if (error) throw error;
+  const dup = await findClinicClientByName(client.county_name);
+  if (dup) throw new DuplicateClinicClientError(dup.county_name);
+  const { data, error } = await supabase.from("clinic_clients")
+    .insert({ ...client, county_name: client.county_name.trim(), clinic_account_id: getClinicScopeId() }).select().single();
+  // 23505 = unique_violation: lost a race against a coworker adding the same county
+  if (error) throw error.code === "23505" ? new DuplicateClinicClientError(client.county_name.trim()) : error;
   return data as ClinicClient;
 }
 
 export async function updateClinicClient(id: string, updates: Partial<ClinicClient>): Promise<ClinicClient> {
+  if (updates.county_name !== undefined) {
+    const dup = await findClinicClientByName(updates.county_name, id);
+    if (dup) throw new DuplicateClinicClientError(dup.county_name);
+    updates = { ...updates, county_name: updates.county_name.trim() };
+  }
   const { data, error } = await supabase.from("clinic_clients").update(updates).eq("id", id).select().single();
-  if (error) throw error;
+  if (error) throw error.code === "23505" ? new DuplicateClinicClientError((updates.county_name || "").trim()) : error;
   return data as ClinicClient;
 }
 
@@ -37,7 +74,7 @@ export async function fetchClinicAnimals(accountId: string, clientId?: string): 
 }
 
 export async function createClinicAnimal(animal: Omit<ClinicAnimal, "id" | "created_at" | "updated_at">): Promise<ClinicAnimal> {
-  const { data, error } = await supabase.from("clinic_animals").insert(animal).select().single();
+  const { data, error } = await supabase.from("clinic_animals").insert({ ...animal, clinic_account_id: getClinicScopeId() }).select().single();
   if (error) throw error;
   return data as ClinicAnimal;
 }
@@ -58,7 +95,7 @@ export async function fetchClinicAppointments(accountId: string, clientId?: stri
 }
 
 export async function createClinicAppointment(appt: Omit<ClinicAppointment, "id" | "created_at">): Promise<ClinicAppointment> {
-  const { data, error } = await supabase.from("clinic_appointments").insert(appt).select().single();
+  const { data, error } = await supabase.from("clinic_appointments").insert({ ...appt, clinic_account_id: getClinicScopeId() }).select().single();
   if (error) throw error;
   return data as ClinicAppointment;
 }
@@ -80,7 +117,7 @@ export async function fetchClinicMedical(accountId: string, clientId?: string, a
 }
 
 export async function createClinicMedical(rec: Omit<ClinicMedicalRecord, "id" | "created_at">): Promise<ClinicMedicalRecord> {
-  const { data, error } = await supabase.from("clinic_medical_records").insert(rec).select().single();
+  const { data, error } = await supabase.from("clinic_medical_records").insert({ ...rec, clinic_account_id: getClinicScopeId() }).select().single();
   if (error) throw error;
   return data as ClinicMedicalRecord;
 }
@@ -102,7 +139,7 @@ export async function fetchClinicProcedures(accountId: string, clientId?: string
 }
 
 export async function createClinicProcedure(proc: Omit<ClinicProcedure, "id" | "created_at">): Promise<ClinicProcedure> {
-  const { data, error } = await supabase.from("clinic_procedures").insert(proc).select().single();
+  const { data, error } = await supabase.from("clinic_procedures").insert({ ...proc, clinic_account_id: getClinicScopeId() }).select().single();
   if (error) throw error;
   return data as ClinicProcedure;
 }
@@ -123,7 +160,7 @@ export async function fetchClinicInvoices(accountId: string, clientId?: string):
 }
 
 export async function createClinicInvoice(inv: Omit<ClinicInvoice, "id" | "created_at">): Promise<ClinicInvoice> {
-  const { data, error } = await supabase.from("clinic_invoices").insert(inv).select().single();
+  const { data, error } = await supabase.from("clinic_invoices").insert({ ...inv, clinic_account_id: getClinicScopeId() }).select().single();
   if (error) throw error;
   return data as ClinicInvoice;
 }
@@ -150,7 +187,7 @@ export async function fetchClinicEmails(accountId: string, clientId?: string): P
 }
 
 export async function createClinicEmail(email: Omit<ClinicEmail, "id" | "created_at">): Promise<ClinicEmail> {
-  const { data, error } = await supabase.from("clinic_emails").insert(email).select().single();
+  const { data, error } = await supabase.from("clinic_emails").insert({ ...email, clinic_account_id: getClinicScopeId() }).select().single();
   if (error) throw error;
   return data as ClinicEmail;
 }
@@ -213,7 +250,7 @@ export async function fetchRabiesCertificates(accountId: string, clientId?: stri
 }
 
 export async function createRabiesCertificate(cert: Omit<ClinicRabiesCertificate, "id" | "issued_at">): Promise<ClinicRabiesCertificate> {
-  const { data, error } = await supabase.from("clinic_rabies_certificates").insert(cert).select().single();
+  const { data, error } = await supabase.from("clinic_rabies_certificates").insert({ ...cert, clinic_account_id: getClinicScopeId() }).select().single();
   if (error) throw error;
   return data as ClinicRabiesCertificate;
 }
@@ -306,7 +343,7 @@ export async function fetchClinicPeople(accountId: string, clientId?: string): P
 }
 
 export async function createClinicPerson(person: Omit<ClinicPerson, "id" | "created_at">): Promise<ClinicPerson> {
-  const { data, error } = await supabase.from("clinic_people").insert(person).select().single();
+  const { data, error } = await supabase.from("clinic_people").insert({ ...person, clinic_account_id: getClinicScopeId() }).select().single();
   if (error) throw error;
   return data as ClinicPerson;
 }

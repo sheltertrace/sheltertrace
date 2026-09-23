@@ -3,7 +3,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/app/providers";
 import { useClinic } from "@/components/clinic/ClinicShell";
-import { createClinicClient, updateClinicClient } from "@/lib/clinicData";
+import { createClinicClient, updateClinicClient, DuplicateClinicClientError } from "@/lib/clinicData";
 import type { ClinicClient } from "@/lib/clinicTypes";
 import { BILLING_TYPES } from "@/lib/clinicTypes";
 import DateInput from "@/components/ui/DateInput";
@@ -26,13 +26,15 @@ export default function ClinicClientsPage() {
   const [editing, setEditing] = useState<ClinicClient | null>(null);
   const [form, setForm] = useState<Partial<ClinicClient>>(EMPTY);
   const [saving, setSaving] = useState(false);
+  const [formError, setFormError] = useState("");
 
-  const openAdd = () => { setEditing(null); setForm({ ...EMPTY }); setShowModal(true); };
-  const openEdit = (c: ClinicClient) => { setEditing(c); setForm({ ...c }); setShowModal(true); };
+  const openAdd = () => { setEditing(null); setForm({ ...EMPTY }); setFormError(""); setShowModal(true); };
+  const openEdit = (c: ClinicClient) => { setEditing(c); setForm({ ...c }); setFormError(""); setShowModal(true); };
 
   const handleSave = async () => {
     if (!form.county_name?.trim() || !user?.platform_customer_id) return;
     setSaving(true);
+    setFormError("");
     try {
       if (editing) {
         await updateClinicClient(editing.id, form);
@@ -42,7 +44,9 @@ export default function ClinicClientsPage() {
       await refreshClients();
       setShowModal(false);
     } catch (err: unknown) {
-      alert(`Save failed: ${(err as { message?: string }).message || "Unknown"}`);
+      // A duplicate name is an expected, user-fixable mistake — say so plainly
+      // instead of surfacing the raw database error.
+      setFormError(err instanceof DuplicateClinicClientError ? err.message : `Save failed: ${(err as { message?: string }).message || "Unknown error"}`);
     } finally { setSaving(false); }
   };
 
@@ -111,10 +115,15 @@ export default function ClinicClientsPage() {
               <button className="btn btn-ghost btn-sm" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <div className="modal-body">
+              {formError && (
+                <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 7, padding: "9px 13px", fontSize: 13, color: "#dc2626", marginBottom: 14 }}>
+                  ⚠️ {formError}
+                </div>
+              )}
               <div className="grid-2">
                 <div className="form-group" style={{ gridColumn: "1 / -1" }}>
                   <label className="form-label">County Name *</label>
-                  <input className="form-input" value={form.county_name || ""} onChange={(e) => setForm((f) => ({ ...f, county_name: e.target.value }))} placeholder="e.g. Morgan County" />
+                  <input className="form-input" value={form.county_name || ""} onChange={(e) => { setFormError(""); setForm((f) => ({ ...f, county_name: e.target.value })); }} placeholder="e.g. Morgan County" />
                 </div>
                 <F label="Agency Name"><input className="form-input" value={form.agency_name || ""} onChange={(e) => setForm((f) => ({ ...f, agency_name: e.target.value }))} placeholder="e.g. Animal Services" /></F>
                 <F label="Contact Person"><input className="form-input" value={form.contact_person || ""} onChange={(e) => setForm((f) => ({ ...f, contact_person: e.target.value }))} /></F>
