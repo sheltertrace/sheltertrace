@@ -113,18 +113,20 @@ function buildAdoptionReceiptBodyHTML(receipt: DepartureReceipt, medRecords?: Me
   const feeRows = fees.length > 0
     ? fees.map((f) =>
         `<tr>
-          <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb">${f.item}</td>
-          <td style="padding:6px 12px;border-bottom:1px solid #e5e7eb;text-align:right;font-family:monospace">$${f.amount.toFixed(2)}</td>
+          <td style="padding:3px 10px;border-bottom:1px solid #e5e7eb">${f.item}</td>
+          <td style="padding:3px 10px;border-bottom:1px solid #e5e7eb;text-align:right;font-family:monospace">$${f.amount.toFixed(2)}</td>
         </tr>`
       ).join("")
-    : `<tr><td colspan="2" style="padding:10px;text-align:center;color:#6b7280;font-style:italic">No fees assessed</td></tr>`;
+    : `<tr><td colspan="2" style="padding:2px 10px;text-align:center;color:#6b7280;font-style:italic">No fees assessed</td></tr>`;
 
+  // Section bands: tight margins so the whole receipt (including the full
+  // Terms of Adoption) stays on one printed page.
   const sh = (title: string) =>
-    `<div style="background:${MCAS_BLUE};color:#fff;padding:5px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px">${title}</div>`;
+    `<div style="background:${MCAS_BLUE};color:#fff;padding:3px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin:7px 0 4px">${title}</div>`;
 
-  return `
+  return `<div class="receipt-container">
   <!-- Header -->
-  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:12px;border-bottom:3px solid ${MCAS_BLUE};margin-bottom:14px">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:6px;border-bottom:3px solid ${MCAS_BLUE};margin-bottom:4px">
     <div style="display:flex;gap:12px;align-items:flex-start">
       <img src="${AGENCY_SEAL_LOGO}" style="width:56px;height:56px;object-fit:contain;flex-shrink:0" />
       <div>
@@ -142,7 +144,7 @@ function buildAdoptionReceiptBodyHTML(receipt: DepartureReceipt, medRecords?: Me
   </div>
 
   <!-- Animal + Adopter side-by-side -->
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:2px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:0">
     <div>
       ${sh("Animal Information")}
       <div class="field"><span class="lbl">Name</span><span class="val">${animalName}</span></div>
@@ -171,80 +173,84 @@ function buildAdoptionReceiptBodyHTML(receipt: DepartureReceipt, medRecords?: Me
 
   <!-- Fees -->
   ${sh("Fees")}
-  <table style="margin-bottom:6px">
+  <table style="margin-bottom:3px">
     <thead><tr style="background:#f3f4f6">
-      <th style="padding:7px 12px;text-align:left;font-size:10px;color:#374151">Item</th>
-      <th style="padding:7px 12px;text-align:right;font-size:10px;color:#374151">Amount</th>
+      <th style="padding:3px 10px;text-align:left;font-size:10px;color:#374151">Item</th>
+      <th style="padding:3px 10px;text-align:right;font-size:10px;color:#374151">Amount</th>
     </tr></thead>
     <tbody>${feeRows}</tbody>
     <tfoot><tr style="background:${MCAS_BLUE}20">
-      <td style="padding:7px 12px;font-weight:700;font-size:11px">TOTAL</td>
-      <td style="padding:7px 12px;font-weight:900;text-align:right;font-family:monospace;font-size:12px">$${(receipt.total_fees || 0).toFixed(2)}</td>
+      <td style="padding:3px 10px;font-weight:700;font-size:11px">TOTAL</td>
+      <td style="padding:3px 10px;font-weight:900;text-align:right;font-family:monospace;font-size:12px">$${(receipt.total_fees || 0).toFixed(2)}</td>
     </tr></tfoot>
   </table>
-  ${receipt.payment_method ? `<div style="font-size:10px;color:#374151;margin-bottom:8px">Payment Method: <strong>${receipt.payment_method}</strong></div>` : ""}
+  ${receipt.payment_method ? `<div style="font-size:10px;color:#374151;margin-bottom:2px">Payment Method: <strong>${receipt.payment_method}</strong></div>` : ""}
 
   ${receipt.conditions ? `${sh("Conditions")}
-    <div style="font-size:10px;line-height:1.6;padding:6px 0;color:#111">${receipt.conditions}</div>` : ""}
+    <div style="font-size:10px;line-height:1.3;padding:2px 0;color:#111">${receipt.conditions}</div>` : ""}
 
   <!-- Signatures -->
   ${sh("Signatures")}
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:10px">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:28px;margin-top:4px">
     <div>
       <div class="sigline"></div>
       <div style="font-size:9px;color:#555">Adopter Signature</div>
-      <div style="font-size:9px;color:#555;margin-top:6px">Printed Name: ____________________________</div>
-      <div style="font-size:9px;color:#555;margin-top:6px">Date: ____________________________</div>
+      <div style="font-size:9px;color:#555;margin-top:3px">Printed Name: ____________________________</div>
+      <div style="font-size:9px;color:#555;margin-top:3px">Date: ____________________________</div>
     </div>
     <div>
       <div class="sigline"></div>
       <div style="font-size:9px;color:#555">MCAS Representative Signature</div>
-      <div style="font-size:9px;color:#555;margin-top:6px">Printed Name: ${receipt.officer_name || "____________________________"}</div>
-      <div style="font-size:9px;color:#555;margin-top:6px">Date: ____________________________</div>
+      <div style="font-size:9px;color:#555;margin-top:3px">Printed Name: ${receipt.officer_name || "____________________________"}</div>
+      <div style="font-size:9px;color:#555;margin-top:3px">Date: ____________________________</div>
     </div>
   </div>
 
   <!-- Proof of Ownership -->
-  <div style="margin-top:18px;padding:12px 16px;background:#eff6ff;border:2.5px solid #2563eb;border-radius:6px;text-align:center">
-    <div style="font-size:12px;font-weight:900;color:#1e40af;line-height:1.5">
+  <div style="margin-top:8px;padding:6px 14px;background:#eff6ff;border:2.5px solid #2563eb;border-radius:6px;text-align:center">
+    <div style="font-size:11.5px;font-weight:900;color:#1e40af;line-height:1.3">
       THIS RECEIPT SERVES AS PROOF OF OWNERSHIP AND ADOPTION FROM MORGAN COUNTY ANIMAL SERVICES
     </div>
   </div>
 
   <!-- Terms of Adoption -->
   ${sh("Terms of Adoption")}
-  <div style="font-size:9px;line-height:1.6;color:#374151;text-align:justify">${TERMS_OF_ADOPTION_TEXT}</div>
+  <div style="font-size:8pt;line-height:1.2;color:#374151;text-align:justify">${TERMS_OF_ADOPTION_TEXT}</div>
 
-  <!-- Footer -->
-  <div style="margin-top:14px;padding:12px 16px;background:${MCAS_BLUE}08;border:1px solid ${MCAS_BLUE}20;border-radius:6px;text-align:center">
-    <div style="font-size:13px;font-weight:700;color:${MCAS_BLUE};margin-bottom:4px">🎉 Congratulations on your new family member!</div>
-    <div style="font-size:9.5px;color:#555;line-height:1.6">
-      Thank you for adopting from ${MCAS_NAME}.<br>
-      For questions about your new pet, call ${MCAS_PHONE} or visit ${MCAS_ADDR}.
-    </div>
+  <!-- Footer: the pleasantry is a compact line under the legal text, never its own block -->
+  <div class="congrats" style="margin-top:5px;padding:3px 10px;background:${MCAS_BLUE}08;border:1px solid ${MCAS_BLUE}20;border-radius:4px;text-align:center;font-size:8.5pt;line-height:1.25;color:#444">
+    <strong style="color:${MCAS_BLUE}">🎉 Congratulations on your new family member!</strong> Thank you for adopting from ${MCAS_NAME}. Questions? Call ${MCAS_PHONE} or visit ${MCAS_ADDR}.
   </div>
 
   ${reprintInfo ? `
   <!-- Reprint notation — only shown on reprints, never on the original print -->
-  <div style="margin-top:10px;padding:8px 12px;border:1px dashed #94a3b8;border-radius:6px;text-align:center;font-size:8.5px;color:#64748b;font-style:italic">
+  <div style="margin-top:3px;text-align:center;font-size:7.5pt;line-height:1.2;color:#64748b;font-style:italic">
     Reprint issued by ${reprintInfo.reprintedBy} on ${new Date(reprintInfo.reprintedAt).toLocaleString("en-US", { month: "2-digit", day: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })} · Original adoption date: ${depStr}
   </div>` : ""}
-  `;
+  </div>`;
 }
 
 const ADOPTION_RECEIPT_STYLE = `*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
-    body{font-family:Arial,sans-serif;font-size:10.5px;padding:24px;margin:0;line-height:1.55;color:#111}
+    body{font-family:Arial,sans-serif;font-size:10.5px;padding:24px;margin:0;line-height:1.3;color:#111}
     h1{font-size:16px;font-weight:900;color:${MCAS_BLUE};margin:0 0 1px;text-transform:uppercase;letter-spacing:.5px}
-    h2{font-size:11.5px;color:${MCAS_BLUE};margin:0 0 10px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
-    .sub{font-size:9.5px;color:#444;margin-bottom:2px}
+    h2{font-size:11.5px;color:${MCAS_BLUE};margin:0 0 4px;font-weight:700;letter-spacing:1px;text-transform:uppercase}
+    .sub{font-size:9.5px;color:#444;margin-bottom:1px}
     table{width:100%;border-collapse:collapse;border:1px solid #e5e7eb;border-radius:4px;overflow:hidden}
-    .sigline{border-bottom:1.5px solid #000;height:40px;display:block;margin-bottom:4px}
-    .field{display:grid;grid-template-columns:120px 1fr;gap:2px;margin-bottom:4px;font-size:10.5px}
+    .sigline{border-bottom:1.5px solid #000;height:40px;display:block;margin-bottom:3px}
+    .field{display:grid;grid-template-columns:120px 1fr;gap:2px;margin-bottom:2px;font-size:10.5px}
     .field .lbl{color:#555}
     .field .val{font-weight:600}
     .receipt-page{page-break-after:always}
     .receipt-page:last-child{page-break-after:auto}
-    @media print{body{padding:16px}}`;
+    @media print{
+      @page { size: letter portrait; margin: 0.4in; }
+      body{padding:0}
+      .receipt-container{page-break-inside:avoid;break-inside:avoid}
+      .receipt-container *{page-break-inside:avoid}
+      /* Keep the navy bands and blue callout in colour; if printed black and
+         white they degrade to dark/light greys with the same text, still readable. */
+      .receipt-container,.receipt-container *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    }`;
 
 export function buildAdoptionReceiptHTML(receipt: DepartureReceipt, medRecords?: MedicalRecord[], reprintInfo?: ReprintInfo): string {
   return `<!DOCTYPE html><html>
