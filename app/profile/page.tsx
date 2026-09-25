@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, changeStaffPassword } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 import type { StaffAccount } from "@/lib/types";
 import { useTheme } from "@/app/providers";
@@ -12,6 +12,7 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [editData, setEditData] = useState<Partial<StaffAccount>>({});
   const [saving, setSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [pwMsg, setPwMsg] = useState("");
@@ -35,17 +36,21 @@ export default function ProfilePage() {
   };
 
   const handlePasswordChange = async () => {
-    if (!user || !newPassword || newPassword !== confirmPassword) {
+    if (!user) return;
+    if (!currentPassword) { setPwMsg("Enter your current password."); return; }
+    if (!newPassword || newPassword !== confirmPassword) {
       setPwMsg(newPassword !== confirmPassword ? "Passwords do not match." : "Enter a new password.");
       return;
     }
-    try {
-      await (supabase as any).from("staff_accounts").update({ password_hash: newPassword }).eq("id", user.id);
+    // Current password is verified and the new one hashed inside the database.
+    const result = await changeStaffPassword(user.username, currentPassword, newPassword);
+    if (result.ok) {
+      setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
       setPwMsg("Password updated successfully.");
-    } catch {
-      setPwMsg("Failed to update password.");
+    } else {
+      setPwMsg(result.error || "Failed to update password.");
     }
   };
 
@@ -164,8 +169,13 @@ export default function ProfilePage() {
         <div className="card">
           <div style={{ fontWeight: 700, fontSize: 15, marginBottom: 14 }}>Change Password</div>
           <div className="form-group">
+            <label className="form-label">Current Password</label>
+            <input className="form-input" type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Current password…" autoComplete="current-password" style={{ maxWidth: 280 }} />
+          </div>
+          <div className="form-group">
             <label className="form-label">New Password</label>
-            <input className="form-input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password…" style={{ maxWidth: 280 }} />
+            <input className="form-input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="New password…" autoComplete="new-password" style={{ maxWidth: 280 }} />
+            <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>At least 10 characters, with a letter and a number.</div>
           </div>
           <div className="form-group">
             <label className="form-label">Confirm Password</label>

@@ -7,7 +7,7 @@ import type {
 } from "./clinicTypes";
 import type { StaffAccount } from "./types";
 import { getClinicStaff } from "./data";
-import { getCurrentUser } from "./auth";
+import { getCurrentUser, changeStaffPassword } from "./auth";
 
 // The one place a clinic record's clinic_account_id comes from: the logged-in
 // user's clinic (platform_customer_id), shared by everyone at the clinic —
@@ -300,14 +300,11 @@ export async function fetchVetSignature(userId: string): Promise<string | null> 
 // ── Password Change ──────────────────────────────────────────────────────────
 
 export async function changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{ ok: boolean; error?: string }> {
-  const { data } = await supabase.from("staff_accounts").select("password_hash").eq("id", userId).limit(1);
-  const stored = (data?.[0] as { password_hash?: string } | undefined)?.password_hash?.trim();
-  if (!stored || stored !== currentPassword.trim()) return { ok: false, error: "Current password is incorrect" };
-  if (newPassword.length < 8) return { ok: false, error: "New password must be at least 8 characters" };
-  if (!/\d/.test(newPassword)) return { ok: false, error: "New password must contain at least one number" };
-  const { error } = await supabase.from("staff_accounts").update({ password_hash: newPassword }).eq("id", userId);
-  if (error) return { ok: false, error: error.message };
-  return { ok: true };
+  // The current password is verified (and the new one hashed) inside the database.
+  const { data } = await supabase.from("staff_accounts").select("username").eq("id", userId).limit(1);
+  const username = (data?.[0] as { username?: string } | undefined)?.username;
+  if (!username) return { ok: false, error: "Account not found" };
+  return changeStaffPassword(username, currentPassword, newPassword);
 }
 
 // ── Clinic Employee Management ───────────────────────────────────────────────

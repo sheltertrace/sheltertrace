@@ -542,20 +542,6 @@ export const DEFAULT_SHELTER_CONFIG = [
   { id: "storage", name: "Storage Room", type: "label", x: 550, y: 500, w: 155, h: 45, bg: "#e5e7eb" },
 ];
 
-export const STAFF_ACCOUNTS = [
-  { id: "S-001", username: "admin", password: "admin123", firstName: "Alex", lastName: "Rivera", role: "Administrator", avatar: "AR", department: "Management", permissions: ["all"] },
-  { id: "S-002", username: "jsmith", password: "pass123", firstName: "Jamie", lastName: "Smith", role: "Shelter Manager", avatar: "JS", department: "Operations", permissions: ["animals","adoptions","foster","medical","kennels","people","reports","dispatch"] },
-  { id: "S-003", username: "mgarcia", password: "pass123", firstName: "Maria", lastName: "Garcia", role: "Veterinarian", avatar: "MG", department: "Medical", permissions: ["animals","medical","kennels"] },
-  { id: "S-004", username: "dwilson", password: "pass123", firstName: "David", lastName: "Wilson", role: "Adoption Counselor", avatar: "DW", department: "Adoptions", permissions: ["animals","adoptions","people"] },
-  { id: "S-005", username: "tbrown", password: "pass123", firstName: "Taylor", lastName: "Brown", role: "Animal Care Tech", avatar: "TB", department: "Animal Care", permissions: ["animals","medical","kennels","foster"] },
-  { id: "S-006", username: "klee", password: "pass123", firstName: "Kevin", lastName: "Lee", role: "Field Officer", avatar: "KL", department: "Dispatch", permissions: ["animals","dispatch"] },
-  { id: "S-007", username: "njones", password: "pass123", firstName: "Nicole", lastName: "Jones", role: "Volunteer Coordinator", avatar: "NJ", department: "Community", permissions: ["people","foster","reports"] },
-  { id: "S-008", username: "rmartin", password: "pass123", firstName: "Rachel", lastName: "Martin", role: "Front Desk", avatar: "RM", department: "Reception", permissions: ["animals","people","adoptions"] },
-  { id: "S-009", username: "court", password: "court123", firstName: "Morgan County", lastName: "Court", role: "Court Clerk", avatar: "MC", department: "Court", permissions: ["court"] },
-  { id: "S-010", username: "judge", password: "court123", firstName: "Judge", lastName: "Harrison", role: "Judge", avatar: "JH", department: "Court", permissions: ["court"] },
-  { id: "S-011", username: "volunteer", password: "vol123", firstName: "Volunteer", lastName: "Portal", role: "Volunteer", avatar: "VP", department: "Community", permissions: ["dashboard","volunteers","animals","adoptions","medical"] },
-];
-
 export const NAV_ITEMS = [
   { id: "dashboard", icon: "dashboard", label: "Dashboard" },
   { id: "animals", icon: "paw", label: "Animals" },

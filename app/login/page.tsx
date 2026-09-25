@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuth } from "../providers";
 import { IS_DEMO, DEMO_USERS, getLastResetTime } from "@/lib/demo";
+import { PasswordResetRequiredError, changeStaffPassword } from "@/lib/auth";
 // Note: in demo mode this page redirects to / (DemoWelcomePage handles login)
 
 export default function LoginPage() {
@@ -33,6 +34,10 @@ export default function LoginPage() {
   const [shake, setShake] = useState(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [lastReset, setLastReset] = useState<string | null>(null);
+  // Forced password change (first sign-in after the credential migration, or after an admin reset)
+  const [resetMode, setResetMode] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Check for ?expired=1 query param and last reset time on mount
   useEffect(() => {
@@ -50,16 +55,49 @@ export default function LoginPage() {
       return;
     }
     setLoading(true);
-    const account = await login(username.trim(), password);
-    if (account) {
-      router.replace(account.account_type === "clinic" ? "/clinic-portal" : account.account_type === "city" ? "/city-portal" : "/dashboard");
-    } else {
+    try {
+      const account = await login(username.trim(), password);
+      if (account) {
+        router.replace(account.account_type === "clinic" ? "/clinic-portal" : account.account_type === "city" ? "/city-portal" : "/dashboard");
+        return;
+      }
       setError("Invalid username or password. Please try again.");
-      setShake(true);
-      setTimeout(() => setShake(false), 500);
-      setLoading(false);
+    } catch (err) {
+      if (err instanceof PasswordResetRequiredError && err.reason === "must_reset") {
+        setResetMode(true);
+        setNewPassword(""); setConfirmPassword("");
+        setLoading(false);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Sign-in failed. Please try again.");
     }
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+    setLoading(false);
   }, [username, password, login, router]);
+
+  // Second step of a forced reset: prove the current (temporary/old) password once more,
+  // set the new one, then sign in with it.
+  const handleReset = useCallback(async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setError("");
+    if (newPassword !== confirmPassword) { setError("The new passwords do not match."); return; }
+    setLoading(true);
+    try {
+      const res = await changeStaffPassword(username.trim(), password, newPassword);
+      if (!res.ok) { setError(res.error || "Could not change the password."); setLoading(false); return; }
+      const account = await login(username.trim(), newPassword);
+      if (account) {
+        router.replace(account.account_type === "clinic" ? "/clinic-portal" : account.account_type === "city" ? "/city-portal" : "/dashboard");
+        return;
+      }
+      setResetMode(false); setPassword("");
+      setError("Password changed. Please sign in with your new password.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not change the password.");
+    }
+    setLoading(false);
+  }, [username, password, newPassword, confirmPassword, login, router]);
 
   const handleDemoLogin = useCallback(async (accountId: string) => {
     setError("");
@@ -188,6 +226,37 @@ export default function LoginPage() {
               ⏱️ Your demo session expired due to inactivity.
             </div>
           )}
+          {resetMode ? (
+          <form onSubmit={handleReset}>
+            <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Choose a new password</h2>
+            <p style={{ color: "#64748b", fontSize: 14, marginBottom: 20 }}>
+              For security, every account must set a new password before signing in.
+              Use at least 10 characters, with a letter and a number.
+            </p>
+            <div className="form-group">
+              <label className="form-label">New password</label>
+              <input className="form-input" type="password" autoComplete="new-password" autoFocus value={newPassword}
+                onChange={(e) => { setNewPassword(e.target.value); setError(""); }} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Confirm new password</label>
+              <input className="form-input" type="password" autoComplete="new-password" value={confirmPassword}
+                onChange={(e) => { setConfirmPassword(e.target.value); setError(""); }} />
+            </div>
+            {error && (
+              <div style={{ background: "#fee2e2", color: "#dc2626", padding: "8px 12px", borderRadius: 7, fontSize: 13, marginBottom: 12, border: "1px solid #fca5a5" }}>{error}</div>
+            )}
+            <button type="submit" className="btn btn-primary" disabled={loading || !newPassword || !confirmPassword}
+              style={{ width: "100%", justifyContent: "center", padding: "10px", fontSize: 14, marginBottom: 12 }}>
+              {loading ? "Saving…" : "Set password and sign in"}
+            </button>
+            <button type="button" className="btn btn-secondary" disabled={loading} onClick={() => { setResetMode(false); setPassword(""); setError(""); }}
+              style={{ width: "100%", justifyContent: "center", padding: "10px", fontSize: 14 }}>
+              Cancel
+            </button>
+          </form>
+          ) : (
+          <>
           <h2 style={{ fontSize: 24, fontWeight: 800, color: "#0f172a", marginBottom: 4 }}>Welcome back</h2>
           <p style={{ color: "#64748b", fontSize: 14, marginBottom: 28 }}>Sign in to your ShelterTrace account</p>
 
@@ -243,6 +312,8 @@ export default function LoginPage() {
               {loading ? "Signing in…" : "Sign In"}
             </button>
           </form>
+          </>
+          )}
 
           <p style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", marginTop: 20 }}>
             ShelterTrace v1.0 · Shelter Data Systems · © 2026

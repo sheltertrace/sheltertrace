@@ -68,8 +68,8 @@ export default function ClinicProfilePage() {
     setPwMsg(null);
     if (!user?.id) return;
     if (newPw !== confirmPw) { setPwMsg({ ok: false, text: "New passwords do not match" }); return; }
-    if (newPw.length < 8) { setPwMsg({ ok: false, text: "Password must be at least 8 characters" }); return; }
-    if (!/\d/.test(newPw)) { setPwMsg({ ok: false, text: "Password must contain at least one number" }); return; }
+    if (newPw.length < 10) { setPwMsg({ ok: false, text: "Password must be at least 10 characters" }); return; }
+    if (!/\d/.test(newPw) || !/[A-Za-z]/.test(newPw)) { setPwMsg({ ok: false, text: "Password must contain at least one letter and one number" }); return; }
     setPwSaving(true);
     const result = await changePassword(user.id, curPw, newPw);
     setPwSaving(false);
@@ -142,7 +142,7 @@ export default function ClinicProfilePage() {
                   </div>
                   <span style={{ fontSize: 11, fontWeight: 700, color: strength.color }}>{strength.label}</span>
                 </div>
-                <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Min 8 characters, at least one number</div>
+                <div style={{ fontSize: 10, color: "var(--text-muted)", marginTop: 2 }}>Min 10 characters, with at least one letter and one number</div>
               </div>
             )}
           </F>

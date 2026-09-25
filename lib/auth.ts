@@ -1,6 +1,5 @@
 "use client";
 import { supabase } from "./supabase";
-import { STAFF_ACCOUNTS } from "./constants";
 import type { StaffAccount } from "./types";
 
 export const CURRENT_USER_KEY = "sheltertrace_current_user";
@@ -10,8 +9,9 @@ function normalizeAccount(row: Record<string, unknown>): StaffAccount {
   return {
     id: row.id as string,
     username: row.username as string,
-    password: (row.password_hash as string) || "",
-    password_hash: row.password_hash as string,
+    // Credentials never live on the client session object (it is persisted in
+    // browser storage) — the password check happens inside the database.
+    password: "",
     first_name: row.first_name as string,
     last_name: row.last_name as string,
     firstName: row.first_name as string,
@@ -30,56 +30,105 @@ function normalizeAccount(row: Record<string, unknown>): StaffAccount {
   };
 }
 
+// ── Login ────────────────────────────────────────────────────────────────────
+// The password is verified INSIDE the database (staff_login), which holds only
+// bcrypt hashes in a locked table, throttles guessing per account, and never
+// returns the hash. login() resolves to the account on success and null for a
+// wrong username/password; the states below are thrown so callers can show the
+// right message instead of a generic "invalid".
+
+/** Password was right but the account must choose a new password before it can sign in. */
+export class PasswordResetRequiredError extends Error {
+  constructor(public reason: "must_reset" | "expired") {
+    super(reason === "expired"
+      ? "Your password must be reset by an administrator."
+      : "You must choose a new password before signing in.");
+    this.name = "PasswordResetRequiredError";
+  }
+}
+export class LoginLockedError extends Error {
+  constructor(public retryAfterSeconds: number) {
+    super(`Too many attempts. Try again in ${Math.max(1, Math.ceil(retryAfterSeconds / 60))} minute(s).`);
+    this.name = "LoginLockedError";
+  }
+}
+export class LoginUnavailableError extends Error {
+  constructor() { super("Could not reach the server. Check your connection and try again."); this.name = "LoginUnavailableError"; }
+}
+
+interface StaffLoginRpc {
+  ok: boolean;
+  error?: "invalid" | "locked" | "reset_expired";
+  must_reset?: boolean;
+  retry_after_seconds?: number;
+  account?: Record<string, unknown>;
+}
+
+// PostgREST: 404 / PGRST202 = the function does not exist (yet).
+function isMissingFunction(error: { code?: string; message?: string } | null | undefined): boolean {
+  return !!error && (error.code === "PGRST202" || /could not find the function|does not exist/i.test(error.message || ""));
+}
+
+function storeSession(account: StaffAccount): void {
+  if (typeof window !== "undefined") sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(account));
+}
+
 export async function login(username: string, password: string): Promise<StaffAccount | null> {
   const trimmedUser = username.trim();
   const trimmedPass = password.trim();
 
-  // Check Supabase first (covers all accounts added via admin UI).
-  // Use .limit(1) instead of .single() — .single() sends a special Accept header
-  // that causes HTTP 400 on any unexpected row count, making errors opaque.
-  try {
-    const { data, error } = await supabase
-      .from("staff_accounts")
-      .select("*")
-      .eq("username", trimmedUser)
-      .limit(1);
+  const { data, error } = await supabase.rpc("staff_login", { p_username: trimmedUser, p_password: trimmedPass });
 
-    if (error) {
-      console.warn("Supabase login query error:", error.code, error.message);
-      // Fall through to hardcoded accounts
-    } else if (data && data.length > 0) {
-      const row = data[0] as Record<string, unknown>;
-      // Reject inactive accounts
-      if (row.active === false) return null;
-      // Compare password — stop here, no fallback (user exists in DB)
-      const stored = (row.password_hash as string || "").trim();
-      if (stored === trimmedPass) {
-        const account = normalizeAccount(row);
-        if (typeof window !== "undefined") {
-          sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(account));
-        }
-        return account;
-      }
-      return null;
+  if (!error && data) {
+    const r = data as StaffLoginRpc;
+    if (r.ok && r.account) {
+      // Correct password but flagged for a forced change: no session until it is changed.
+      if (r.must_reset) throw new PasswordResetRequiredError("must_reset");
+      const account = normalizeAccount(r.account);
+      storeSession(account);
+      return account;
     }
-    // data.length === 0 means no DB account — fall through to hardcoded accounts
-  } catch {
-    // Network error — fall through
+    if (r.error === "locked") throw new LoginLockedError(r.retry_after_seconds ?? 900);
+    if (r.error === "reset_expired") throw new PasswordResetRequiredError("expired");
+    return null; // invalid
   }
 
-  // Fallback: hardcoded STAFF_ACCOUNTS (for initial setup / offline)
-  const account = STAFF_ACCOUNTS.find(
-    (a) => a.username === trimmedUser && a.password === trimmedPass
-  ) as StaffAccount | undefined;
-
-  if (account) {
-    if (typeof window !== "undefined") {
-      sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(account));
-    }
+  // TEMPORARY ROLLOUT BRIDGE — remove once the staff_credentials migration is
+  // applied everywhere. Until staff_login() exists, fall back to the old
+  // check so deploying this code before the migration can't lock everyone out.
+  // After the migration password_hash is always NULL, so this can never succeed.
+  if (isMissingFunction(error)) {
+    console.warn("[auth] staff_login() not found — using legacy login. Apply migration 20260925155410_staff_credentials_hardening.sql.");
+    const { data: rows, error: qErr } = await supabase.from("staff_accounts").select("*").eq("username", trimmedUser).limit(1);
+    if (qErr) throw new LoginUnavailableError();
+    const row = rows?.[0] as Record<string, unknown> | undefined;
+    if (!row || row.active === false) return null;
+    const stored = ((row.password_hash as string) || "").trim();
+    if (!stored || stored !== trimmedPass) return null;
+    const account = normalizeAccount(row);
+    storeSession(account);
     return account;
   }
 
-  return null;
+  throw new LoginUnavailableError();
+}
+
+export interface ChangePasswordResult { ok: boolean; error?: string }
+
+/** Change a staff password by proving the current one (also clears a forced reset). */
+export async function changeStaffPassword(username: string, currentPassword: string, newPassword: string): Promise<ChangePasswordResult> {
+  const { data, error } = await supabase.rpc("staff_change_password", {
+    p_username: username.trim(), p_old_password: currentPassword.trim(), p_new_password: newPassword.trim(),
+  });
+  if (error) {
+    return { ok: false, error: isMissingFunction(error) ? "Password changes aren't available until the security update is applied." : "Could not reach the server. Try again." };
+  }
+  const r = data as { ok: boolean; error?: string; message?: string; retry_after_seconds?: number };
+  if (r.ok) return { ok: true };
+  if (r.error === "weak") return { ok: false, error: r.message || "That password is too weak." };
+  if (r.error === "locked") return { ok: false, error: new LoginLockedError(r.retry_after_seconds ?? 900).message };
+  if (r.error === "reset_expired") return { ok: false, error: "Your password must be reset by an administrator." };
+  return { ok: false, error: "Your current password is incorrect." };
 }
 
 // Demo-only: fetch a staff account directly by id (no password check).

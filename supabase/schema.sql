@@ -379,19 +379,13 @@ create policy "allow_all" on staff_accounts   for all using (true) with check (t
 create policy "allow_all" on shelter_config   for all using (true) with check (true);
 
 -- ── Seed: Staff Accounts ──────────────────────────────────────────────────────
-insert into staff_accounts (username, password_hash, first_name, last_name, role, permissions) values
-  ('admin',     'admin123', 'Alex',   'Rivera',  'Administrator',   '["all"]'),
-  ('jsmith',    'pass123',  'Jamie',  'Smith',   'Shelter Manager', '["animals","adoptions","foster","medical","kennels","people","reports","dispatch"]'),
-  ('mgarcia',   'pass123',  'Maria',  'Garcia',  'Veterinarian',    '["animals","medical","kennels"]'),
-  ('dwilson',   'pass123',  'David',  'Wilson',  'Officer',         '["animals","dispatch","citations","kennels"]'),
-  ('tbrown',    'pass123',  'Taylor', 'Brown',   'Dispatcher',      '["dispatch","citations","people"]'),
-  ('klee',      'pass123',  'Kim',    'Lee',     'Front Desk',      '["animals","people","adoptions","receipts","foster"]'),
-  ('njones',    'pass123',  'Nick',   'Jones',   'Vet Tech',        '["animals","medical","kennels"]'),
-  ('rmartin',   'pass123',  'Rachel', 'Martin',  'Officer',         '["animals","dispatch","citations","kennels"]'),
-  ('court',     'court123', 'Court',  'Clerk',   'Court Clerk',     '["court","citations","people"]'),
-  ('judge',     'court123', 'The',    'Judge',   'Judge',           '["court","citations"]'),
-  ('volunteer', 'vol123',   'Vol',    'User',    'Volunteer',       '["volunteers"]')
-on conflict (username) do nothing;
+-- REMOVED (security hotfix 2026-09-25): this file used to seed well-known
+-- default accounts with published plaintext passwords (admin, jsmith, ...).
+-- Never seed default credentials. Create the first administrator by hand and
+-- give it a one-time password with:
+--   select staff_issue_temp_password('<username>');   -- see migration
+--   20260925155410_staff_credentials_hardening.sql
+-- The account is forced to choose its own password at first sign-in.
 
 -- ── Seed: Default Shelter Config ─────────────────────────────────────────────
 insert into shelter_config (id, config_data) values (1, '{

@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
-import { login, getCurrentUser } from "@/lib/auth";
+import { login, getCurrentUser, PasswordResetRequiredError, LoginLockedError } from "@/lib/auth";
 import type { StaffAccount } from "@/lib/types";
 import FieldIntakeWizard from "@/components/fieldIntake/FieldIntakeWizard";
 
@@ -90,7 +90,11 @@ function FieldIntakeGate({ onLogin }: { onLogin: (o: StaffAccount) => void }) {
       if (!account) { setError("Invalid username or password."); return; }
       localStorage.setItem(SESSION_KEY, JSON.stringify(account));
       onLogin(account);
-    } catch { setError("Login failed. Check your connection."); }
+    } catch (err) {
+      if (err instanceof PasswordResetRequiredError) setError("Your password must be changed first. Sign in at the main ShelterTrace site to set a new one, then return here.");
+      else if (err instanceof LoginLockedError) setError(err.message);
+      else setError("Login failed. Check your connection.");
+    }
     finally { setLoading(false); }
   }
 

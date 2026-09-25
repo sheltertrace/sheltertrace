@@ -133,12 +133,12 @@ Every feature from the prototype must work in production:
 - DEFAULT_SHELTER_CONFIG: pixel-positioned kennel floorplan layout
 
 ## Staff Accounts (for seeding)
-- admin/admin123 (full access, Admin)
-- jsmith/pass123 (Officer)
-- mgarcia/pass123 (Dispatcher)
-- court/court123 (Court Clerk)
-- judge/court123 (Judge)
-- volunteer/vol123 (Volunteer)
+- admin (full access, Admin) — credentials are NOT documented here; see security hotfix 2026-09-25
+- jsmith (Officer)
+- mgarcia (Dispatcher)
+- court (Court Clerk)
+- judge (Judge)
+- volunteer (Volunteer)
 - Plus additional staff from prototype
 
 ## Notes

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import { login } from "@/lib/auth";
+import { login, PasswordResetRequiredError, LoginLockedError } from "@/lib/auth";
 // All Supabase writes use supabasePublic — consistent anon key, no fieldOps abstraction.
 import { supabasePublic } from "@/lib/supabase-public";
 import type { StaffAccount, FieldStatus, DispatchCall, AlertAcknowledgment, Animal } from "@/lib/types";
@@ -212,7 +212,11 @@ function LoginScreen({ onLogin }: { onLogin: (officer: StaffAccount) => void }) 
       console.log("[officer-app] logged in as:", account.id, account.username, account.first_name, account.last_name, "role:", account.role);
       localStorage.setItem(SESSION_KEY, JSON.stringify(account));
       onLogin(account);
-    } catch { setError("Login failed. Check your connection."); }
+    } catch (err) {
+      if (err instanceof PasswordResetRequiredError) setError("Your password must be changed first. Sign in at the main ShelterTrace site to set a new one, then return here.");
+      else if (err instanceof LoginLockedError) setError(err.message);
+      else setError("Login failed. Check your connection.");
+    }
     finally { setLoading(false); }
   }
 
