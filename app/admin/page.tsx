@@ -2,8 +2,9 @@
 import { useState, useEffect, useCallback } from "react";
 import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/lib/supabase";
+import { adminCreateStaff, adminUpdateStaff, adminDeleteStaff, adminResetStaffPassword } from "@/lib/staffAdmin";
 import type { StaffAccount, CourtSettings, ShelterSettings } from "@/lib/types";
-import { genId, today } from "@/lib/utils";
+import { today } from "@/lib/utils";
 import { fetchAnimals, fetchCalls, fetchPeople, fetchCourtSettings, saveCourtSettings, fetchShelterSettings, saveShelterSettings, fetchIdexxConfig, saveIdexxConfig, fetchIdexxOrders, getShelterStaff } from "@/lib/data";
 import type { Animal, DispatchCall, Person, MedicalRecord } from "@/lib/types";
 import type { IdexxConfig } from "@/lib/idexx";
@@ -123,6 +124,12 @@ export default function AdminPage() {
   const [idexxSaving, setIdexxSaving] = useState(false);
   const [idexxSaved, setIdexxSaved] = useState(false);
   const [idexxTesting, setIdexxTesting] = useState(false);
+  // Which IDEXX secrets are set on the server (booleans only; the values never reach the browser)
+  const [idexxServerStatus, setIdexxServerStatus] = useState<{ vetconnect: boolean; agent: boolean; webhook_secret: boolean } | null>(null);
+  useEffect(() => {
+    if (IS_DEMO) return;
+    fetch("/api/idexx/status").then((r) => r.json()).then(setIdexxServerStatus).catch(() => setIdexxServerStatus(null));
+  }, []);
   const [idexxTestResult, setIdexxTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [idexxOrders, setIdexxOrders] = useState<MedicalRecord[]>([]);
   const [idexxOrdersLoading, setIdexxOrdersLoading] = useState(false);
@@ -208,7 +215,7 @@ export default function AdminPage() {
       const res = await fetch("/api/idexx/test-connection", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ config: IS_DEMO ? undefined : idexxConfig }),
+        body: JSON.stringify({}),
       });
       const result = await res.json() as { ok: boolean; message: string };
       setIdexxTestResult(result);
@@ -269,11 +276,8 @@ export default function AdminPage() {
         permissions: finalPerms,
         account_type: (editData as Record<string, unknown>).account_type || "shelter",
       };
-      if ((editData.newPassword || "").trim()) {
-        updates.password_hash = editData.newPassword!.trim();
-      }
-      const { error } = await supabase.from("staff_accounts").update(updates).eq("id", selected.id);
-      if (error) throw error;
+      // Verified in the database with your password; the server ignores fields you may not change.
+      await adminUpdateStaff(selected.id, updates);
       setStaff((prev) => prev.map((s) => s.id === selected.id
         ? { ...s, ...updates, firstName: updates.first_name as string, lastName: updates.last_name as string }
         : s));
@@ -285,13 +289,11 @@ export default function AdminPage() {
   };
 
   const handleAdd = async () => {
-    if (!newData.username || !newData.first_name || !newData.last_name || !newData.password) return;
+    if (!newData.username || !newData.first_name || !newData.last_name) return;
     setSaving(true);
     try {
-      const rec = {
-        id: genId(),
+      const { account, tempPassword } = await adminCreateStaff({
         username: newData.username.trim(),
-        password_hash: newData.password.trim(),
         first_name: newData.first_name.trim(),
         last_name: newData.last_name.trim(),
         role: newData.role,
@@ -299,12 +301,9 @@ export default function AdminPage() {
         phone: newData.phone.trim() || null,
         badge: newData.badge.trim() || null,
         permissions: permsForRole(newData.role) ?? newData.permissions,
-        active: true,
-        account_type: "shelter",
-      };
-      const { error } = await (supabase as any).from("staff_accounts").insert([rec]);
-      if (error) throw error;
-      setStaff((prev) => [...prev, { ...rec, firstName: rec.first_name, lastName: rec.last_name } as unknown as StaffAccount]);
+      });
+      setStaff((prev) => [...prev, account]);
+      showTempPassword(account.username, tempPassword);
       setShowAdd(false);
       setNewData({ username: "", password: "", first_name: "", last_name: "", role: "Officer", email: "", phone: "", badge: "", permissions: [] });
     } catch (e: unknown) {
@@ -313,17 +312,37 @@ export default function AdminPage() {
     } finally { setSaving(false); }
   };
 
+  const showTempPassword = (username: string, pw: string) => {
+    alert(`Temporary password for ${username}:\n\n${pw}\n\nGive it to them in person. It can only be used to choose a new password, and it expires in 24 hours. It will not be shown again.`);
+  };
+
+  const handleResetPassword = async (s: StaffAccount) => {
+    if (!confirm(`Issue a new temporary password for ${s.username}? Their current password will stop working.`)) return;
+    try {
+      showTempPassword(s.username, await adminResetStaffPassword(s.id));
+    } catch (e: unknown) {
+      alert(`Could not reset the password: ${(e as { message?: string }).message || "Unknown error"}`);
+    }
+  };
+
   const handleToggleActive = async (s: StaffAccount) => {
-    await (supabase as any).from("staff_accounts").update({ active: !s.active }).eq("id", s.id);
-    setStaff((prev) => prev.map((x) => x.id === s.id ? { ...x, active: !x.active } : x));
+    try {
+      await adminUpdateStaff(s.id, { active: !s.active });
+      setStaff((prev) => prev.map((x) => x.id === s.id ? { ...x, active: !x.active } : x));
+    } catch (e: unknown) {
+      alert(`Could not update the account: ${(e as { message?: string }).message || "Unknown error"}`);
+    }
   };
 
   const handleDelete = async (s: StaffAccount) => {
     const name = `${s.first_name || s.firstName} ${s.last_name || s.lastName}`.trim();
     if (!confirm(`Are you sure you want to permanently delete ${name}? This cannot be undone.`)) return;
-    const { error } = await supabase.from("staff_accounts").delete().eq("id", s.id);
-    if (error) { alert(`Failed to delete: ${error.message}`); return; }
-    setStaff((prev) => prev.filter((x) => x.id !== s.id));
+    try {
+      await adminDeleteStaff(s.id);
+      setStaff((prev) => prev.filter((x) => x.id !== s.id));
+    } catch (e: unknown) {
+      alert(`Failed to delete: ${(e as { message?: string }).message || "Unknown error"}`);
+    }
   };
 
   const handleAddressSearch = async () => {
@@ -645,9 +664,9 @@ export default function AdminPage() {
 
             {/* Connection status */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, padding: "8px 12px", background: "#f8fafc", borderRadius: 6 }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: idexxTesting ? "#f59e0b" : idexxConfig.vetconnect_username ? "#22c55e" : "#dc2626", flexShrink: 0 }} />
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: idexxTesting ? "#f59e0b" : (IS_DEMO || idexxServerStatus?.vetconnect) ? "#22c55e" : "#dc2626", flexShrink: 0 }} />
               <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-                {idexxTesting ? "Connecting…" : idexxConfig.vetconnect_username ? "Credentials configured" : "Not configured — enter credentials below"}
+                {idexxTesting ? "Connecting…" : (IS_DEMO || idexxServerStatus?.vetconnect) ? "Credentials configured on the server" : "Not configured — set the IDEXX environment variables in Vercel (see below)"}
               </span>
               {idexxTestResult && (
                 <span style={{ fontSize: 11, marginLeft: "auto", color: idexxTestResult.ok ? "#15803d" : "#dc2626", fontWeight: 600 }}>
@@ -656,44 +675,31 @@ export default function AdminPage() {
               )}
             </div>
 
-            {/* Section 1: VetConnect Agent */}
-            <div style={{ background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 8, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: "var(--teal)", marginBottom: 4 }}>VetConnect Agent</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>Provided by IDEXX when you downloaded the VetConnect Agent software. Used by the analyzer computer to upload results to the cloud.</div>
-              <div className="grid-2">
-                {([
-                  ["Agent Username", "agent_username", "text"],
-                  ["Agent Password", "agent_password", "password"],
-                ] as [string, keyof IdexxConfig, string][]).map(([label, key, type]) => (
-                  <div className="form-group" key={key}>
-                    <label className="form-label">{label}</label>
-                    <div style={{ position: "relative" }}>
-                      <input className="form-input" type={type === "password" && !idexxShowSecret[key] ? "password" : "text"} value={(idexxConfig[key] as string) || ""} onChange={(e) => setIdexxConfig((c) => ({ ...c, [key]: e.target.value }))} readOnly={IS_DEMO} style={{ paddingRight: type === "password" ? 36 : undefined }} />
-                      {type === "password" && <button type="button" onClick={() => setIdexxShowSecret((s) => ({ ...s, [key]: !s[key] }))} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-muted)" }}>{idexxShowSecret[key] ? "🙈" : "👁"}</button>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Section 2: VetConnect PLUS Account */}
+            {/* Credentials: server environment variables only */}
             <div style={{ background: "#f0f9ff", border: "1px solid #bae6fd", borderRadius: 8, padding: 14, marginBottom: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: "#0369a1", marginBottom: 4 }}>VetConnect PLUS Account</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 10 }}>Your personal VetConnect PLUS login at vetconnect.idexx.com. Used by ShelterTrace to pull results automatically.</div>
-              <div className="grid-2">
-                {([
-                  ["VetConnect PLUS Username", "vetconnect_username", "text"],
-                  ["VetConnect PLUS Password", "vetconnect_password", "password"],
-                  ["IDEXX Account / Practice ID", "account_number", "text"],
-                ] as [string, keyof IdexxConfig, string][]).map(([label, key, type]) => (
-                  <div className="form-group" key={key}>
-                    <label className="form-label">{label}</label>
-                    <div style={{ position: "relative" }}>
-                      <input className="form-input" type={type === "password" && !idexxShowSecret[key] ? "password" : "text"} value={(idexxConfig[key] as string) || ""} onChange={(e) => setIdexxConfig((c) => ({ ...c, [key]: e.target.value }))} readOnly={IS_DEMO} style={{ paddingRight: type === "password" ? 36 : undefined }} />
-                      {type === "password" && <button type="button" onClick={() => setIdexxShowSecret((s) => ({ ...s, [key]: !s[key] }))} style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "var(--text-muted)" }}>{idexxShowSecret[key] ? "🙈" : "👁"}</button>}
-                    </div>
-                  </div>
-                ))}
+              <div style={{ fontWeight: 700, fontSize: 12, color: "#0369a1", marginBottom: 4 }}>Credentials (stored securely on the server)</div>
+              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10, lineHeight: 1.5 }}>
+                For security, IDEXX logins and the webhook secret are no longer entered or stored in ShelterTrace. They are set as
+                environment variables in Vercel (Project → Settings → Environment Variables), then the site is redeployed.
+              </div>
+              <table style={{ fontSize: 12, borderCollapse: "collapse", width: "100%" }}>
+                <tbody>
+                  {([
+                    ["IDEXX_VETCONNECT_USERNAME / IDEXX_VETCONNECT_PASSWORD", "VetConnect PLUS login (used to order tests and pull results)", idexxServerStatus?.vetconnect],
+                    ["IDEXX_AGENT_USERNAME / IDEXX_AGENT_PASSWORD", "VetConnect Agent login (analyzer computer)", idexxServerStatus?.agent],
+                    ["IDEXX_WEBHOOK_SECRET", "Shared with IDEXX so result webhooks can be verified", idexxServerStatus?.webhook_secret],
+                  ] as [string, string, boolean | undefined][]).map(([name, desc, ok]) => (
+                    <tr key={name}>
+                      <td style={{ padding: "4px 8px 4px 0", verticalAlign: "top" }}><code style={{ background: "#e0f2fe", color: "#0369a1", padding: "1px 5px", borderRadius: 3, fontSize: 11 }}>{name}</code></td>
+                      <td style={{ padding: "4px 8px", color: "var(--text-muted)" }}>{desc}</td>
+                      <td style={{ padding: "4px 0", textAlign: "right", whiteSpace: "nowrap", fontWeight: 700, color: IS_DEMO || ok ? "#15803d" : "#dc2626" }}>{IS_DEMO || ok ? "✓ set" : "✗ not set"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="form-group" style={{ marginTop: 12, marginBottom: 0, maxWidth: 320 }}>
+                <label className="form-label">IDEXX Account / Practice ID</label>
+                <input className="form-input" value={idexxConfig.account_number || ""} onChange={(e) => setIdexxConfig((c) => ({ ...c, account_number: e.target.value }))} readOnly={IS_DEMO} />
               </div>
             </div>
 
@@ -718,19 +724,11 @@ export default function AdminPage() {
               </label>
             </div>
 
-            {/* Webhook Secret */}
+            {/* Webhook */}
             <div className="form-group" style={{ marginBottom: 16 }}>
-              <label className="form-label">Webhook Secret <span style={{ fontSize: 11, fontWeight: 400, color: "var(--text-muted)" }}>(shared with IDEXX to verify incoming results)</span></label>
-              <input
-                className="form-input"
-                type={idexxShowSecret.webhook_secret ? "text" : "password"}
-                value={idexxConfig.webhook_secret || ""}
-                onChange={(e) => setIdexxConfig((c) => ({ ...c, webhook_secret: e.target.value }))}
-                readOnly={IS_DEMO}
-                placeholder="Generate a random secret and share with IDEXX support"
-              />
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 3 }}>
                 Webhook URL for IDEXX to push results: <code style={{ background: "#f1f5f9", padding: "1px 5px", borderRadius: 3 }}>{typeof window !== "undefined" ? window.location.origin : ""}/api/idexx/webhook</code>
+                {" "}— requests must be signed with the secret in <code>IDEXX_WEBHOOK_SECRET</code>; unsigned requests are refused.
               </div>
             </div>
 
@@ -879,8 +877,9 @@ export default function AdminPage() {
                   </div>
                 ))}
                 <div className="form-group">
-                  <label className="form-label">New Password <span style={{ fontWeight: 400, color: "var(--text-muted)", fontSize: 11 }}>(leave blank to keep current)</span></label>
-                  <input className="form-input" type="password" placeholder="Enter new password" value={editData.newPassword || ""} onChange={(e) => setEditData((d) => ({ ...d, newPassword: e.target.value }))} />
+                  <label className="form-label">Password</label>
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => selected && handleResetPassword(selected)}>Issue temporary password</button>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 4 }}>One-time, valid 24 hours; they choose their own at next sign-in.</div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Role</label>
@@ -927,10 +926,10 @@ export default function AdminPage() {
             </div>
             <div className="modal-body">
               <div className="grid-2">
-                {([["First Name *", "first_name"], ["Last Name *", "last_name"], ["Username *", "username"], ["Password *", "password"], ["Email", "email"], ["Phone", "phone"], ["Badge #", "badge"]] as const).map(([label, key]) => (
+                {([["First Name *", "first_name"], ["Last Name *", "last_name"], ["Username *", "username"], ["Email", "email"], ["Phone", "phone"], ["Badge #", "badge"]] as const).map(([label, key]) => (
                   <div key={key} className="form-group">
                     <label className="form-label">{label}</label>
-                    <input className="form-input" type={key === "password" ? "password" : "text"} value={newData[key as keyof typeof newData] as string || ""} onChange={(e) => setNewData((d) => ({ ...d, [key]: e.target.value }))} />
+                    <input className="form-input" type="text" value={newData[key as keyof typeof newData] as string || ""} onChange={(e) => setNewData((d) => ({ ...d, [key]: e.target.value }))} />
                   </div>
                 ))}
                 <div className="form-group">
@@ -948,7 +947,7 @@ export default function AdminPage() {
             </div>
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowAdd(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAdd} disabled={saving || !newData.username || !newData.password || !newData.first_name || !newData.last_name}>
+              <button className="btn btn-primary" onClick={handleAdd} disabled={saving || !newData.username || !newData.first_name || !newData.last_name}>
                 {saving ? "Adding…" : "Add Staff"}
               </button>
             </div>

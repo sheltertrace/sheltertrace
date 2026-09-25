@@ -8,6 +8,7 @@ import type {
 import type { StaffAccount } from "./types";
 import { getClinicStaff } from "./data";
 import { getCurrentUser, changeStaffPassword } from "./auth";
+import { adminCreateStaff, adminUpdateStaff, adminResetStaffPassword, updateOwnProfile, setOwnSignature } from "./staffAdmin";
 
 // The one place a clinic record's clinic_account_id comes from: the logged-in
 // user's clinic (platform_customer_id), shared by everyone at the clinic —
@@ -288,8 +289,9 @@ export async function saveClinicSettings(accountId: string, settings: ClinicSett
 
 // ── Vet Signature ────────────────────────────────────────────────────────────
 
-export async function saveVetSignature(userId: string, signatureData: string): Promise<void> {
-  await supabase.from("staff_accounts").update({ signature_data: signatureData }).eq("id", userId);
+// Signatures are only ever changed by their owner, verified with their password (staff_set_signature).
+export async function saveVetSignature(_userId: string, signatureData: string): Promise<void> {
+  await setOwnSignature(signatureData);
 }
 
 export async function fetchVetSignature(userId: string): Promise<string | null> {
@@ -314,20 +316,24 @@ export async function fetchClinicEmployees(platformCustomerId: string): Promise<
   return getClinicStaff(platformCustomerId, { activeOnly: false });
 }
 
-export async function createClinicEmployee(employee: Record<string, unknown>): Promise<StaffAccount> {
-  const { data, error } = await supabase.from("staff_accounts").insert(employee).select().single();
-  if (error) throw error;
-  return data as StaffAccount;
+// Account management is verified in the database with the caller's own password and is
+// limited to Clinic Admins / super admins of the same organisation (staff_admin_* functions).
+// The organisation and account type are set by the server from the caller, not from this payload.
+export async function createClinicEmployee(employee: Record<string, unknown>): Promise<{ account: StaffAccount; tempPassword: string }> {
+  return adminCreateStaff(employee);
 }
 
 export async function updateClinicEmployee(id: string, updates: Record<string, unknown>): Promise<void> {
-  const { error } = await supabase.from("staff_accounts").update(updates).eq("id", id);
-  if (error) throw error;
+  await adminUpdateStaff(id, updates);
 }
 
-export async function updateMyProfile(userId: string, updates: { first_name?: string; last_name?: string; email?: string; phone?: string }): Promise<void> {
-  const { error } = await supabase.from("staff_accounts").update(updates).eq("id", userId);
-  if (error) throw error;
+/** Issues a one-time temporary password (valid 24 hours). Returned once. */
+export async function resetClinicEmployeePassword(id: string): Promise<string> {
+  return adminResetStaffPassword(id);
+}
+
+export async function updateMyProfile(_userId: string, updates: { first_name?: string; last_name?: string; email?: string; phone?: string }): Promise<void> {
+  await updateOwnProfile(updates);
 }
 
 // ── Clinic Customers (people) ────────────────────────────────────────────────

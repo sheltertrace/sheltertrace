@@ -2,6 +2,7 @@
 import { supabase } from "./supabase";
 import type { PlatformCustomer, AuditLogEntry, PlatformAnnouncement } from "./superAdminTypes";
 import type { StaffAccount } from "./types";
+import { adminCreateStaff, adminUpdateStaff, adminResetStaffPassword } from "./staffAdmin";
 
 // ── Customers ────────────────────────────────────────────────────────────────
 
@@ -39,15 +40,18 @@ export async function fetchUsersByCustomer(customerId: string): Promise<StaffAcc
   return (data || []) as StaffAccount[];
 }
 
-export async function createUser(user: Record<string, unknown>): Promise<StaffAccount> {
-  const { data, error } = await supabase.from("staff_accounts").insert(user).select().single();
-  if (error) throw error;
-  return data as StaffAccount;
+// Verified in the database with the super admin's own password (staff_admin_* functions).
+export async function createUser(user: Record<string, unknown>): Promise<{ account: StaffAccount; tempPassword: string }> {
+  return adminCreateStaff(user);
 }
 
 export async function updateUser(id: string, updates: Record<string, unknown>): Promise<void> {
-  const { error } = await supabase.from("staff_accounts").update(updates).eq("id", id);
-  if (error) throw error;
+  await adminUpdateStaff(id, updates);
+}
+
+/** Issues a one-time temporary password (valid 24 hours). Returned once. */
+export async function resetUserPassword(id: string): Promise<string> {
+  return adminResetStaffPassword(id);
 }
 
 // ── Audit Log ────────────────────────────────────────────────────────────────

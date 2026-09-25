@@ -1,16 +1,8 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/app/providers";
-import { fetchClinicEmployees, createClinicEmployee, updateClinicEmployee } from "@/lib/clinicData";
+import { fetchClinicEmployees, createClinicEmployee, updateClinicEmployee, resetClinicEmployeePassword } from "@/lib/clinicData";
 import type { StaffAccount } from "@/lib/types";
-import { genId } from "@/lib/utils";
-
-function genPassword(): string {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let pw = "";
-  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
-  return pw;
-}
 
 function F({ label, children }: { label: string; children: React.ReactNode }) {
   return <div className="form-group"><label className="form-label">{label}</label>{children}</div>;
@@ -82,22 +74,17 @@ export default function ClinicTeamPage() {
         setEmployees((prev) => prev.map((e) => e.id === editing.id ? { ...e, first_name: form.first_name, last_name: form.last_name, firstName: form.first_name, lastName: form.last_name, username: form.username, email: form.email, phone: form.phone, role: form.role, active: form.active } : e));
         setShowModal(false);
       } else {
-        const pw = genPassword();
-        const created = await createClinicEmployee({
-          id: genId(),
+        // The server sets the organisation and generates a one-time temporary password.
+        const { account, tempPassword: pw } = await createClinicEmployee({
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
           username: form.username.trim(),
-          password_hash: pw,
           email: form.email.trim() || null,
           phone: form.phone.trim() || null,
           role: form.role,
-          account_type: "clinic",
-          platform_customer_id: custId,
           permissions: [],
-          active: true,
         });
-        setEmployees((prev) => [...prev, created]);
+        setEmployees((prev) => [...prev, account]);
         setTempPassword(pw);
       }
     } catch (err: unknown) {
@@ -106,15 +93,21 @@ export default function ClinicTeamPage() {
   }, [form, editing, custId]);
 
   const handleResetPw = async (empId: string) => {
-    const pw = genPassword();
-    await updateClinicEmployee(empId, { password_hash: pw });
-    setResetPw(pw);
+    try {
+      setResetPw(await resetClinicEmployeePassword(empId));
+    } catch (err: unknown) {
+      alert(`Could not reset the password: ${(err as { message?: string }).message || "Unknown"}`);
+    }
   };
 
   const handleToggle = async (e: StaffAccount) => {
     const newActive = e.active === false;
-    await updateClinicEmployee(e.id, { active: newActive });
-    setEmployees((prev) => prev.map((x) => x.id === e.id ? { ...x, active: newActive } : x));
+    try {
+      await updateClinicEmployee(e.id, { active: newActive });
+      setEmployees((prev) => prev.map((x) => x.id === e.id ? { ...x, active: newActive } : x));
+    } catch (err: unknown) {
+      alert(`Could not update the account: ${(err as { message?: string }).message || "Unknown"}`);
+    }
   };
 
   const copyPw = (pw: string) => {

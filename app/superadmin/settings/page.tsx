@@ -82,9 +82,13 @@ export default function SettingsPage() {
   const handleRemoveSuperAdmin = async (adminId: string) => {
     if (adminId === user?.id) { alert("Cannot remove your own super admin access."); return; }
     if (!confirm("Remove super admin access for this user?")) return;
-    await updateUser(adminId, { is_super_admin: false });
-    setSuperAdmins((prev) => prev.filter((a) => a.id !== adminId));
-    if (user?.id) await logAuditAction(user.id, "Super Admin Removed", "user", adminId);
+    try {
+      await updateUser(adminId, { is_super_admin: false });
+      setSuperAdmins((prev) => prev.filter((a) => a.id !== adminId));
+      if (user?.id) await logAuditAction(user.id, "Super Admin Removed", "user", adminId);
+    } catch (err: unknown) {
+      alert(`Could not remove super admin access: ${(err as { message?: string }).message || "Unknown"}`);
+    }
   };
 
   const toggleFlag = (key: string) => {

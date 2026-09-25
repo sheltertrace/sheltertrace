@@ -2,6 +2,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { StaffAccount } from "@/lib/types";
 import { getCurrentUser, login as authLogin, logout as authLogout, demoLoginById } from "@/lib/auth";
+import PasswordPromptHost from "@/components/PasswordPromptHost";
 import { updateStaffTheme, fetchShelterConfig, kennelLabelsFromConfig, fetchStaffOptions } from "@/lib/data";
 
 // ── Theme ─────────────────────────────────────────────────────────────────────
@@ -185,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         <KennelContext.Provider value={{ kennelLabels, refreshKennels }}>
           <StaffContext.Provider value={{ staffOptions, refreshStaff }}>
             {children}
+            <PasswordPromptHost />
           </StaffContext.Provider>
         </KennelContext.Provider>
       </AuthContext.Provider>

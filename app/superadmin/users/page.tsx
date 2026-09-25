@@ -1,18 +1,10 @@
 "use client";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "@/app/providers";
-import { fetchAllUsers, createUser, updateUser, fetchCustomers, logAuditAction } from "@/lib/superAdminData";
+import { fetchAllUsers, createUser, updateUser, resetUserPassword, fetchCustomers, logAuditAction } from "@/lib/superAdminData";
 import type { StaffAccount } from "@/lib/types";
 import type { PlatformCustomer } from "@/lib/superAdminTypes";
 import { CUSTOMER_TYPE_COLORS } from "@/lib/superAdminTypes";
-import { genId } from "@/lib/utils";
-
-function genPassword(): string {
-  const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-  let pw = "";
-  for (let i = 0; i < 10; i++) pw += chars[Math.floor(Math.random() * chars.length)];
-  return pw;
-}
 
 function F({ label, children, span }: { label: string; children: React.ReactNode; span?: boolean }) {
   return (
@@ -131,22 +123,18 @@ export default function SuperAdminUsersPage() {
         await logAuditAction(me.id, "Updated User", "user", editing.id, { username: form.username });
         setShowModal(false);
       } else {
-        const pw = genPassword();
-        const rec: Record<string, unknown> = {
-          id: genId(),
+        // The database generates a one-time temporary password (valid 24 hours) and returns it once.
+        const { account: created, tempPassword: pw } = await createUser({
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
           username: form.username.trim(),
-          password_hash: pw,
           email: form.email.trim() || null,
           phone: form.phone.trim() || null,
           role: form.role,
           account_type: form.account_type,
           platform_customer_id: form.platform_customer_id || null,
           permissions: form.role === "Administrator" ? ["all"] : [],
-          active: true,
-        };
-        const created = await createUser(rec);
+        });
         setUsers((prev) => [created, ...prev]);
         await logAuditAction(me.id, "Created User", "user", created.id, { username: form.username });
         setTempPassword(pw);
@@ -157,17 +145,24 @@ export default function SuperAdminUsersPage() {
   }, [form, editing, me?.id]);
 
   const handleResetPassword = async (userId: string) => {
-    const pw = genPassword();
-    await updateUser(userId, { password_hash: pw });
-    if (me?.id) await logAuditAction(me.id, "Reset Password", "user", userId);
-    setShowResetPw(pw);
+    try {
+      const pw = await resetUserPassword(userId);
+      if (me?.id) await logAuditAction(me.id, "Reset Password", "user", userId);
+      setShowResetPw(pw);
+    } catch (err: unknown) {
+      alert(`Could not reset the password: ${(err as { message?: string }).message || "Unknown"}`);
+    }
   };
 
   const handleToggleActive = async (u: StaffAccount) => {
     const newActive = u.active === false;
-    await updateUser(u.id, { active: newActive });
-    setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, active: newActive } : x));
-    if (me?.id) await logAuditAction(me.id, newActive ? "Activated User" : "Deactivated User", "user", u.id);
+    try {
+      await updateUser(u.id, { active: newActive });
+      setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, active: newActive } : x));
+      if (me?.id) await logAuditAction(me.id, newActive ? "Activated User" : "Deactivated User", "user", u.id);
+    } catch (err: unknown) {
+      alert(`Could not update the account: ${(err as { message?: string }).message || "Unknown"}`);
+    }
   };
 
   const roleOptions = form.account_type === "clinic" ? CLINIC_ROLES : form.account_type === "city" ? CITY_ROLES : SHELTER_ROLES;

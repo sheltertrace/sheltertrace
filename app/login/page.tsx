@@ -315,6 +315,12 @@ export default function LoginPage() {
           </>
           )}
 
+          {!resetMode && (
+            <p style={{ textAlign: "center", fontSize: 12, color: "#64748b", marginTop: 4 }}>
+              First sign-in since the security update, or forgot your password? Ask an administrator for a temporary password.
+            </p>
+          )}
+
           <p style={{ textAlign: "center", fontSize: 11, color: "#94a3b8", marginTop: 20 }}>
             ShelterTrace v1.0 · Shelter Data Systems · © 2026
           </p>

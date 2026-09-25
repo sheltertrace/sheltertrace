@@ -1,8 +1,8 @@
 "use client";
 import { useState, useEffect } from "react";
 import AppShell from "@/components/layout/AppShell";
-import { getCurrentUser, changeStaffPassword } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { getCurrentUser, changeStaffPassword, CURRENT_USER_KEY } from "@/lib/auth";
+import { updateOwnProfile } from "@/lib/staffAdmin";
 import type { StaffAccount } from "@/lib/types";
 import { useTheme } from "@/app/providers";
 
@@ -26,13 +26,19 @@ export default function ProfilePage() {
     if (!user) return;
     setSaving(true);
     try {
-      const { data } = await (supabase as any).from("staff_accounts").update(editData).eq("id", user.id).select().single();
-      if (data) {
-        setUser(data as StaffAccount);
-        sessionStorage.setItem("shelter_user", JSON.stringify(data));
-      }
+      // Only your own name / email / phone can be changed here, verified with your password.
+      const updated = await updateOwnProfile({
+        first_name: editData.first_name, last_name: editData.last_name,
+        email: editData.email || null, phone: editData.phone || null,
+      });
+      const merged = { ...user, ...updated, password: "" } as StaffAccount;
+      setUser(merged);
+      sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(merged));
       setEditing(false);
-    } catch { } finally { setSaving(false); }
+    } catch (e: unknown) {
+      const msg = (e as { message?: string }).message;
+      if (msg && msg !== "Cancelled.") alert(msg);
+    } finally { setSaving(false); }
   };
 
   const handlePasswordChange = async () => {

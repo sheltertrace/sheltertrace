@@ -1,26 +1,34 @@
--- SECURITY HOTFIX: staff passwords were stored in plaintext in
+-- SECURITY HOTFIX (1 of 2): staff passwords were stored in plaintext in
 -- staff_accounts.password_hash and readable by anyone holding the public anon
--- key. This moves credentials into a locked table as bcrypt hashes, moves the
--- password check into the database, throttles guessing, and forces every
--- existing account to choose a new password.
+-- key (and the source repository was public, so the default passwords were
+-- published too). This moves credentials into a locked table as bcrypt hashes,
+-- moves the password check into the database, throttles guessing, and
+-- invalidates EVERY existing password.
 --
--- ORDER OF OPERATIONS (see the runbook): deploy the app code first — it falls
--- back to the old login only while staff_login() does not exist — then run this.
+-- After this runs NO existing password works - not even to reach a reset
+-- screen. The old passwords were publicly readable, so anyone could hold a
+-- copy. An administrator issues each person a temporary password:
 --
--- What this does NOT do (separate lockdown project): anon can still WRITE to
--- staff_accounts (role/permissions/active). A hash you can overwrite is only as
--- safe as the write path; see docs in the hotfix report.
+--     select staff_issue_temp_password('username');   -- SQL editor only
+--
+-- A temporary password is single-use in the sense that matters: it can only be
+-- exchanged for a new password of the person's own choosing (no session is
+-- ever granted on it), it expires 24 hours after it is issued, and it is
+-- replaced the moment the person sets their own.
+--
+-- ORDER OF OPERATIONS: deploy the app code first, then run this file, then
+-- 20260925170000_staff_accounts_write_lockdown.sql.
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 -- pgcrypto is normally in the `extensions` schema on Supabase; resolve it either way.
 SET search_path = public, extensions;
 
--- ── Locked credentials table ─────────────────────────────────────────────────
+-- == Locked credentials table =================================================
 CREATE TABLE IF NOT EXISTS staff_credentials (
   staff_id            TEXT PRIMARY KEY,           -- staff_accounts.id (no FK: see delete trigger below)
   password_hash       TEXT,                       -- bcrypt; NULL = no usable password until an admin issues one
   must_reset          BOOLEAN NOT NULL DEFAULT true,
-  legacy_valid_until  TIMESTAMPTZ,                -- until then the PRE-HOTFIX password may be used, once, to reach the forced reset
+  temp_expires_at     TIMESTAMPTZ,                -- a temporary password stops working at this time
   failed_attempts     INTEGER NOT NULL DEFAULT 0,
   locked_until        TIMESTAMPTZ,
   password_changed_at TIMESTAMPTZ,
@@ -32,35 +40,29 @@ REVOKE ALL ON TABLE staff_credentials FROM PUBLIC, anon, authenticated;
 -- staff_accounts.password_hash may be NOT NULL in production (schema.sql says so)
 ALTER TABLE staff_accounts ALTER COLUMN password_hash DROP NOT NULL;
 
--- ── Move existing passwords: hash them, force a reset, empty the old column ──
--- Every existing password is treated as compromised: for 72 hours it can be
--- used only to reach the forced password change (no session is granted). Shorten the window with:
---   UPDATE staff_credentials SET legacy_valid_until = now() WHERE must_reset;
-INSERT INTO staff_credentials (staff_id, password_hash, must_reset, legacy_valid_until)
-SELECT id,
-       CASE WHEN password_hash IS NOT NULL AND password_hash <> ''
-            THEN crypt(password_hash, gen_salt('bf', 10)) END,
-       true,
-       now() + interval '72 hours'
-FROM staff_accounts
-ON CONFLICT (staff_id) DO NOTHING;
+-- == Invalidate every existing password =======================================
+-- The plaintext passwords were publicly readable, so they are treated as
+-- compromised and are NOT carried over - not even hashed. Every account starts
+-- with no usable password and must_reset = true.
+INSERT INTO staff_credentials (staff_id, password_hash, must_reset)
+SELECT id, NULL, true FROM staff_accounts
+ON CONFLICT (staff_id) DO NOTHING;   -- idempotent: re-running never wipes passwords people have since chosen
 
 UPDATE staff_accounts SET password_hash = NULL WHERE password_hash IS NOT NULL;
 
--- ── Compatibility shim: legacy writers keep working, plaintext never lands ───
--- The admin / clinic-team / super-admin screens still write
--- password_hash = '<temporary password>'. Capture that value, store it hashed
--- in staff_credentials (must_reset = true, so the person picks their own on
--- first login), and blank the column so plaintext is never persisted.
+-- == Safety net for SQL-editor / service-role writes ===========================
+-- If anything writes a value into staff_accounts.password_hash it is captured as
+-- a 24-hour temporary password (hashed, must_reset = true) and the column is
+-- blanked, so plaintext can never be stored again.
 CREATE OR REPLACE FUNCTION staff_accounts_capture_password() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions, pg_temp AS $$
 BEGIN
   IF NEW.password_hash IS NOT NULL AND NEW.password_hash <> ''
      AND (TG_OP = 'INSERT' OR NEW.password_hash IS DISTINCT FROM OLD.password_hash) THEN
-    INSERT INTO staff_credentials (staff_id, password_hash, must_reset, legacy_valid_until, password_changed_at)
-    VALUES (NEW.id, crypt(NEW.password_hash, gen_salt('bf', 10)), true, NULL, now())
+    INSERT INTO staff_credentials (staff_id, password_hash, must_reset, temp_expires_at, password_changed_at)
+    VALUES (NEW.id, crypt(NEW.password_hash, gen_salt('bf', 10)), true, now() + interval '24 hours', now())
     ON CONFLICT (staff_id) DO UPDATE SET
-      password_hash = EXCLUDED.password_hash, must_reset = true, legacy_valid_until = NULL,
+      password_hash = EXCLUDED.password_hash, must_reset = true, temp_expires_at = EXCLUDED.temp_expires_at,
       failed_attempts = 0, locked_until = NULL, password_changed_at = now(), updated_at = now();
   END IF;
   NEW.password_hash := NULL;
@@ -86,7 +88,7 @@ CREATE TRIGGER trg_staff_accounts_drop_credentials
   AFTER DELETE ON staff_accounts
   FOR EACH ROW EXECUTE FUNCTION staff_accounts_drop_credentials();
 
--- ── Password policy (single source of truth) ─────────────────────────────────
+-- == Password policy (single source of truth) =================================
 CREATE OR REPLACE FUNCTION staff__password_problem(p_new text, p_username text) RETURNS text
 LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
   SELECT CASE
@@ -97,9 +99,11 @@ LANGUAGE sql IMMUTABLE SET search_path = public, pg_temp AS $$
 $$;
 REVOKE EXECUTE ON FUNCTION staff__password_problem(text, text) FROM PUBLIC, anon, authenticated;
 
--- ── Login: verify inside the database; the hash never leaves it ──────────────
+-- == Login: verify inside the database; the hash never leaves it ==============
 -- Returns {ok:true, must_reset, account:{...staff row minus password_hash}} or
 -- {ok:false, error:'invalid'|'locked'|'reset_expired', retry_after_seconds?}.
+-- must_reset = true means "right password, but it is a temporary one": the app
+-- must send the person to the change-password step and must NOT start a session.
 -- Five wrong passwords on an account lock it for 15 minutes; ten, for an hour.
 CREATE OR REPLACE FUNCTION staff_login(p_username text, p_password text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions, pg_temp AS $$
@@ -129,10 +133,10 @@ BEGIN
   END IF;
 
   IF crypt(coalesce(p_password, ''), c.password_hash) = c.password_hash THEN
-    -- Right password, but the pre-hotfix password's grace window has closed: an
+    -- Right password, but a temporary password past its 24 hours: an
     -- administrator must issue a new one. (Checked only AFTER the password
     -- matches so a stranger can't probe which accounts are expired.)
-    IF c.must_reset AND c.legacy_valid_until IS NOT NULL AND c.legacy_valid_until < now() THEN
+    IF c.must_reset AND c.temp_expires_at IS NOT NULL AND c.temp_expires_at < now() THEN
       RETURN jsonb_build_object('ok', false, 'error', 'reset_expired');
     END IF;
     UPDATE staff_credentials SET failed_attempts = 0, locked_until = NULL, updated_at = now()
@@ -151,7 +155,9 @@ BEGIN
   RETURN jsonb_build_object('ok', false, 'error', 'invalid');
 END $$;
 
--- ── Change password: proves the old password first (also clears must_reset) ──
+-- == Change password: proves the old (or temporary) password first ============
+-- This is what consumes a temporary password: the hash is replaced, must_reset
+-- and the expiry are cleared, so the temporary password can never be used again.
 CREATE OR REPLACE FUNCTION staff_change_password(p_username text, p_old_password text, p_new_password text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions, pg_temp AS $$
 DECLARE
@@ -175,36 +181,46 @@ BEGIN
 
   UPDATE staff_credentials
      SET password_hash = crypt(p_new_password, gen_salt('bf', 10)),
-         must_reset = false, legacy_valid_until = NULL,
+         must_reset = false, temp_expires_at = NULL,
          failed_attempts = 0, locked_until = NULL,
          password_changed_at = now(), updated_at = now()
    WHERE staff_id = sa_id;
   RETURN jsonb_build_object('ok', true);
 END $$;
 
--- ── Administrator-issued reset (run from the Supabase SQL editor only) ───────
--- select staff_issue_temp_password('username');   -- returns a one-time password
-CREATE OR REPLACE FUNCTION staff_issue_temp_password(p_username text) RETURNS text
+-- == Temporary passwords ======================================================
+-- Internal: generate a random temporary password for a staff id and store its
+-- hash with must_reset = true and a 24-hour expiry. Returns the plaintext once.
+CREATE OR REPLACE FUNCTION staff__issue_temp(p_staff_id text) RETURNS text
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions, pg_temp AS $$
 DECLARE
-  sa_id text;
   alphabet constant text := 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
   bytes bytea := gen_random_bytes(14);
   temp text := '';
   i int;
 BEGIN
-  SELECT id INTO sa_id FROM staff_accounts WHERE lower(username) = lower(trim(p_username)) LIMIT 1;
-  IF sa_id IS NULL THEN RAISE EXCEPTION 'No staff account with username %', p_username; END IF;
   FOR i IN 0..13 LOOP
     temp := temp || substr(alphabet, (get_byte(bytes, i) % length(alphabet)) + 1, 1);
   END LOOP;
-  temp := temp || '7';   -- guarantees a digit; the letters guarantee a letter (policy: 10+ chars, letter + number)
-  INSERT INTO staff_credentials (staff_id, password_hash, must_reset, legacy_valid_until, password_changed_at)
-  VALUES (sa_id, crypt(temp, gen_salt('bf', 10)), true, NULL, now())
+  temp := temp || 'a7';   -- guarantees a letter and a digit (policy: 10+ chars, letter + number)
+  INSERT INTO staff_credentials (staff_id, password_hash, must_reset, temp_expires_at, password_changed_at)
+  VALUES (p_staff_id, crypt(temp, gen_salt('bf', 10)), true, now() + interval '24 hours', now())
   ON CONFLICT (staff_id) DO UPDATE SET
-    password_hash = EXCLUDED.password_hash, must_reset = true, legacy_valid_until = NULL,
+    password_hash = EXCLUDED.password_hash, must_reset = true, temp_expires_at = EXCLUDED.temp_expires_at,
     failed_attempts = 0, locked_until = NULL, password_changed_at = now(), updated_at = now();
   RETURN temp;
+END $$;
+REVOKE EXECUTE ON FUNCTION staff__issue_temp(text) FROM PUBLIC, anon, authenticated;
+
+-- Administrator-issued temporary password (run from the Supabase SQL editor only):
+--   select staff_issue_temp_password('username');
+CREATE OR REPLACE FUNCTION staff_issue_temp_password(p_username text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions, pg_temp AS $$
+DECLARE sa_id text;
+BEGIN
+  SELECT id INTO sa_id FROM staff_accounts WHERE lower(username) = lower(trim(p_username)) LIMIT 1;
+  IF sa_id IS NULL THEN RAISE EXCEPTION 'No staff account with username %', p_username; END IF;
+  RETURN staff__issue_temp(sa_id);
 END $$;
 
 -- Only login and change-password are callable from the app; everything else is

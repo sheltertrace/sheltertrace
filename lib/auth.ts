@@ -1,6 +1,7 @@
 "use client";
 import { supabase } from "./supabase";
 import type { StaffAccount } from "./types";
+import { clearCachedPassword } from "./passwordPrompt";
 
 export const CURRENT_USER_KEY = "sheltertrace_current_user";
 
@@ -53,7 +54,7 @@ export class LoginLockedError extends Error {
   }
 }
 export class LoginUnavailableError extends Error {
-  constructor() { super("Could not reach the server. Check your connection and try again."); this.name = "LoginUnavailableError"; }
+  constructor(message = "Could not reach the server. Check your connection and try again.") { super(message); this.name = "LoginUnavailableError"; }
 }
 
 interface StaffLoginRpc {
@@ -93,21 +94,10 @@ export async function login(username: string, password: string): Promise<StaffAc
     return null; // invalid
   }
 
-  // TEMPORARY ROLLOUT BRIDGE — remove once the staff_credentials migration is
-  // applied everywhere. Until staff_login() exists, fall back to the old
-  // check so deploying this code before the migration can't lock everyone out.
-  // After the migration password_hash is always NULL, so this can never succeed.
+  // staff_login() not deployed: fail closed. There is deliberately no fallback to
+  // comparing a password client-side.
   if (isMissingFunction(error)) {
-    console.warn("[auth] staff_login() not found — using legacy login. Apply migration 20260925155410_staff_credentials_hardening.sql.");
-    const { data: rows, error: qErr } = await supabase.from("staff_accounts").select("*").eq("username", trimmedUser).limit(1);
-    if (qErr) throw new LoginUnavailableError();
-    const row = rows?.[0] as Record<string, unknown> | undefined;
-    if (!row || row.active === false) return null;
-    const stored = ((row.password_hash as string) || "").trim();
-    if (!stored || stored !== trimmedPass) return null;
-    const account = normalizeAccount(row);
-    storeSession(account);
-    return account;
+    throw new LoginUnavailableError("Sign-in is temporarily unavailable while a security update is applied. Please try again shortly.");
   }
 
   throw new LoginUnavailableError();
@@ -172,6 +162,7 @@ export async function demoLoginById(id: string): Promise<StaffAccount | null> {
 }
 
 export function logout(): void {
+  clearCachedPassword();
   if (typeof window !== "undefined") {
     sessionStorage.removeItem(CURRENT_USER_KEY);
   }

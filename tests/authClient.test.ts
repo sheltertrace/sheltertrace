@@ -63,23 +63,11 @@ describe("login()", () => {
     expect(limit).not.toHaveBeenCalled();
   });
 
-  describe("rollout bridge (staff_login() not deployed yet)", () => {
-    const missing = { code: "PGRST202", message: "Could not find the function public.staff_login" };
-    it("falls back to the legacy check while plaintext still exists", async () => {
-      rpc.mockResolvedValue({ data: null, error: missing });
-      limit.mockResolvedValue({ data: [{ ...account, password_hash: "legacy-pw" }], error: null });
-      expect((await login("admin", "legacy-pw"))?.id).toBe("S-1");
-      expect(await login("admin", "wrong")).toBeNull();
-    });
-
-    it("cannot be used to log in with a blanked (post-migration) column, and has no hardcoded accounts", async () => {
-      rpc.mockResolvedValue({ data: null, error: missing });
-      limit.mockResolvedValue({ data: [{ ...account, password_hash: null }], error: null });
-      expect(await login("admin", "")).toBeNull();
-      expect(await login("admin", "admin123")).toBeNull();
-      limit.mockResolvedValue({ data: [], error: null });
-      expect(await login("admin", "admin123")).toBeNull();
-    });
+  it("fails CLOSED when staff_login() is missing: no client-side password comparison, no session", async () => {
+    rpc.mockResolvedValue({ data: null, error: { code: "PGRST202", message: "Could not find the function public.staff_login" } });
+    await expect(login("admin", "admin123")).rejects.toBeInstanceOf(LoginUnavailableError);
+    expect(limit).not.toHaveBeenCalled();          // never reads staff_accounts to compare a password
+    expect(store.size).toBe(0);
   });
 });
 
