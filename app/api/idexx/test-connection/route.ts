@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import type { IdexxConfig } from "@/lib/idexx";
 import { idexxTestConnection } from "@/lib/idexx";
+import { loadIdexxConfig, idexxCredentialStatus } from "@/lib/idexxServer";
 
 function adminClient() {
   return createClient(
@@ -10,25 +10,13 @@ function adminClient() {
   );
 }
 
-export async function POST(req: NextRequest) {
-  const body = await req.json() as { config?: IdexxConfig };
-
-  let config: IdexxConfig | null = body.config ?? null;
-
-  if (!config) {
-    const db = adminClient();
-    const { data: configRow } = await db
-      .from("shelter_config")
-      .select("config_data")
-      .eq("id", 6)
-      .maybeSingle();
-    config = (configRow?.config_data as IdexxConfig) ?? null;
+// Credentials are read from server environment variables only. A request body is ignored, so
+// this endpoint can no longer be used to test (or exfiltrate through) arbitrary credentials.
+export async function POST(_req: NextRequest) {
+  if (!idexxCredentialStatus().vetconnect) {
+    return NextResponse.json({ ok: false, message: "IDEXX credentials are not set on the server. Add IDEXX_VETCONNECT_USERNAME and IDEXX_VETCONNECT_PASSWORD in Vercel → Settings → Environment Variables, then redeploy." });
   }
-
-  if (!config?.vetconnect_username || !config?.vetconnect_password) {
-    return NextResponse.json({ ok: false, message: "VetConnect Agent credentials not configured — enter username and password above" });
-  }
-
+  const config = await loadIdexxConfig(adminClient());
   const result = await idexxTestConnection(config);
   return NextResponse.json(result);
 }

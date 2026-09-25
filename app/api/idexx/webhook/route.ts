@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import type { IdexxConfig, IdexxResultPayload } from "@/lib/idexx";
+import type { IdexxResultPayload } from "@/lib/idexx";
+import { idexxSecrets } from "@/lib/idexxServer";
 import { mapIdexxResult } from "@/lib/idexx";
 import { createHmac } from "crypto";
 
@@ -34,18 +35,14 @@ export async function POST(req: NextRequest) {
 
   const db = adminClient();
 
-  // Load webhook secret from config
-  const { data: configRow } = await db
-    .from("shelter_config")
-    .select("config_data")
-    .eq("id", 6)
-    .single();
-
-  const config = configRow?.config_data as IdexxConfig | null;
-  const webhookSecret = config?.webhook_secret ?? "";
-
-  // Verify signature when secret is configured
-  if (webhookSecret && !verifySignature(rawBody, sig, webhookSecret)) {
+  // The shared secret lives in the IDEXX_WEBHOOK_SECRET environment variable. Fails CLOSED:
+  // an unsigned webhook can write test results into medical records, so with no secret
+  // configured every request is refused.
+  const webhookSecret = idexxSecrets().webhook_secret;
+  if (!webhookSecret) {
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
+  }
+  if (!verifySignature(rawBody, sig, webhookSecret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import type { IdexxConfig, IdexxOrderPayload } from "@/lib/idexx";
+import type { IdexxOrderPayload } from "@/lib/idexx";
 import { idexxCreateOrder } from "@/lib/idexx";
+import { loadIdexxConfig } from "@/lib/idexxServer";
 
 function adminClient() {
   return createClient(
@@ -27,20 +28,11 @@ export async function POST(req: NextRequest) {
 
   const db = adminClient();
 
-  const { data: configRow } = await db
-    .from("shelter_config")
-    .select("config_data")
-    .eq("id", 6)
-    .maybeSingle();
-
-  if (!configRow?.config_data) {
-    return NextResponse.json({ error: "IDEXX not configured" }, { status: 400 });
-  }
-
-  const config = configRow.config_data as IdexxConfig;
+  // Credentials come from server environment variables, never from the database.
+  const config = await loadIdexxConfig(db);
 
   if (!config.vetconnect_username || !config.vetconnect_password) {
-    return NextResponse.json({ error: "VetConnect Agent credentials not configured" }, { status: 400 });
+    return NextResponse.json({ error: "VetConnect credentials are not configured on the server" }, { status: 400 });
   }
 
   const payload: IdexxOrderPayload = {

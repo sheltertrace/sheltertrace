@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import type { IdexxConfig } from "@/lib/idexx";
 import { idexxGetResult, mapIdexxResult } from "@/lib/idexx";
+import { loadIdexxConfig } from "@/lib/idexxServer";
+import { timingSafeEqual } from "crypto";
 
 // Vercel cron: runs every 30 minutes (configured in vercel.json)
 // Also callable manually via GET /api/idexx/poll
@@ -20,14 +21,8 @@ async function runPoll(): Promise<{ polled: number; updated: number; errors: str
 
   const db = adminClient();
 
-  const { data: configRow } = await db
-    .from("shelter_config")
-    .select("config_data")
-    .eq("id", 6)
-    .single();
-
-  const config = configRow?.config_data as IdexxConfig | null;
-  if (!config?.practice_id || !config?.api_key || !config?.auto_sync) {
+  const config = await loadIdexxConfig(db);
+  if (!config.vetconnect_username || !config.vetconnect_password || !config.auto_sync) {
     return { polled: 0, updated: 0, errors: ["IDEXX not configured or auto-sync disabled"] };
   }
 
@@ -70,18 +65,23 @@ async function runPoll(): Promise<{ polled: number; updated: number; errors: str
   return { polled: pending.length, updated, errors };
 }
 
-export async function GET(req: NextRequest) {
-  // Vercel cron passes Authorization: Bearer <CRON_SECRET>
-  const auth   = req.headers.get("authorization") ?? "";
+// Fails CLOSED: without CRON_SECRET configured nobody can trigger a poll (this endpoint calls IDEXX
+// with the practice's credentials and writes results into medical records).
+// Vercel cron sends Authorization: Bearer <CRON_SECRET> when the CRON_SECRET env var is set.
+function authorized(req: NextRequest): boolean {
   const cronKey = process.env.CRON_SECRET;
-  if (cronKey && auth !== `Bearer ${cronKey}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-  const result = await runPoll();
-  return NextResponse.json(result);
+  if (!cronKey) return false;
+  const given = Buffer.from(req.headers.get("authorization") ?? "");
+  const want = Buffer.from(`Bearer ${cronKey}`);
+  return given.length === want.length && timingSafeEqual(given, want);
 }
 
-export async function POST() {
-  const result = await runPoll();
-  return NextResponse.json(result);
+export async function GET(req: NextRequest) {
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return NextResponse.json(await runPoll());
+}
+
+export async function POST(req: NextRequest) {
+  if (!authorized(req)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  return NextResponse.json(await runPoll());
 }

@@ -2,6 +2,7 @@
 import { supabase } from "./supabase";
 import type { Animal, Person, MedicalRecord, DispatchCall, Citation, Receipt, AdoptionRecord, Officer, DispositionEntry, MicrochipRegistration, MicrochipSearch, FosterPlacement, FosterUpdate, FosterCheckin, FosterApplication, FosterSupplyRequest, LostFoundReport, LostFoundMatch, PetLicense, CitizenReport, DrugInventory, EuthanasiaLog, DrugReconciliation, PersonNote, WitnessStatement, NarrativeEntry, StaffAccount } from "./types";
 import type { IdexxConfig } from "./idexx";
+import { stripIdexxSecrets } from "./idexxConfig";
 import { genId, genReceiptId, today, nowTime } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
 import { CURRENT_USER_KEY, getCurrentUser } from "./auth";
@@ -2840,13 +2841,15 @@ export async function fetchIdexxConfig(): Promise<IdexxConfig> {
   };
   try {
     const { data } = await supabase.from("shelter_config").select("config_data").eq("id", 6).maybeSingle();
-    return { ...defaults, ...(data?.config_data as Partial<IdexxConfig> ?? {}) };
+    // Credentials are server-only (env vars); drop anything credential-shaped a legacy row may still hold.
+    return { ...defaults, ...stripIdexxSecrets((data?.config_data as Partial<IdexxConfig>) ?? {}) };
   } catch { return defaults; }
 }
 
+// Only non-secret settings are stored; credentials and the webhook secret are server env vars.
 export async function saveIdexxConfig(config: IdexxConfig): Promise<void> {
   await supabase.from("shelter_config").upsert({
-    id: 6, config_data: config as unknown as Record<string, unknown>, updated_at: new Date().toISOString(),
+    id: 6, config_data: stripIdexxSecrets(config) as unknown as Record<string, unknown>, updated_at: new Date().toISOString(),
   });
 }
 
