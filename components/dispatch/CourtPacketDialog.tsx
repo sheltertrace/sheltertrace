@@ -5,6 +5,7 @@ import { fetchMedical, fetchPeopleForAnimal } from "@/lib/data";
 import { describeSections, impoundedAnimals, staffName, type PacketInputs, type PacketExtras, type SectionId } from "@/lib/courtPacket/sections";
 import { generateCourtPacket, type PacketProgress, type PacketResult } from "@/lib/courtPacket/generate";
 import { saveCopyToCall, recordPacket } from "@/lib/courtPacket/persist";
+import { getSessionToken } from "@/lib/auth";
 
 const REASONS = ["Court", "Records Request", "Internal Review", "DA Request", "Other"];
 
@@ -125,7 +126,7 @@ export default function CourtPacketDialog({ inputs, user, onClose, onSaved }: Pr
     try {
       const res = await fetch("/api/court-packet/email", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-staff-id": user.id },
+        headers: { "Content-Type": "application/json", "x-staff-token": getSessionToken() || "" },
         body: JSON.stringify({ to: emailTo.trim(), subject: `Court Packet — ${inputs.callNumber}`, message: emailMsg, pdfUrl: saveState.url, filename: result.filename, callNumber: inputs.callNumber, sentBy: staffName(user) }),
       });
       const json = await res.json().catch(() => ({}));

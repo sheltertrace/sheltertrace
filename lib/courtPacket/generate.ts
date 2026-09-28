@@ -1,6 +1,7 @@
 "use client";
 import type { PDFDocument, PDFFont, PDFPage } from "pdf-lib";
 import type { EvidenceItem, StaffAccount } from "../types";
+import { getSessionToken } from "../auth";
 import { AGENCY_SEAL_LOGO } from "../shelterInfo";
 import { buildCitationHTML } from "../citationPrint";
 import { buildBiteReportHTML } from "../biteReportPrint";
@@ -32,7 +33,9 @@ export function courtPacketFilename(callNumber: string, d = new Date()): string 
 
 // ── Server rendering (HTML → PDF via headless Chromium) ───────────────────────
 
-async function renderHtml(html: string, staffId: string): Promise<Uint8Array> {
+async function renderHtml(html: string): Promise<Uint8Array> {
+  const token = getSessionToken();
+  if (!token) throw new Error("Your session has expired. Please sign in again.");
   // The 1.4MB seal is inlined as a data URL in several print templates — swap
   // it for a token the server re-inflates, rather than uploading it every call.
   let payload = stripPageRules(html);
@@ -42,7 +45,7 @@ async function renderHtml(html: string, staffId: string): Promise<Uint8Array> {
     try {
       const res = await fetch("/api/court-packet/render", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-staff-id": staffId },
+        headers: { "Content-Type": "application/json", "x-staff-token": token },
         body: JSON.stringify({ html: payload }),
       });
       if (res.ok) return new Uint8Array(await res.arrayBuffer());
@@ -231,7 +234,7 @@ export async function generateCourtPacket(
   const callNumber = inputs.callNumber;
   const defs = describeSections(inputs, extras);
   const isSel = (id: SectionId) => selected.has(id) && defs.some((d) => d.id === id);
-  const render = (html: string, title: string) => renderHtml(decorateSection(html, { callNumber, title }), user.id);
+  const render = (html: string, title: string) => renderHtml(decorateSection(html, { callNumber, title }));
 
   // Build the ordered work list (spec order). Each part becomes one server
   // render or one browser-built PDF; a failure in one never sinks the packet.
@@ -306,7 +309,7 @@ export async function generateCourtPacket(
   if (includeCover) {
     for (let attempt = 0; attempt < 2; attempt++) {
       toc = buildToc(coverPages);
-      const bytes = await renderHtml(buildCoverHtml(inputs, user, toc), user.id);
+      const bytes = await renderHtml(buildCoverHtml(inputs, user, toc));
       coverDoc = await PDFDocument.load(bytes);
       if (coverDoc.getPageCount() === coverPages) break;
       coverPages = coverDoc.getPageCount();
@@ -322,7 +325,7 @@ export async function generateCourtPacket(
   let certDoc: PDFDocument | null = null;
   for (let attempt = 0; attempt < 2; attempt++) {
     const totalPages = coverPages + bodyPages + certPages;
-    const bytes = await renderHtml(buildCertificationHtml(inputs, user, totalPages), user.id);
+    const bytes = await renderHtml(buildCertificationHtml(inputs, user, totalPages));
     certDoc = await PDFDocument.load(bytes);
     if (certDoc.getPageCount() === certPages) break;
     certPages = certDoc.getPageCount();

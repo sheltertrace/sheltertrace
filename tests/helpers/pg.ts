@@ -7,6 +7,7 @@ import path from "node:path";
 export const MIGRATIONS = {
   credentials: readFileSync(path.resolve(__dirname, "../../supabase/migrations/20260925155410_staff_credentials_hardening.sql"), "utf8"),
   writeLockdown: readFileSync(path.resolve(__dirname, "../../supabase/migrations/20260925170000_staff_accounts_write_lockdown.sql"), "utf8"),
+  sessionSigning: readFileSync(path.resolve(__dirname, "../../supabase/migrations/20260928090000_staff_session_signing.sql"), "utf8"),
 };
 
 export async function newDb(): Promise<PGlite> {

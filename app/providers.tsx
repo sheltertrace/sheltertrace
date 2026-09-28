@@ -1,7 +1,8 @@
 "use client";
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { StaffAccount } from "@/lib/types";
-import { getCurrentUser, login as authLogin, logout as authLogout, demoLoginById } from "@/lib/auth";
+import { getCurrentUser, login as authLogin, logout as authLogout, demoLoginById, verifySession } from "@/lib/auth";
+import { IS_DEMO } from "@/lib/demo";
 import PasswordPromptHost from "@/components/PasswordPromptHost";
 import { updateStaffTheme, fetchShelterConfig, kennelLabelsFromConfig, fetchStaffOptions } from "@/lib/data";
 
@@ -88,17 +89,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     document.documentElement.setAttribute("data-theme", t);
   }, []);
 
-  // On mount: restore from localStorage first (instant, no flash), then user pref
+  // On mount: restore from sessionStorage, but treat its role/permissions/
+  // is_super_admin as unverified until staff_verify_session confirms them
+  // against the database — that object is client-writable and proves nothing
+  // on its own (see the 2026-09-28 session-signing fix). A genuinely invalid
+  // or expired session logs the tab out; a network hiccup or the RPC not
+  // being deployed yet just keeps the locally-cached copy for this load
+  // rather than punishing everyone for a transient error.
   useEffect(() => {
-    const stored = getCurrentUser();
-    setUser(stored);
-    setLoading(false);
+    let cancelled = false;
+    (async () => {
+      const stored = getCurrentUser();
+      if (!stored) { setLoading(false); return; }
 
-    const savedTheme = (localStorage.getItem("sheltertrace_theme") as Theme) ||
-                       stored?.theme_preference ||
-                       "light";
-    setThemeState(savedTheme);
-    applyTheme(savedTheme);
+      let effective: StaffAccount | null = stored;
+      if (!IS_DEMO) {
+        const v = await verifySession();
+        if (cancelled) return;
+        if (v.status === "ok") effective = v.account;
+        else if (v.status === "invalid") {
+          authLogout();
+          effective = null;
+        }
+        // "unavailable": keep the locally-cached copy for this page load.
+      }
+
+      setUser(effective);
+      setLoading(false);
+
+      const savedTheme = (localStorage.getItem("sheltertrace_theme") as Theme) ||
+                         effective?.theme_preference ||
+                         "light";
+      setThemeState(savedTheme);
+      applyTheme(savedTheme);
+    })();
+    return () => { cancelled = true; };
   }, [applyTheme]);
 
   const setTheme = useCallback((t: Theme) => {

@@ -1,8 +1,10 @@
 ﻿"use client";
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/components/layout/AppShell";
 import { supabase } from "@/lib/supabase";
 import { adminCreateStaff, adminUpdateStaff, adminDeleteStaff, adminResetStaffPassword } from "@/lib/staffAdmin";
+import { hasPermission } from "@/lib/auth";
 import type { StaffAccount, CourtSettings, ShelterSettings } from "@/lib/types";
 import { today } from "@/lib/utils";
 import { fetchAnimals, fetchCalls, fetchPeople, fetchCourtSettings, saveCourtSettings, fetchShelterSettings, saveShelterSettings, fetchIdexxConfig, saveIdexxConfig, fetchIdexxOrders, getShelterStaff } from "@/lib/data";
@@ -98,7 +100,17 @@ const DEMO_IDEXX_CONFIG: Partial<IdexxConfig> = {
 
 export default function AdminPage() {
   console.log("[AdminPage] rendering — tabs: staff | shelter | court | address | integrations");
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, loading: authLoading } = useAuth();
+  const router = useRouter();
+  // /admin manages staff accounts, shelter/court settings, and integration secrets — Administrator
+  // or super admin only. currentUser here comes from the verified session (see app/providers.tsx),
+  // not a raw client-writable object, so this check can actually be trusted.
+  // Matches the sidebar's own gate for this link (perm: "admin" in components/layout/Sidebar.tsx) so
+  // this never restricts anyone who could already see and use the page — it only blocks a forged session.
+  const isAuthorized = !!currentUser && (currentUser.is_super_admin || currentUser.role === "Administrator" || hasPermission(currentUser, "admin") || hasPermission(currentUser, "all"));
+  useEffect(() => {
+    if (!authLoading && !isAuthorized) router.replace("/dashboard");
+  }, [authLoading, isAuthorized, router]);
   const [tab, setTab] = useState<"staff" | "address" | "court" | "shelter" | "integrations">("staff");
   const [staff, setStaff] = useState<StaffAccount[]>([]);
   const [loading, setLoading] = useState(true);
@@ -364,6 +376,8 @@ export default function AdminPage() {
     const map: Record<string, string> = { Administrator: "#ef4444", "Shelter Manager": "#6366f1", Officer: "#3b82f6", "Field Officer": "#3b82f6", Dispatcher: "#f59e0b", "Vet Tech": "#22c55e", Veterinarian: "#22c55e", "Front Desk": "#8b5cf6", "Court Clerk": "#0ea5e9", Judge: "#64748b", Volunteer: "#f97316" };
     return map[role] || "#6366f1";
   };
+
+  if (!authLoading && !isAuthorized) return null;
 
   return (
     <AppShell title="Staff Administration">

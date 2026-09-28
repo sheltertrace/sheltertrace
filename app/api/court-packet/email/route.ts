@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
-import { isActiveStaff } from "@/lib/courtPacket/serverAuth";
+import { verifyStaffSession } from "@/lib/courtPacket/serverAuth";
 import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "@/lib/shelterInfo";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ function esc(s: string): string {
 }
 
 export async function POST(req: Request) {
-  if (!(await isActiveStaff(req.headers.get("x-staff-id")))) {
+  if (!(await verifyStaffSession(req.headers.get("x-staff-token")))) {
     return NextResponse.json({ success: false, error: "Not authorized" }, { status: 401 });
   }
 

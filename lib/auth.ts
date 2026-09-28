@@ -4,6 +4,7 @@ import type { StaffAccount } from "./types";
 import { clearCachedPassword } from "./passwordPrompt";
 
 export const CURRENT_USER_KEY = "sheltertrace_current_user";
+export const SESSION_TOKEN_KEY = "sheltertrace_session_token";
 
 // Normalize a DB row (snake_case) to the StaffAccount shape the app uses
 function normalizeAccount(row: Record<string, unknown>): StaffAccount {
@@ -63,6 +64,7 @@ interface StaffLoginRpc {
   must_reset?: boolean;
   retry_after_seconds?: number;
   account?: Record<string, unknown>;
+  session_token?: string | null;
 }
 
 // PostgREST: 404 / PGRST202 = the function does not exist (yet).
@@ -70,8 +72,17 @@ function isMissingFunction(error: { code?: string; message?: string } | null | u
   return !!error && (error.code === "PGRST202" || /could not find the function|does not exist/i.test(error.message || ""));
 }
 
-function storeSession(account: StaffAccount): void {
-  if (typeof window !== "undefined") sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(account));
+function storeSession(account: StaffAccount, sessionToken?: string | null): void {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(CURRENT_USER_KEY, JSON.stringify(account));
+  if (sessionToken) sessionStorage.setItem(SESSION_TOKEN_KEY, sessionToken);
+  else sessionStorage.removeItem(SESSION_TOKEN_KEY);
+}
+
+/** The signed session token from the last login, if any. Never trust its contents client-side — verifySession() re-checks it against the database. */
+export function getSessionToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return sessionStorage.getItem(SESSION_TOKEN_KEY);
 }
 
 export async function login(username: string, password: string): Promise<StaffAccount | null> {
@@ -86,7 +97,7 @@ export async function login(username: string, password: string): Promise<StaffAc
       // Correct password but flagged for a forced change: no session until it is changed.
       if (r.must_reset) throw new PasswordResetRequiredError("must_reset");
       const account = normalizeAccount(r.account);
-      storeSession(account);
+      storeSession(account, r.session_token);
       return account;
     }
     if (r.error === "locked") throw new LoginLockedError(r.retry_after_seconds ?? 900);
@@ -101,6 +112,37 @@ export async function login(username: string, password: string): Promise<StaffAc
   }
 
   throw new LoginUnavailableError();
+}
+
+// ── Session verification ────────────────────────────────────────────────────
+// getCurrentUser() reads a JSON blob the browser itself wrote — it proves
+// nothing. This re-checks the signed token from login() against the database
+// (staff_verify_session) and returns the CURRENT role/permissions/active
+// state, not whatever the client claims. Anything that gates on role,
+// permissions, or is_super_admin should use the result of this, not a raw
+// getCurrentUser() value, for exactly that reason.
+export type SessionVerification =
+  | { status: "ok"; account: StaffAccount }
+  | { status: "invalid" }               // no token, bad signature, expired, or account deactivated
+  | { status: "unavailable" };          // network/server error, or the RPC isn't deployed yet — degrade, don't log out
+
+export async function verifySession(): Promise<SessionVerification> {
+  const token = getSessionToken();
+  if (!token) return { status: "invalid" };
+
+  const { data, error } = await supabase.rpc("staff_verify_session", { p_token: token });
+
+  if (error) {
+    // Missing function (rollout: code deployed before the migration) or a
+    // network/server hiccup — neither means the session is actually invalid,
+    // so this degrades to "can't check right now" rather than forcing a
+    // logout. A genuinely invalid/expired token is a { ok:false } RESPONSE,
+    // handled below, not an error here.
+    return { status: "unavailable" };
+  }
+  const r = data as { ok: boolean; error?: string; account?: Record<string, unknown> };
+  if (r.ok && r.account) return { status: "ok", account: normalizeAccount(r.account) };
+  return { status: "invalid" };
 }
 
 export interface ChangePasswordResult { ok: boolean; error?: string }
@@ -165,6 +207,7 @@ export function logout(): void {
   clearCachedPassword();
   if (typeof window !== "undefined") {
     sessionStorage.removeItem(CURRENT_USER_KEY);
+    sessionStorage.removeItem(SESSION_TOKEN_KEY);
   }
 }
 

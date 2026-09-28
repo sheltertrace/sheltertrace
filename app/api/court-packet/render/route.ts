@@ -4,7 +4,7 @@ import puppeteer from "puppeteer-core";
 import { existsSync } from "node:fs";
 import { MCAS_SEAL_LOGO } from "@/lib/mcasLogo";
 import { LOGO_TOKEN, stripPageRules } from "@/lib/courtPacket/htmlUtil";
-import { isActiveStaff } from "@/lib/courtPacket/serverAuth";
+import { verifyStaffSession } from "@/lib/courtPacket/serverAuth";
 
 // Renders ONE packet section (an HTML document) to a PDF with headless
 // Chromium. The client calls this once per section/document so no single
@@ -46,7 +46,7 @@ async function launchBrowser() {
 }
 
 export async function POST(req: Request) {
-  if (!(await isActiveStaff(req.headers.get("x-staff-id")))) {
+  if (!(await verifyStaffSession(req.headers.get("x-staff-token")))) {
     return NextResponse.json({ error: "Not authorized" }, { status: 401 });
   }
   const len = Number(req.headers.get("content-length") || 0);
