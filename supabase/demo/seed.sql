@@ -1,14 +1,15 @@
 -- ShelterTrace Demo Seed Data
 -- Run this in the demo Supabase project SQL editor
--- Passwords are stored as bcrypt hashes. Use the ShelterTrace admin UI
--- or a bcrypt tool to generate hashes for:
---   demo-admin:     Demo@Admin2026
---   demo-officer:   Demo@Officer2026
---   demo-frontdesk: Demo@FrontDesk2026
 --
--- Example (Node.js):
---   node -e "const bcrypt=require('bcryptjs'); console.log(bcrypt.hashSync('Demo@Admin2026', 10))"
--- Run for each password and replace the PLACEHOLDER values below.
+-- SECURITY: this file previously published the plaintext demo passwords in
+-- this comment (removed 2026-09-28 — see the security review that found it).
+-- If those passwords were ever actually used to seed a real project, treat
+-- them as compromised and rotate the three demo accounts below.
+--
+-- Passwords are stored as bcrypt hashes and are never written here in
+-- plaintext. Choose your own password for each account, generate its hash,
+-- and replace the PLACEHOLDER values below with the result:
+--   node -e "const bcrypt=require('bcryptjs'); console.log(bcrypt.hashSync('<your chosen password>', 10))"
 
 -- ── Staff Accounts ─────────────────────────────────────────────────────────────
 
