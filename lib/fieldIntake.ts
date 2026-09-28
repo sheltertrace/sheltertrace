@@ -2,6 +2,7 @@
 // and the actual submission pipeline (create/link person, create animal,
 // upload photos, store the intake form as an animal document).
 import { supabase } from "./supabase";
+import { uploadStaffFile } from "./staffStorage";
 import { nullifyEmptyDates, nullifyEmptyBooleans } from "./sanitize";
 import { createAnimal, createPerson, linkAnimalToPerson, addAnimalNote, uploadAnimalDocument, fetchCall, updateCall, linkAnimalToCall, DuplicateCallAnimalLinkError } from "./data";
 import { buildIntakeFormHTML } from "./intakeFormPrint";
@@ -189,8 +190,8 @@ export async function submitFieldIntake(sub: FieldIntakeSubmission): Promise<Fie
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       const path = `${created.id}/field-intake/${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      const { error: upErr } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: false, contentType: file.type });
-      if (!upErr) {
+      const result = await uploadStaffFile("animal-photos", path, file, { contentType: file.type });
+      if (result.ok) {
         const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
         uploadedPhotoUrls.push(urlData.publicUrl);
       }

@@ -33,6 +33,10 @@ export default function VolunteerClockPage() {
   const [inputVal, setInputVal] = useState("");
   const [kioskState, setKioskState] = useState<KioskState>("idle");
   const [person, setPerson] = useState<Person | null>(null);
+  // The kiosk has no staff session (it's a public front-desk tablet) and documents
+  // is a private bucket, so photo_id_url (a storage path, not a loadable URL) will
+  // never actually render here — fall back to initials rather than a broken image.
+  const [photoFailed, setPhotoFailed] = useState(false);
   const [activeLog, setActiveLog] = useState<VolunteerLog | null>(null);
   const [selectedTask, setSelectedTask] = useState(TASKS[0]);
   const [errMsg, setErrMsg] = useState("");
@@ -52,6 +56,8 @@ export default function VolunteerClockPage() {
     const t = setInterval(() => setClockNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
+
+  useEffect(() => { setPhotoFailed(false); }, [person?.id]);
 
   // Focus input on idle/lookup and on initial page load
   useEffect(() => {
@@ -484,8 +490,8 @@ export default function VolunteerClockPage() {
         {kioskState === "confirm_in" && person && (
           <div className="kiosk-person-card" onClick={cancelReset}>
             <div className="kiosk-person-header">
-              {person.photo_id_url ? (
-                <img src={person.photo_id_url} alt="" className="kiosk-avatar" style={{ objectFit: "cover", border: "3px solid #1a8a8a" }} />
+              {person.photo_id_url && !photoFailed ? (
+                <img src={person.photo_id_url} alt="" className="kiosk-avatar" style={{ objectFit: "cover", border: "3px solid #1a8a8a" }} onError={() => setPhotoFailed(true)} />
               ) : (
                 <div className="kiosk-avatar" style={{ background: "#e2e8f0", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 900, color: "#94a3b8" }}>
                   {person.first_name[0]}{person.last_name[0]}
@@ -530,8 +536,8 @@ export default function VolunteerClockPage() {
         {kioskState === "confirm_out" && person && activeLog && (
           <div className="kiosk-person-card" onClick={cancelReset}>
             <div className="kiosk-person-header">
-              {person.photo_id_url ? (
-                <img src={person.photo_id_url} alt="" className="kiosk-avatar" style={{ objectFit: "cover", border: "3px solid #f59e0b" }} />
+              {person.photo_id_url && !photoFailed ? (
+                <img src={person.photo_id_url} alt="" className="kiosk-avatar" style={{ objectFit: "cover", border: "3px solid #f59e0b" }} onError={() => setPhotoFailed(true)} />
               ) : (
                 <div className="kiosk-avatar" style={{ background: "#fef3c7", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 28, fontWeight: 900, color: "#f59e0b" }}>
                   {person.first_name[0]}{person.last_name[0]}

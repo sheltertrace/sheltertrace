@@ -6,6 +6,7 @@ import type { PetLicenseApplication, CityPetLicense, LicenseAnimal } from "@/lib
 import { calcApplicationFee, LICENSE_FEE_STERILIZED, LICENSE_FEE_UNSTERILIZED } from "@/lib/cityLicenseTypes";
 import { useAuth } from "@/app/providers";
 import { printLicenseCertificate } from "@/lib/licenseCertPrint";
+import { signStaffFileUrl } from "@/lib/staffStorage";
 
 function F({ label, value }: { label: string; value?: string | null }) {
   return (
@@ -117,9 +118,19 @@ export default function ApplicationDetailPage() {
           {app.documents?.length > 0 && (
             <div className="card" style={{ padding: 14 }}>
               <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>📎 Documents</div>
-              {(app.documents as Array<{ name: string; url: string }>).map((d, i) => (
+              {(app.documents as Array<{ name: string; path: string }>).map((d, i) => (
                 <div key={i} style={{ fontSize: 13 }}>
-                  <a href={d.url} target="_blank" rel="noreferrer" style={{ color: "var(--teal)" }}>{d.name}</a>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const url = await signStaffFileUrl("pet-license-documents", d.path);
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      else alert("Could not open this file. Your session may have expired — try signing in again.");
+                    }}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--teal)", textDecoration: "underline", font: "inherit" }}
+                  >
+                    {d.name}
+                  </button>
                 </div>
               ))}
             </div>

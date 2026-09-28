@@ -27,6 +27,7 @@ import {
 } from "@/lib/data";
 import type { AnimalPerson, AnimalIntakeHistory, Redemption, DispatchCallAnimal } from "@/lib/types";
 import { printIntakeForm } from "@/lib/intakeFormPrint";
+import { uploadStaffFile, signStaffFileUrl, extractStoragePath } from "@/lib/staffStorage";
 import LinkPersonModal from "./LinkPersonModal";
 import { IS_DEMO } from "@/lib/demo";
 import { getIdexxTestCode, demoSimulateOrder, demoSimulateResult, mapIdexxResult } from "@/lib/idexx";
@@ -304,8 +305,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     setPhotoUploading(true);
     try {
       const path = `${animal.id}/${Date.now()}-${file.name}`;
-      const { data, error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: true });
-      if (error) throw error;
+      const result = await uploadStaffFile("animal-photos", path, file, { upsert: true });
+      if (!result.ok) throw new Error(result.error);
       const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
       await save({ photo_url: urlData.publicUrl });
     } catch {
@@ -322,8 +323,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     setPhotoUploading(true);
     try {
       const path = `${animal.id}/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: true });
-      if (error) throw error;
+      const result = await uploadStaffFile("animal-photos", path, file, { upsert: true });
+      if (!result.ok) throw new Error(result.error);
       const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
       await save({ photo_url: urlData.publicUrl });
     } catch {
@@ -338,8 +339,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
       setPubPhotoUploading(true);
       try {
         const path = `public/${animal.id}/${Date.now()}-${file.name}`;
-        const { error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: true });
-        if (error) throw error;
+        const result = await uploadStaffFile("animal-photos", path, file, { upsert: true });
+        if (!result.ok) throw new Error(result.error);
         const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
         const newUrl = urlData.publicUrl;
         const existing = safeArray(animal.photo_urls);
@@ -360,8 +361,8 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
     setPubPhotoUploading(true);
     try {
       const path = `public/${animal.id}/${Date.now()}-${file.name}`;
-      const { error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: true });
-      if (error) throw error;
+      const result = await uploadStaffFile("animal-photos", path, file, { upsert: true });
+      if (!result.ok) throw new Error(result.error);
       const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
       const newUrl = urlData.publicUrl;
       const existing = safeArray(animal.photo_urls);
@@ -1839,9 +1840,18 @@ export default function AnimalDetail({ animal: initialAnimal, medical, people, d
                   {docs.map((d) => (
                     <tr key={d.id}>
                       <td>
-                        <a href={d.file_url} target="_blank" rel="noopener noreferrer" style={{ color: "var(--teal)", fontWeight: 600, fontSize: 13 }}>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const path = extractStoragePath("documents", d.file_url);
+                            const url = path ? await signStaffFileUrl("documents", path) : null;
+                            if (url) window.open(url, "_blank", "noopener,noreferrer");
+                            else alert("Could not open this file. Your session may have expired — try signing in again.");
+                          }}
+                          style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--teal)", fontWeight: 600, fontSize: 13, textDecoration: "underline", font: "inherit" }}
+                        >
                           📄 {d.file_name}
-                        </a>
+                        </button>
                         {d.file_size && <span style={{ color: "var(--text-muted)", fontSize: 11, marginLeft: 6 }}>({Math.round(d.file_size / 1024)}KB)</span>}
                       </td>
                       <td><span className="badge" style={{ background: "#ede9fe", color: "#7c3aed" }}>{d.category || "General"}</span></td>

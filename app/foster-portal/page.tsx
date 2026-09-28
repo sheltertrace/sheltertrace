@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 // All DB calls use supabasePublic — this is a public page with no staff auth.
 import { supabasePublic } from "@/lib/supabase-public";
+import { uploadPublicSubmission } from "@/lib/publicStorage";
 import type { Person, FosterPlacement, FosterUpdate, Animal } from "@/lib/types";
 import { today } from "@/lib/utils";
 import { AGENCY_NAME, AGENCY_SHORT, AGENCY_ADDRESS, AGENCY_PHONE } from "@/lib/shelterInfo";
@@ -80,11 +81,8 @@ function AnimalCard({
       let photoUrl: string | undefined;
       if (photoFile && placement.animal_id) {
         const path = `public/${placement.animal_id}/${Date.now()}-${photoFile.name}`;
-        const { error } = await supabasePublic.storage.from("animal-photos").upload(path, photoFile, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabasePublic.storage.from("animal-photos").getPublicUrl(path);
-          photoUrl = urlData.publicUrl;
-        }
+        const result = await uploadPublicSubmission("foster-update-photos", "animal-photos", path, photoFile);
+        if (result.ok && result.url) photoUrl = result.url;
       }
       const { error: updateErr } = await supabasePublic.from("foster_updates").insert({
         placement_id: placement.id,

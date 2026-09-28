@@ -2,6 +2,7 @@
 import type { PDFDocument, PDFFont, PDFPage } from "pdf-lib";
 import type { EvidenceItem, StaffAccount } from "../types";
 import { getSessionToken } from "../auth";
+import { signStaffFileUrlsForCourtPacket, extractStoragePath } from "../staffStorage";
 import { AGENCY_SEAL_LOGO } from "../shelterInfo";
 import { buildCitationHTML } from "../citationPrint";
 import { buildBiteReportHTML } from "../biteReportPrint";
@@ -236,6 +237,26 @@ export async function generateCourtPacket(
   const isSel = (id: SectionId) => selected.has(id) && defs.some((d) => d.id === id);
   const render = (html: string, title: string) => renderHtml(decorateSection(html, { callNumber, title }));
 
+  // evidence is a private bucket — the browser fetches each photo/document
+  // itself (photoPdf/documentPdf below) to embed it in the packet, so it needs
+  // a real signed URL per file, not the old permanent public one. Sign every
+  // needed path ONCE, up front, with the longer court-packet lifetime (see
+  // /api/staff/storage/sign) rather than one at a time as each file is used —
+  // a large packet can take a while, and the last file's URL must still be
+  // valid when its turn comes. Historical items may still hold a full public
+  // URL from before evidence went private; extractStoragePath handles both.
+  const rawPhotos = isSel("photos") ? photoEvidence(inputs.call) : [];
+  const rawDocs = isSel("documents") ? documentEvidence(inputs.call) : [];
+  const evidencePaths = [...rawPhotos, ...rawDocs]
+    .map((e) => extractStoragePath("evidence", evidenceUrl(e)))
+    .filter((p): p is string => !!p);
+  const signedEvidenceUrls = await signStaffFileUrlsForCourtPacket("evidence", [...new Set(evidencePaths)]);
+  const withSignedUrl = (e: EvidenceItem): EvidenceItem => {
+    const p = extractStoragePath("evidence", evidenceUrl(e));
+    const signed = p ? signedEvidenceUrls[p] : null;
+    return signed ? { ...e, url: signed, file_url: signed } : e;
+  };
+
   // Build the ordered work list (spec order). Each part becomes one server
   // render or one browser-built PDF; a failure in one never sinks the packet.
   const parts: Part[] = [];
@@ -248,7 +269,7 @@ export async function generateCourtPacket(
   if (isSel("citations")) inputs.citations.forEach((c) => add("citations", `Citation ${c.citation_number}`, "Citations Issued", () => render(buildCitationHTML(c), "Citations Issued")));
   if (isSel("bites")) inputs.biteReports.forEach((b) => add("bites", `Bite Report ${b.report_number || b.id || ""}`.trim(), "Bite Reports", () => render(buildBiteReportHTML(b), "Bite Reports")));
   if (isSel("witnesses")) add("witnesses", "Witness Statements", "Witness Statements", () => render(buildWitnessHtml(inputs.witnessStatements), "Witness Statements"));
-  if (isSel("photos")) { const ph = photoEvidence(inputs.call); ph.forEach((e, i) => add("photos", `Photo ${i + 1} of ${ph.length}`, "Photos and Evidence", () => photoPdf(pdfLib, callNumber, e, i + 1, ph.length))); }
+  if (isSel("photos")) { const ph = rawPhotos.map(withSignedUrl); ph.forEach((e, i) => add("photos", `Photo ${i + 1} of ${ph.length}`, "Photos and Evidence", () => photoPdf(pdfLib, callNumber, e, i + 1, ph.length))); }
   if (isSel("intake")) impoundedAnimals(inputs.animalLinks).forEach((l) => add("intake", `Intake form — ${l.animal?.name || l.animal_id}`, "Animal Intake Forms", async () => {
     if (!l.animal) throw new Error("animal record missing");
     const p = extras.intakePeople[l.animal_id] || {};
@@ -256,7 +277,7 @@ export async function generateCourtPacket(
   }));
   if (isSel("medical")) add("medical", "Medical Records", "Medical Records", () => render(buildMedicalHtml(inputs, extras), "Medical Records"));
   if (isSel("quarantine")) { const q = quarantineRows(inputs); if (q.forms.length + q.bites.length + inputs.animalLinks.filter((l) => l.animal?.status === "Quarantine").length > 0) add("quarantine", "Quarantine Records", "Quarantine Records", () => render(buildQuarantineHtml(inputs), "Quarantine Records")); }
-  if (isSel("documents")) { const ds = documentEvidence(inputs.call); ds.forEach((e, i) => add("documents", `Attached document ${i + 1} of ${ds.length}`, "Attached Documents", () => documentPdf(pdfLib, callNumber, e, i + 1, ds.length))); }
+  if (isSel("documents")) { const ds = rawDocs.map(withSignedUrl); ds.forEach((e, i) => add("documents", `Attached document ${i + 1} of ${ds.length}`, "Attached Documents", () => documentPdf(pdfLib, callNumber, e, i + 1, ds.length))); }
 
   const total = parts.length + 3; // + cover, certification, merge
   let done = 0;

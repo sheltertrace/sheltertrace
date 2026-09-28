@@ -7,6 +7,7 @@ import { genId, genReceiptId, today, nowTime } from "./utils";
 import { IS_DEMO, getDemoSessionId } from "./demo";
 import { CURRENT_USER_KEY, getCurrentUser } from "./auth";
 import { nullifyEmptyDates, nullifyEmptyBooleans } from "./sanitize";
+import { uploadStaffFile, deleteStaffFiles, extractStoragePath } from "./staffStorage";
 
 // Optional DATE columns per table — empty strings must become null for Postgres.
 const ANIMAL_DATE_FIELDS = [
@@ -329,48 +330,43 @@ export async function updatePerson(id: string, updates: Partial<Person>): Promis
   return data as Person;
 }
 
-// Derive storage base from env var so demo deployment uses its own storage bucket,
-// not the production one. Hardcoding the production URL here was a security gap.
-const SUPABASE_STORAGE_BASE = `${(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").replace(/\/$/, "")}/storage/v1/object/public`;
-
+// documents is a private bucket — upload/delete go through the staff-session-
+// gated route (service role). What's stored in photo_id_url/photo_id_back_url
+// from here on is the storage PATH, not a fetchable URL on its own; display
+// code resolves it to a short-lived signed URL (see PhotoIdThumb).
 export async function uploadPersonPhotoId(personId: string, file: File): Promise<string> {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `people/${personId}/photo-id.${ext}`;
   // Remove any existing photo-id files before uploading
-  await supabase.storage.from("documents").remove([
+  await deleteStaffFiles("documents", [
     `people/${personId}/photo-id.jpg`,
     `people/${personId}/photo-id.jpeg`,
     `people/${personId}/photo-id.png`,
     `people/${personId}/photo-id.pdf`,
   ]);
-  const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: file.type, upsert: true });
-  if (error) throw error;
-  const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
-  const url = urlData.publicUrl;
-  await updatePerson(personId, { photo_id_url: url });
-  return url;
+  const result = await uploadStaffFile("documents", path, file, { contentType: file.type, upsert: true });
+  if (!result.ok) throw new Error(result.error);
+  await updatePerson(personId, { photo_id_url: path });
+  return path;
 }
 
 export async function uploadPersonPhotoIdBack(personId: string, file: File): Promise<string> {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
   const path = `people/${personId}/photo-id-back.${ext}`;
-  await supabase.storage.from("documents").remove([
+  await deleteStaffFiles("documents", [
     `people/${personId}/photo-id-back.jpg`,
     `people/${personId}/photo-id-back.jpeg`,
     `people/${personId}/photo-id-back.png`,
   ]);
-  const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: file.type, upsert: true });
-  if (error) throw error;
-  const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
-  const url = urlData.publicUrl;
-  await updatePerson(personId, { photo_id_back_url: url });
-  return url;
+  const result = await uploadStaffFile("documents", path, file, { contentType: file.type, upsert: true });
+  if (!result.ok) throw new Error(result.error);
+  await updatePerson(personId, { photo_id_back_url: path });
+  return path;
 }
 
 export async function deletePersonPhotoId(personId: string, photoUrl: string, side: "front" | "back" = "front"): Promise<void> {
-  const prefix = `${SUPABASE_STORAGE_BASE}/documents/`;
-  const path = photoUrl.startsWith(prefix) ? photoUrl.slice(prefix.length) : null;
-  if (path) await supabase.storage.from("documents").remove([path]);
+  const path = extractStoragePath("documents", photoUrl);
+  if (path) await deleteStaffFiles("documents", [path]);
   await updatePerson(personId, side === "back" ? { photo_id_back_url: undefined } : { photo_id_url: undefined });
 }
 
@@ -933,15 +929,15 @@ export async function createCitation(cit: Partial<Citation>): Promise<Citation> 
   return data as Citation;
 }
 
+// documents is private — returns the storage path (see PhotoIdThumb for display).
 export async function uploadCitationPhotoId(citationNumber: string, file: File): Promise<string> {
   const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
   const path = `citations/${citationNumber}/photo-id.${ext}`;
   const exts = ["jpg", "jpeg", "png", "webp", "pdf"];
-  await Promise.all(exts.map((e) => supabase.storage.from("documents").remove([`citations/${citationNumber}/photo-id.${e}`])));
-  const { error } = await supabase.storage.from("documents").upload(path, file, { contentType: file.type, upsert: true });
-  if (error) throw error;
-  const { data } = supabase.storage.from("documents").getPublicUrl(path);
-  return data.publicUrl;
+  await deleteStaffFiles("documents", exts.map((e) => `citations/${citationNumber}/photo-id.${e}`));
+  const result = await uploadStaffFile("documents", path, file, { contentType: file.type, upsert: true });
+  if (!result.ok) throw new Error(result.error);
+  return path;
 }
 
 export async function updateCitationDisposition(
@@ -1259,6 +1255,7 @@ export async function fetchAnimalDocuments(animalId: string): Promise<AnimalDocu
   return (data as AnimalDocument[]) || [];
 }
 
+// documents is private — file_url stores the storage path from here on.
 export async function uploadAnimalDocument(
   animalId: string,
   animalName: string,
@@ -1268,14 +1265,13 @@ export async function uploadAnimalDocument(
   uploadedBy: string,
 ): Promise<AnimalDocument> {
   const path = `${animalId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-  const { error: uploadError } = await supabase.storage.from("documents").upload(path, file, { upsert: false });
-  if (uploadError) throw uploadError;
-  const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
+  const result = await uploadStaffFile("documents", path, file, { upsert: false });
+  if (!result.ok) throw new Error(result.error);
   const { data, error } = await supabase.from("animal_documents").insert({
     animal_id: animalId,
     animal_name: animalName,
     file_name: file.name,
-    file_url: urlData.publicUrl,
+    file_url: path,
     file_type: file.type,
     file_size: file.size,
     category,
@@ -1287,12 +1283,8 @@ export async function uploadAnimalDocument(
 }
 
 export async function deleteAnimalDocument(doc: AnimalDocument): Promise<void> {
-  // Extract storage path from public URL
-  const url = new URL(doc.file_url);
-  const parts = url.pathname.split("/documents/");
-  if (parts[1]) {
-    await supabase.storage.from("documents").remove([parts[1]]);
-  }
+  const path = extractStoragePath("documents", doc.file_url);
+  if (path) await deleteStaffFiles("documents", [path]);
   await supabase.from("animal_documents").delete().eq("id", doc.id);
 }
 
@@ -1564,8 +1556,8 @@ export async function uploadReturnIntakePhotos(animalId: string, files: File[]):
   for (let i = 0; i < files.length; i++) {
     const file = files[i];
     const path = `${animalId}/return-intake/${Date.now()}-${i}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const { error } = await supabase.storage.from("animal-photos").upload(path, file, { upsert: false, contentType: file.type });
-    if (!error) {
+    const result = await uploadStaffFile("animal-photos", path, file, { contentType: file.type });
+    if (result.ok) {
       const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
       urls.push(urlData.publicUrl);
     }

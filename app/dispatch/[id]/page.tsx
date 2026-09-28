@@ -17,6 +17,7 @@ import { CALL_STATUSES, CALL_STATUS_COLORS, PRIORITY_COLORS, FOLLOW_UP_ELIGIBLE_
 import FollowUpModal from "@/components/dispatch/FollowUpModal";
 import { today, nowTime, genId } from "@/lib/utils";
 import { supabase } from "@/lib/supabase";
+import { uploadStaffFile, signStaffFileUrl, extractStoragePath } from "@/lib/staffStorage";
 import { useAuth } from "@/app/providers";
 import { canGenerateCourtPacket } from "@/lib/permissions";
 import DragDropUpload from "@/components/ui/DragDropUpload";
@@ -522,12 +523,14 @@ function CallDetailPageInner() {
     await Promise.all(evidenceFiles.map(async (item) => {
       console.log("[evidence upload] file:", item.file.name, item.file.size);
       const path = `${call.id}/${Date.now()}-${item.file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-      const { data: storageData, error: storageError } = await supabase.storage.from("evidence").upload(path, item.file, { upsert: false });
-      console.log("[evidence upload] storage result:", storageData, storageError);
-      if (!storageError) {
-        const { data: urlData } = supabase.storage.from("evidence").getPublicUrl(path);
-        console.log("[evidence upload] public URL:", urlData.publicUrl);
-        uploaded.push({ id: genId(), file_name: item.file.name, file_url: urlData.publicUrl, file_type: item.file.type, notes: item.notes, type: item.file.type.startsWith("image") ? "Photo" : "Document", description: item.notes || item.file.name, date: today(), url: urlData.publicUrl, uploaded_by: getNarrativeAuthor(), uploaded_at: new Date().toISOString() });
+      // evidence is a private bucket — upload goes through the staff-session-gated
+      // route (service role); the stored "url" is really just the storage path from
+      // here on, resolved to a real, short-lived signed URL only when a staff member
+      // actually views it (see the "Uploaded Evidence" list below).
+      const result = await uploadStaffFile("evidence", path, item.file, { upsert: false });
+      console.log("[evidence upload] result:", result);
+      if (result.ok) {
+        uploaded.push({ id: genId(), file_name: item.file.name, file_url: result.path, file_type: item.file.type, notes: item.notes, type: item.file.type.startsWith("image") ? "Photo" : "Document", description: item.notes || item.file.name, date: today(), url: result.path, uploaded_by: getNarrativeAuthor(), uploaded_at: new Date().toISOString() });
       }
     }));
     return uploaded;
@@ -1037,7 +1040,19 @@ function CallDetailPageInner() {
                   <div key={ev.id} style={{ display: "flex", gap: 10, padding: "8px 12px", background: "#f8fafc", border: "1px solid var(--border)", borderRadius: 6, marginBottom: 4, fontSize: 12 }}>
                     <span style={{ fontSize: 16 }}>{ev.type === "Photo" ? "🖼" : "📄"}</span>
                     <div style={{ flex: 1 }}>
-                      <a href={ev.url || ev.file_url} target="_blank" rel="noreferrer" style={{ color: "var(--teal)", fontWeight: 600 }}>{ev.file_name || ev.description}</a>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const path = extractStoragePath("evidence", ev.url || ev.file_url);
+                          if (!path) return;
+                          const url = await signStaffFileUrl("evidence", path);
+                          if (url) window.open(url, "_blank", "noopener,noreferrer");
+                          else alert("Could not open this file. Your session may have expired — try signing in again.");
+                        }}
+                        style={{ background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--teal)", fontWeight: 600, textDecoration: "underline", font: "inherit" }}
+                      >
+                        {ev.file_name || ev.description}
+                      </button>
                       {ev.notes && <div style={{ color: "var(--text-secondary)", marginTop: 2 }}>{ev.notes}</div>}
                     </div>
                     <span style={{ color: "var(--text-muted)" }}>{ev.date}</span>

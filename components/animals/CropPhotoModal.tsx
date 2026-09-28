@@ -3,6 +3,7 @@ import { useState, useCallback } from "react";
 import Cropper from "react-easy-crop";
 import type { Area } from "react-easy-crop";
 import { supabase } from "@/lib/supabase";
+import { uploadStaffFile } from "@/lib/staffStorage";
 
 interface Props {
   photoUrl: string;
@@ -64,10 +65,8 @@ export default function CropPhotoModal({ photoUrl, animalId, animalName, onSave,
       const blob = await cropToBlob(photoUrl, croppedAreaPixels);
       const file = new File([blob], "photo-cropped.jpg", { type: "image/jpeg" });
       const path = `${animalId}/${Date.now()}-cropped.jpg`;
-      const { error: uploadErr } = await supabase.storage
-        .from("animal-photos")
-        .upload(path, file, { upsert: true });
-      if (uploadErr) throw uploadErr;
+      const result = await uploadStaffFile("animal-photos", path, file, { upsert: true });
+      if (!result.ok) throw new Error(result.error);
       const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
       onSave(urlData.publicUrl);
     } catch (err: unknown) {

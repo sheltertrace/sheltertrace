@@ -2,6 +2,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { supabasePublic } from "@/lib/supabase-public";
+import { uploadPublicSubmission } from "@/lib/publicStorage";
 import DateInput from "@/components/ui/DateInput";
 
 const SPECIES_OPTIONS = ["Dog","Cat","Other"];
@@ -69,11 +70,8 @@ export default function ReportFoundPage() {
       const photoUrls: string[] = [];
       for (const file of photos.slice(0,5)) {
         const path = `lost-found/${Date.now()}-${Math.random().toString(36).slice(2)}-${file.name}`;
-        const { data: up, error: upErr } = await supabasePublic.storage.from("animal-photos").upload(path, file, { upsert: true });
-        if (!upErr && up) {
-          const { data: urlData } = supabasePublic.storage.from("animal-photos").getPublicUrl(path);
-          photoUrls.push(urlData.publicUrl);
-        }
+        const result = await uploadPublicSubmission("lost-found-photos", "animal-photos", path, file);
+        if (result.ok && result.url) photoUrls.push(result.url);
       }
 
       const payload = {

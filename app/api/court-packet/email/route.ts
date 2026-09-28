@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server";
 import { Resend } from "resend";
+import { createClient } from "@supabase/supabase-js";
 import { verifyStaffSession } from "@/lib/courtPacket/serverAuth";
 import { AGENCY_NAME, AGENCY_ADDRESS, AGENCY_PHONE } from "@/lib/shelterInfo";
+
+function adminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,26 +27,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: "Not authorized" }, { status: 401 });
   }
 
-  let body: { to?: string; subject?: string; message?: string; pdfUrl?: string; filename?: string; callNumber?: string; sentBy?: string };
+  let body: { to?: string; subject?: string; message?: string; path?: string; filename?: string; callNumber?: string; sentBy?: string };
   try { body = await req.json(); } catch { return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 }); }
-  const { to, subject, message, pdfUrl, filename, callNumber, sentBy } = body;
+  const { to, subject, message, path, filename, callNumber, sentBy } = body;
   if (!to || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)) return NextResponse.json({ success: false, error: "A valid recipient email is required" }, { status: 400 });
-  if (!pdfUrl || !filename) return NextResponse.json({ success: false, error: "pdfUrl and filename are required" }, { status: 400 });
+  if (!path || !filename) return NextResponse.json({ success: false, error: "path and filename are required" }, { status: 400 });
 
-  // The PDF must be one this app saved to the call's evidence storage — never
-  // an arbitrary URL — so this can't be pointed at internal hosts or used to
-  // mail arbitrary files. Validate the PARSED url: URL normalization resolves
-  // ".." / "%2e%2e" segments, so a string-prefix check alone could be walked
-  // out of the evidence bucket.
-  let target: URL;
-  try {
-    target = new URL(pdfUrl);
-    const base = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "");
-    const ok = target.origin === base.origin &&
-      target.pathname.startsWith("/storage/v1/object/public/evidence/") &&
-      target.pathname.includes("/court-packets/");
-    if (!ok) throw new Error("not allowed");
-  } catch {
+  // The PDF must be one this app saved to the call's evidence storage under
+  // court-packets/ — never an arbitrary path — so this can't be used to mail
+  // some other file out of the (now-private) evidence bucket. evidence has no
+  // anon access at all, so this fetch uses the service role directly rather
+  // than a signed URL — this is a server-to-server read, never exposed to a
+  // browser, so there's no URL/expiry to manage at all.
+  if (path.includes("..") || !path.includes("/court-packets/")) {
     return NextResponse.json({ success: false, error: "Packet file location not allowed" }, { status: 400 });
   }
 
@@ -46,9 +47,9 @@ export async function POST(req: Request) {
   if (!apiKey) return NextResponse.json({ success: false, error: "Email not configured" }, { status: 500 });
 
   try {
-    const res = await fetch(target.toString());
-    if (!res.ok) return NextResponse.json({ success: false, error: "Could not retrieve the packet PDF" }, { status: 502 });
-    const buf = Buffer.from(await res.arrayBuffer());
+    const { data: fileData, error: dlErr } = await adminClient().storage.from("evidence").download(path);
+    if (dlErr || !fileData) return NextResponse.json({ success: false, error: "Could not retrieve the packet PDF" }, { status: 502 });
+    const buf = Buffer.from(await fileData.arrayBuffer());
     if (buf.length > MAX_ATTACHMENT_BYTES) {
       return NextResponse.json({ success: false, error: "Packet is too large to email — download it and share it another way." }, { status: 413 });
     }

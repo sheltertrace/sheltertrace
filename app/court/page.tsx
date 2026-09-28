@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/utils";
 import { AGENCY_SEAL_LOGO, AGENCY_NAME, AGENCY_ADDRESS, AGENCY_SHORT, getOrdinances, COURT_MAGISTRATE, COURT_MAGISTRATE_ADDR, COURT_STATE, COURT_STATE_ADDR, COUNTY_NAME, COUNTY_STATE } from "@/lib/shelterInfo";
 import DispositionModal, { CitationStatusBadge } from "@/app/citations/DispositionModal";
 import { openCourtEmail } from "@/lib/courtEmail";
+import { signStaffFileUrl, extractStoragePath } from "@/lib/staffStorage";
 
 export default function CourtPage() {
   const router = useRouter();
@@ -62,10 +63,15 @@ export default function CourtPage() {
     setDispTarget(null);
   };
 
-  const printWarrant = (cit: Citation) => {
+  const printWarrant = async (cit: Citation) => {
     const w = window.open("", "_blank", "width=900,height=700");
     if (!w) return;
-    const photoUrl = (cit as any).photo_id_url as string | undefined;
+    // documents is a private bucket — resolve to a short-lived signed URL before
+    // writing the print HTML. window.open() already happened synchronously above
+    // (before this await) so the popup isn't blocked.
+    const rawPhotoUrl = (cit as any).photo_id_url as string | undefined;
+    const photoPath = extractStoragePath("documents", rawPhotoUrl);
+    const photoUrl = photoPath ? await signStaffFileUrl("documents", photoPath) ?? undefined : rawPhotoUrl;
     w.document.write(`<!DOCTYPE html><html><head><title>Bench Warrant — ${cit.citation_number}</title>
     <style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;color-adjust:exact!important;}
       body { font-family: Arial, sans-serif; font-size: 12px; margin: 0; padding: 24px; }
@@ -305,7 +311,9 @@ export default function CourtPage() {
     ]);
     const priorCits = priorCitsRaw.filter((c) => c.id !== cit.id);
     const vios = Array.isArray(cit.violations) ? cit.violations : [];
-    const photoUrl = cit.photo_id_url;
+    const rawPhotoUrl = cit.photo_id_url;
+    const photoPath = extractStoragePath("documents", rawPhotoUrl);
+    const photoUrl = photoPath ? await signStaffFileUrl("documents", photoPath) ?? undefined : rawPhotoUrl;
     const vName = violatorName(cit);
     const prepDate = new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
     const narrative = Array.isArray(call?.narrative) ? call!.narrative : [];

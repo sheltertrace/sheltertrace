@@ -6,6 +6,7 @@ import { ID_TYPES, STATES } from "@/lib/constants";
 import DateInput from "@/components/ui/DateInput";
 import { validateDeparturePerson } from "@/lib/personValidation";
 import ScanLicenseButton from "@/components/ui/ScanLicenseButton";
+import PhotoIdThumb from "@/components/ui/PhotoIdThumb";
 
 interface Props {
   person: Person | null; // null = creating a brand new record
@@ -168,7 +169,7 @@ export default function PersonCompletionForm({ person, roleForNew, onSaved, onCa
           <label className="form-label">Photo ID{req(!!idNumber.trim() || !!savedPerson.photo_id_url)}</label>
           {savedPerson.photo_id_url ? (
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <img src={savedPerson.photo_id_url} alt="Photo ID" style={{ width: 60, height: 40, objectFit: "cover", borderRadius: 4, border: "1px solid var(--border)" }} />
+              <PhotoIdThumb url={savedPerson.photo_id_url} size={44} />
               <span style={{ fontSize: 12, color: "#16a34a", fontWeight: 700 }}>✓ Uploaded</span>
               <label className="btn btn-ghost btn-sm" style={{ cursor: "pointer" }}>
                 Replace

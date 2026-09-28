@@ -27,7 +27,7 @@ export default function CourtPacketDialog({ inputs, user, onClose, onSaved }: Pr
   const [progress, setProgress] = useState<PacketProgress>({ done: 0, total: 1, label: "" });
   const [result, setResult] = useState<PacketResult | null>(null);
   const [error, setError] = useState("");
-  const [saveState, setSaveState] = useState<{ status: "saving" | "saved" | "failed"; url?: string; message?: string }>({ status: "saving" });
+  const [saveState, setSaveState] = useState<{ status: "saving" | "saved" | "failed"; path?: string; message?: string }>({ status: "saving" });
   const [showEmail, setShowEmail] = useState(false);
   const [emailTo, setEmailTo] = useState("");
   const [emailMsg, setEmailMsg] = useState("");
@@ -95,7 +95,7 @@ export default function CourtPacketDialog({ inputs, user, onClose, onSaved }: Pr
     // are separate steps that report their own failures rather than losing it.
     recordPacket(inputs.call.id, res, who, reason || undefined).catch((e) => console.error("[court-packet] log failed:", e));
     saveCopyToCall(inputs.call.id, res, who, reason || undefined)
-      .then(({ url }) => { setSaveState({ status: "saved", url }); onSaved(); })
+      .then(({ path }) => { setSaveState({ status: "saved", path }); onSaved(); })
       .catch((e) => setSaveState({ status: "failed", message: e instanceof Error ? e.message : "Upload failed" }));
   };
 
@@ -121,13 +121,13 @@ export default function CourtPacketDialog({ inputs, user, onClose, onSaved }: Pr
   };
 
   const sendEmail = async () => {
-    if (!result || saveState.status !== "saved" || !saveState.url) return;
+    if (!result || saveState.status !== "saved" || !saveState.path) return;
     setEmailState({ status: "sending" });
     try {
       const res = await fetch("/api/court-packet/email", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-staff-token": getSessionToken() || "" },
-        body: JSON.stringify({ to: emailTo.trim(), subject: `Court Packet — ${inputs.callNumber}`, message: emailMsg, pdfUrl: saveState.url, filename: result.filename, callNumber: inputs.callNumber, sentBy: staffName(user) }),
+        body: JSON.stringify({ to: emailTo.trim(), subject: `Court Packet — ${inputs.callNumber}`, message: emailMsg, path: saveState.path, filename: result.filename, callNumber: inputs.callNumber, sentBy: staffName(user) }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.success) throw new Error(json.error || "Send failed");

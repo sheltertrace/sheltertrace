@@ -4,7 +4,7 @@ import { createApplication } from "@/lib/cityLicenseData";
 import { calcApplicationFee, isLate, LICENSE_FEE_STERILIZED, LICENSE_FEE_UNSTERILIZED, LATE_FEE } from "@/lib/cityLicenseTypes";
 import type { LicenseAnimal } from "@/lib/cityLicenseTypes";
 import DragDropUpload from "@/components/ui/DragDropUpload";
-import { supabase } from "@/lib/supabase";
+import { uploadPublicSubmission } from "@/lib/publicStorage";
 
 const BLANK_ANIMAL: LicenseAnimal = { name: "", breed: "", color: "", markings: "", sex: "", sterilized: null, veterinarian: "", rabies_tag: "", rabies_expiration: "" };
 
@@ -50,14 +50,15 @@ export default function MadisonPetLicensePage() {
     setErrors([]);
     setSubmitting(true);
     try {
-      const uploadedDocs: Array<{ name: string; url: string; type: string; uploaded_at: string }> = [];
+      // pet-license-documents is a private, insert-only bucket for citizens — no
+      // public URL exists for these; staff review submissions via the signed-URL
+      // route once that screen is built. Falls back to the old documents bucket
+      // if the dedicated one doesn't exist yet.
+      const uploadedDocs: Array<{ name: string; path: string; type: string; uploaded_at: string }> = [];
       for (const doc of docs) {
         const path = `license-docs/${Date.now()}-${doc.file.name}`;
-        const { error } = await supabase.storage.from("documents").upload(path, doc.file, { upsert: true });
-        if (!error) {
-          const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
-          uploadedDocs.push({ name: doc.name, url: urlData.publicUrl, type: doc.file.type, uploaded_at: new Date().toISOString() });
-        }
+        const up = await uploadPublicSubmission("pet-license-documents", "documents", path, doc.file);
+        if (up.ok) uploadedDocs.push({ name: doc.name, path: up.path, type: doc.file.type, uploaded_at: new Date().toISOString() });
       }
 
       const result = await createApplication({

@@ -2,6 +2,7 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { uploadStaffFile } from "@/lib/staffStorage";
 import { createClinicAnimal } from "@/lib/clinicData";
 import { fetchShelterAnimals } from "@/lib/clinicShelterLink";
 import type { ClinicAnimal, ClinicClient } from "@/lib/clinicTypes";
@@ -91,10 +92,8 @@ export default function AddAnimalModal({
       if (photoFile) {
         const ext = photoFile.name.split(".").pop() || "jpg";
         const path = `clinic/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("animal-photos")
-          .upload(path, photoFile, { upsert: true });
-        if (!upErr) {
+        const result = await uploadStaffFile("animal-photos", path, photoFile, { upsert: true });
+        if (result.ok) {
           const { data: urlData } = supabase.storage.from("animal-photos").getPublicUrl(path);
           photoUrl = urlData.publicUrl;
         }

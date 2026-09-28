@@ -36,7 +36,9 @@ export interface PetLicenseApplication {
   payment_method?: string;
   payment_reference?: string;
   late_fee: boolean;
-  documents: Array<{ name: string; url: string; type: string; uploaded_at: string }>;
+  // pet-license-documents is a private bucket — `path` is a storage path, not a
+  // fetchable URL; staff view it via a signed URL (see PetLicenseDocLink).
+  documents: Array<{ name: string; path: string; type: string; uploaded_at: string }>;
   created_at?: string;
   updated_at?: string;
 }

@@ -5,6 +5,7 @@ import { fetchPlatformSettings, savePlatformSettings, fetchSuperAdmins, updateUs
 import { FEATURE_FLAGS } from "@/lib/superAdminTypes";
 import type { StaffAccount } from "@/lib/types";
 import { supabase } from "@/lib/supabase";
+import { uploadStaffFile } from "@/lib/staffStorage";
 
 function F({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
@@ -69,10 +70,12 @@ export default function SettingsPage() {
     if (logoInputRef.current) logoInputRef.current.value = "";
     setLogoUploading(true);
     try {
+      // platform-assets, not documents — branding isn't confidential, and (unlike
+      // documents) stays public-read so the logo displays without a signed URL.
       const path = `branding/logo-${Date.now()}.${file.name.split(".").pop() || "png"}`;
-      const { error } = await supabase.storage.from("documents").upload(path, file, { upsert: true });
-      if (error) throw error;
-      const { data: urlData } = supabase.storage.from("documents").getPublicUrl(path);
+      const result = await uploadStaffFile("platform-assets", path, file, { upsert: true });
+      if (!result.ok) throw new Error(result.error);
+      const { data: urlData } = supabase.storage.from("platform-assets").getPublicUrl(path);
       setSettings((s) => s ? { ...s, branding: { ...s.branding, logo_url: urlData.publicUrl } } : s);
     } catch (err: unknown) {
       alert(`Upload failed: ${(err as { message?: string }).message}`);
