@@ -65,9 +65,9 @@ describe("requestVolunteerCode — enumeration safety", () => {
 });
 
 describe("requestVolunteerCode — rate limiting", () => {
-  it("blocks after 5 requests for the same email within the window, from different IPs", async () => {
+  it("blocks after 8 requests for the same email within the window, from different IPs", async () => {
     seedVolunteer();
-    for (let i = 0; i < 5; i++) expect((await requestVolunteerCode(db(), "vera@example.com", `1.1.1.${i}`)).ok).toBe(true);
+    for (let i = 0; i < 8; i++) expect((await requestVolunteerCode(db(), "vera@example.com", `1.1.1.${i}`)).ok).toBe(true);
     const r = await requestVolunteerCode(db(), "vera@example.com", "1.1.1.9");
     expect(r).toMatchObject({ ok: false, error: "rate_limited" });
     expect(r.retry_after_seconds).toBeGreaterThan(0);

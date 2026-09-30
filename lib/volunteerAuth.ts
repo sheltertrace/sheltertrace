@@ -23,7 +23,7 @@ const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
 export const SESSION_COOKIE_MAX_AGE_SECONDS = SESSION_TTL_MS / 1000;
 const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hour
-const MAX_REQUESTS_PER_EMAIL = 5;
+const MAX_REQUESTS_PER_EMAIL = 8;
 const MAX_REQUESTS_PER_IP = 20;
 // Same shape as staff_login: 5 wrong -> 15 min, 10 wrong -> 1 hour.
 const LOCK_AFTER_5_MS = 15 * 60 * 1000;
